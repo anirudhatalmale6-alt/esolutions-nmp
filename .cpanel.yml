@@ -1,0 +1,20 @@
+---
+# eSolutions - cPanel Git one-click update.
+#
+# Runs automatically when you click "Deploy HEAD Commit" in
+# cPanel > Git Version Control for the esolutions-nmp repository.
+#
+# SAFE BY DESIGN - this only copies CODE (src, templates, config, public).
+# It NEVER deletes anything (rsync runs without --delete), and it skips:
+#   .env / .env.local  -> your database login is untouched
+#   config/secrets/    -> your app secret key is untouched
+#   var/               -> logs and uploaded logo are untouched
+#   vendor/            -> installed libraries are untouched
+# So your live invoices, customers and settings are always preserved.
+#
+# Live app root : /home/salononl/esolutions.website
+# Git clone     : /home/salononl/esolutions-nmp
+deployment:
+  tasks:
+    - /usr/bin/rsync -a --exclude='.git/' --exclude='.cpanel.yml' --exclude='.env' --exclude='.env.local' --exclude='.env.local.php' --exclude='vendor/' --exclude='var/' --exclude='config/secrets/' /home/salononl/esolutions-nmp/ /home/salononl/esolutions.website/
+    - /bin/rm -rf /home/salononl/esolutions.website/var/cache/prod

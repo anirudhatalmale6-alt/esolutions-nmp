@@ -147,7 +147,7 @@
         "symfony/rate-limiter": "^7.1",
         "symfony/redis-messenger": "^7.1",
         "symfony/requirements-checker": "^2.0",
-        "symfony/rocket-chat-notifier": "^7.1",
+        "symfony/rocket-chat-notifier": "^8.1",
         "symfony/routing": "^7.1",
         "symfony/runtime": "^7.1",
         "symfony/scheduler": "^7.1",

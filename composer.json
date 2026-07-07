@@ -180,7 +180,7 @@
         "symfony/vonage-notifier": "^7.1",
         "symfony/webhook": "^7.1",
         "symfony/webpack-encore-bundle": "^2.0",
-        "symfony/workflow": "^7.1",
+        "symfony/workflow": "^8.1",
         "symfony/yaml": "^7.1",
         "symfony/yunpian-notifier": "^7.1",
         "symfony/zulip-notifier": "^7.1",

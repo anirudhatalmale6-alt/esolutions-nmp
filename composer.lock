@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6625c5e40258a15321206275898eb598",
+    "content-hash": "65ce426a7faab4c41dddff29053e9a33",
     "packages": [
         {
             "name": "alcohol/iso4217",
@@ -11818,28 +11818,24 @@
         },
         {
             "name": "symfony/dotenv",
-            "version": "v7.4.8",
+            "version": "v8.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/dotenv.git",
-                "reference": "5df79f11350166125fe754c85b87f7e13d735314"
+                "reference": "7ed4e3a11e3c98235c70ded047d7ddf9e6ae854c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/dotenv/zipball/5df79f11350166125fe754c85b87f7e13d735314",
-                "reference": "5df79f11350166125fe754c85b87f7e13d735314",
+                "url": "https://api.github.com/repos/symfony/dotenv/zipball/7ed4e3a11e3c98235c70ded047d7ddf9e6ae854c",
+                "reference": "7ed4e3a11e3c98235c70ded047d7ddf9e6ae854c",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.2"
-            },
-            "conflict": {
-                "symfony/console": "<6.4",
-                "symfony/process": "<6.4"
+                "php": ">=8.4.1"
             },
             "require-dev": {
-                "symfony/console": "^6.4|^7.0|^8.0",
-                "symfony/process": "^6.4|^7.0|^8.0"
+                "symfony/console": "^7.4|^8.0",
+                "symfony/process": "^7.4|^8.0"
             },
             "type": "library",
             "autoload": {
@@ -11872,7 +11868,7 @@
                 "environment"
             ],
             "support": {
-                "source": "https://github.com/symfony/dotenv/tree/v7.4.8"
+                "source": "https://github.com/symfony/dotenv/tree/v8.1.0"
             },
             "funding": [
                 {
@@ -11892,7 +11888,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-30T12:55:43+00:00"
+            "time": "2026-05-29T05:06:50+00:00"
         },
         {
             "name": "symfony/error-handler",
@@ -28718,8 +28714,8 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "solidworx/toggler": 10,
-        "roave/security-advisories": 20
+        "roave/security-advisories": 20,
+        "solidworx/toggler": 10
     },
     "prefer-stable": false,
     "prefer-lowest": false,
@@ -28734,9 +28730,9 @@
         "ext-soap": "*",
         "ext-xsl": "*"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "platform-overrides": {
         "php": "8.4.1"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }

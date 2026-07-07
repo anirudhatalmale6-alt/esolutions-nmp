@@ -183,7 +183,7 @@
         "symfony/workflow": "^7.1",
         "symfony/yaml": "^7.1",
         "symfony/yunpian-notifier": "^7.1",
-        "symfony/zulip-notifier": "^7.1",
+        "symfony/zulip-notifier": "^8.1",
         "symfonycasts/dynamic-forms": "^0.2.0",
         "symfonycasts/reset-password-bundle": "^1.23",
         "symfonycasts/verify-email-bundle": "^1.17",

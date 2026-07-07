@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6625c5e40258a15321206275898eb598",
+    "content-hash": "8518376079e2db345f23180e8e3e1701",
     "packages": [
         {
             "name": "alcohol/iso4217",
@@ -20838,37 +20838,33 @@
         },
         {
             "name": "symfony/workflow",
-            "version": "v7.4.8",
+            "version": "v8.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/workflow.git",
-                "reference": "f2bb1dc60b53e9908a8aff57c92643d6ca761ac5"
+                "reference": "8a4690c56fbc8766d4b49f02e60e8fa0ed360211"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/workflow/zipball/f2bb1dc60b53e9908a8aff57c92643d6ca761ac5",
-                "reference": "f2bb1dc60b53e9908a8aff57c92643d6ca761ac5",
+                "url": "https://api.github.com/repos/symfony/workflow/zipball/8a4690c56fbc8766d4b49f02e60e8fa0ed360211",
+                "reference": "8a4690c56fbc8766d4b49f02e60e8fa0ed360211",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.2",
-                "symfony/deprecation-contracts": "2.5|^3"
-            },
-            "conflict": {
-                "symfony/event-dispatcher": "<6.4"
+                "php": ">=8.4.1"
             },
             "require-dev": {
                 "psr/log": "^1|^2|^3",
-                "symfony/config": "^6.4|^7.0|^8.0",
-                "symfony/console": "^6.4|^7.0|^8.0",
-                "symfony/dependency-injection": "^6.4|^7.0|^8.0",
-                "symfony/error-handler": "^6.4|^7.0|^8.0",
-                "symfony/event-dispatcher": "^6.4|^7.0|^8.0",
-                "symfony/expression-language": "^6.4|^7.0|^8.0",
-                "symfony/http-kernel": "^6.4|^7.0|^8.0",
-                "symfony/security-core": "^6.4|^7.0|^8.0",
-                "symfony/stopwatch": "^6.4|^7.0|^8.0",
-                "symfony/validator": "^6.4|^7.0|^8.0"
+                "symfony/config": "^7.4|^8.0",
+                "symfony/console": "^7.4|^8.0",
+                "symfony/dependency-injection": "^7.4|^8.0",
+                "symfony/error-handler": "^7.4|^8.0",
+                "symfony/event-dispatcher": "^7.4|^8.0",
+                "symfony/expression-language": "^7.4|^8.0",
+                "symfony/http-kernel": "^7.4|^8.0",
+                "symfony/security-core": "^7.4|^8.0",
+                "symfony/stopwatch": "^7.4|^8.0",
+                "symfony/validator": "^7.4|^8.0"
             },
             "type": "library",
             "autoload": {
@@ -20908,7 +20904,7 @@
                 "workflow"
             ],
             "support": {
-                "source": "https://github.com/symfony/workflow/tree/v7.4.8"
+                "source": "https://github.com/symfony/workflow/tree/v8.1.0"
             },
             "funding": [
                 {
@@ -20928,7 +20924,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-24T13:12:05+00:00"
+            "time": "2026-05-29T05:06:50+00:00"
         },
         {
             "name": "symfony/yaml",
@@ -28718,8 +28714,8 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "solidworx/toggler": 10,
-        "roave/security-advisories": 20
+        "roave/security-advisories": 20,
+        "solidworx/toggler": 10
     },
     "prefer-stable": false,
     "prefer-lowest": false,
@@ -28734,9 +28730,9 @@
         "ext-soap": "*",
         "ext-xsl": "*"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "platform-overrides": {
         "php": "8.4.1"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }

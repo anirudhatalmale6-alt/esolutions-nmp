@@ -1,0 +1,9 @@
+/vendor/
+/var/
+/node_modules/
+/public/build/
+.env.local
+.env.local.php
+/config/env/.installed
+/config/secrets/prod/*.php
+*.log

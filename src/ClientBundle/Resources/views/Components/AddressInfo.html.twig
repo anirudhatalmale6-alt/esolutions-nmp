@@ -1,0 +1,72 @@
+<div {{ attributes }}>
+    <div class="client-address-card card">
+        <div class="card-header">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <span class="d-flex align-items-center gap-2">
+                    {{ ux_icon('tabler:map-pin', {width: 16, height: 16, class: 'text-muted'}) }}
+                    <span class="fw-medium">{{ 'Address'|trans }}</span>
+                </span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-ghost-secondary btn-icon btn-icon-sm"
+                            title="{{ 'client.address.edit'|trans }}"
+                            data-model="edit" data-value="true" data-action="live#update:prevent">
+                        {{ ux_icon('tabler:pencil', {width: 16, height: 16}) }}
+                    </button>
+                    <button type="button" class="btn btn-ghost-danger btn-icon btn-icon-sm"
+                            title="{{ 'client.address.delete'|trans }}"
+                            data-bs-toggle="modal" data-bs-target="#delete-address-{{ computed.address.id }}">
+                        {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            {% if this.edit %}
+                {{ form_start(form, {attr: {
+                    'data-action': 'live#action:prevent',
+                    'data-live-action-param': 'save'
+                }}) }}
+
+                {{ form_row(form) }}
+
+                <div class="client-form-actions">
+                    <button type="button" class="btn btn-ghost" data-model="edit" data-value="false" data-action="live#update:prevent">
+                        {{ 'Cancel'|trans }}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {{ ux_icon('tabler:device-floppy', {width: 16, height: 16}) }}
+                        {{ 'Save'|trans }}
+                    </button>
+                </div>
+                {{ form_end(form) }}
+            {% else %}
+                <div class="client-address-text">{{ computed.address }}</div>
+                <a href="https://maps.google.com/?q={{ computed.address.street1 }}+{{ computed.address.street2 }}+{{ computed.address.city }}+{{ computed.address.state }}+{{ computed.address.zip }}+{{ computed.address.country }}"
+                   target="_blank"
+                   rel="external noreferrer noopener"
+                   class="btn btn-sm btn-ghost client-address-map-link">
+                    {{ ux_icon('tabler:map', {width: 14, height: 14}) }}
+                    {{ 'client.address.view_map'|trans }}
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <twig:Ui:Modal id="delete-address-{{ computed.address.id }}" title="{{ 'Confirm'|trans }}" status="danger" :centered="true">
+        <div class="text-center py-3">
+            <div class="mb-3">
+                {{ ux_icon('tabler:map-pin-off', {width: 48, height: 48, class: 'text-danger'}) }}
+            </div>
+            <p>{{ 'Are you sure you want to delete the address?'|trans }}</p>
+        </div>
+
+        <twig:block name="footer">
+            <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+            <button type="button" class="btn btn-danger" data-action="live#action:prevent" data-live-action-param="delete">
+                {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                {{ 'Confirm'|trans }}
+            </button>
+        </twig:block>
+    </twig:Ui:Modal>
+</div>

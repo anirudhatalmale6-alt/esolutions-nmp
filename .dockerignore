@@ -1,0 +1,6 @@
+.git
+var/cache
+var/log
+tests
+node_modules
+*.md

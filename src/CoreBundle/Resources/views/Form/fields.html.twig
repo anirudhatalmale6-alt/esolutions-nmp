@@ -1,0 +1,309 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # Design System Form Theme
+ # ========================
+ # This file extends Bootstrap 5 layout with SolidInvoice design system styling.
+ #
+ # Standard Form Actions Pattern:
+ # ┌─────────────────────────────────────────────────────────────────┐
+ # │ [Cancel (btn-ghost)]                     [Save (btn-primary + icon)]│
+ # └─────────────────────────────────────────────────────────────────┘
+ #
+ # See: ai/instructions.md -> Design System Guide for full documentation.
+ #}
+
+{% extends 'bootstrap_5_layout.html.twig' %}
+
+{% block widget_attributes -%}
+    id="{{ id }}" name="{{ full_name }}"{% if disabled %} disabled="disabled"{% endif %}{% if required %} data-required="required"{% endif %}
+    {% for attrname, attrvalue in attr %}{% if attrname in ['placeholder', 'title'] %}{{ attrname }}="{{ attrvalue|trans({}, translation_domain) }}" {% else %}{{ attrname }}="{{ attrvalue }}" {% endif %}{% endfor %}
+{%- endblock widget_attributes %}
+
+{# Form Help Text - Use Bootstrap default with design system classes #}
+{% block form_help -%}
+    {%- set row_class = row_attr.class|default('') -%}
+    {%- set help_class = ' form-text text-muted' -%}
+    {%- if 'input-group' in row_class -%}
+        {%- set help_class = ' input-group-text' -%}
+    {%- endif -%}
+    {%- if help is not empty -%}
+        {%- set help_attr = help_attr|merge({class: (help_attr.class|default('') ~ help_class ~ ' mb-0')|trim}) -%}
+        <div{% with {attr: help_attr|merge({id: id ~ '_help'})} %}{{ block('attributes') }}{% endwith %}>
+            {%- if translation_domain is same as(false) -%}
+                {%- if help_html is same as(false) -%}
+                    {{- help -}}
+                {%- else -%}
+                    {{- help|raw -}}
+                {%- endif -%}
+            {%- else -%}
+                {%- if help_html is same as(false) -%}
+                    {{- help|trans(help_translation_parameters, translation_domain) -}}
+                {%- else -%}
+                    {{- help|trans(help_translation_parameters, translation_domain)|raw -}}
+                {%- endif -%}
+            {%- endif -%}
+        </div>
+    {%- endif -%}
+{%- endblock form_help %}
+
+{# Checkbox as Toggle Switch (for standalone checkboxes only) #}
+{% block checkbox_row %}
+    {# Only apply switch styling to standalone checkboxes, not expanded choice items #}
+    {% if parent_label_class is not defined %}
+        {# This is a standalone checkbox - render as switch toggle #}
+        {% set row_attr = row_attr|merge({class: (row_attr.class|default('') ~ ' form-switch-field')|trim}) %}
+        <div{% with {attr: row_attr} %}{{ block('attributes') }}{% endwith %}>
+            <div class="form-switch-wrapper">
+                {{- form_widget(form, {parent_label_class: 'checkbox-switch'}) -}}
+            </div>
+            {{- form_help(form) -}}
+            {{- form_errors(form) -}}
+        </div>
+    {% else %}
+        {# This is part of an expanded choice - use parent behavior #}
+        {{ parent() }}
+    {% endif %}
+{% endblock checkbox_row %}
+
+{# Email Type - with icon #}
+{% block email_widget %}
+    <div class="input-group input-icon-group">
+        <span class="input-group-text">
+            {{ ux_icon('tabler:mail', {width: 18, height: 18}) }}
+        </span>
+        <input type="email"
+               id="{{ id }}"
+               name="{{ full_name }}"
+               class="form-control{{ errors|length > 0 ? ' is-invalid' : '' }}"
+               {% if value is defined and value is not null %}value="{{ value }}"{% endif %}
+               {% if disabled %}disabled="disabled"{% endif %}
+               {% if required %}required="required"{% endif %}
+               {% for attrname, attrvalue in attr %}{{ attrname }}="{{ attrvalue }}" {% endfor %}
+        >
+    </div>
+{% endblock email_widget %}
+
+{# Currency Type with icon #}
+{% block currency_widget %}
+    <div class="input-group input-icon-group">
+        <span class="input-group-text">
+            {{ ux_icon('tabler:coins', {width: 18, height: 18}) }}
+        </span>
+        {{ block('choice_widget') }}
+    </div>
+{% endblock currency_widget %}
+
+{% block notification_widget -%}
+    <strong>{{ label|default(name)|humanize|title }}</strong>
+    {% if help is defined and help is not empty %}
+        <span class="help-{{ help_type }}"><small>{{ help|trans|nl2br }}</small></span>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-2">
+            {{ form_row(form.email) }}
+        </div>
+        <div class="col-md-2">
+            {{ form_row(form.sms) }}
+        </div>
+    </div>
+
+    {{ form_errors(form) }}
+{%- endblock notification_widget %}
+
+{% block form_label -%}
+    {% set label_attr = label_attr|merge({class: (label_attr.class|default('') ~ ' control-label')|trim}) %}
+    {% if label is empty %}
+        {% set label = name|humanize %}
+    {% endif %}
+
+    {% if not compound %}
+        {% if required %}
+            {% set label_attr = label_attr|merge({'class': (label_attr.class|default('') ~ ' required')|trim}) %}
+        {% endif %}
+
+        {{- parent() -}}
+    {% elseif 'choice' in block_prefixes %}
+        {% if required %}
+            {% set label_attr = label_attr|merge({'class': (label_attr.class|default('') ~ ' required')|trim}) %}
+        {% endif %}
+        {% set compound = false %}
+        {{- parent() -}}
+    {% endif %}
+{%- endblock form_label %}
+
+{% block contact_detail_widget %}
+    {% include "@SolidInvoiceClient/Form/contact_details.html.twig" %}
+{% endblock contact_detail_widget %}
+
+{% block contact_widget %}
+    {% include "@SolidInvoiceClient/Form/contacts.html.twig" %}
+{% endblock contact_widget %}
+
+{% block tax_number_widget -%}
+    <div class="input-group input-icon-group input-validate-group" {{ stimulus_controller('vat-validator', {'url': path('_tax_number_validate')}) }}>
+        <span class="input-group-text">
+            {{ ux_icon('tabler:percentage', {width: 18, height: 18}) }}
+        </span>
+        <input type="text"
+               id="{{ id }}"
+               name="{{ full_name }}"
+               class="form-control"
+               {% if value is defined and value is not null %}value="{{ value }}"{% endif %}
+               {% if disabled %}disabled="disabled"{% endif %}
+               placeholder="{{ 'e.g. GB123456789'|trans }}"
+               {{ stimulus_target('vat-validator', 'input') }}
+               {% for attrname, attrvalue in attr %}{{ attrname }}="{{ attrvalue }}" {% endfor %}
+        >
+        <button type="button"
+                class="btn btn-outline-secondary btn-validate"
+                {{ stimulus_action('vat-validator', 'validate', 'click') }}
+                {{ stimulus_target('vat-validator', 'button') }}
+                title="{{ 'Validate VAT Number (EU Countries Only)'|trans }}"
+        >
+            {{ ux_icon('tabler:circle-check', {width: 16, height: 16}) }}
+            <span>{{ 'Validate'|trans }}</span>
+        </button>
+    </div>
+{%- endblock tax_number_widget %}
+
+{% block tax_choice_widget_options -%}
+    {% for group_label, choice in options %}
+        {% if choice is iterable %}
+            <optgroup label="{{ group_label|trans({}, translation_domain) }}">
+                {% set options = choice %}
+                {{ block('choice_widget_options') }}
+            </optgroup>
+        {% else %}
+            {% set attrs -%}
+                data-type="{{ choice.data.type }}" data-rate="{{ choice.data.rate }}" data-id="{{ choice.data.id }}"
+            {%- endset %}
+            <option value="{{ choice.value }}" {{ attrs }} {% if choice is selectedchoice(value) %} selected="selected"{% endif %}>{{ choice_translation_domain is same as(false) ? choice.label : choice.label|trans({}, choice_translation_domain) }}</option>
+        {% endif %}
+    {% endfor %}
+{%- endblock tax_choice_widget_options %}
+
+{# Address Widget - Design System layout #}
+{% block address_widget %}
+    <div class="address-card">
+        <div class="address-card-header">
+            <div class="address-icon">
+                {{ ux_icon('tabler:map-pin', {width: 20, height: 20}) }}
+            </div>
+            <div class="address-card-title">
+                <span class="address-label">{{ 'Address'|trans }}</span>
+            </div>
+            {% if form.vars.button_delete is defined %}
+                <div class="address-card-actions">
+                    {{ form_widget(form.vars.button_delete, {
+                        label: '',
+                        attr: {
+                            class: 'btn btn-ghost-danger btn-sm',
+                            title: 'client.address.delete'|trans,
+                            'aria-label': 'client.address.delete'|trans
+                        }
+                    }) }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="address-card-body">
+            <div class="address-form-grid">
+                <div class="address-field address-field-street">
+                    {{ form_row(form.street1, {
+                        attr: { placeholder: '123 Main Street'|trans }
+                    }) }}
+                </div>
+                <div class="address-field address-field-street">
+                    {{ form_row(form.street2, {
+                        attr: { placeholder: 'Apartment, suite, unit, etc.'|trans }
+                    }) }}
+                </div>
+                <div class="address-field address-field-city">
+                    {{ form_row(form.city, {
+                        attr: { placeholder: 'City'|trans }
+                    }) }}
+                </div>
+                <div class="address-field address-field-state">
+                    {{ form_row(form.state, {
+                        attr: { placeholder: 'State/Province'|trans }
+                    }) }}
+                </div>
+                <div class="address-field address-field-zip">
+                    {{ form_row(form.zip, {
+                        attr: { placeholder: 'Postal Code'|trans }
+                    }) }}
+                </div>
+                <div class="address-field address-field-country">
+                    {{ form_row(form.country) }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock address_widget %}
+
+{# Settings Address Widget - Design System section styling #}
+{% block settings_address_widget %}
+    <div class="settings-section">
+        <div class="settings-section-title">
+            {{ ux_icon('tabler:map-pin', {width: 18, height: 18}) }}
+            {{ 'Address'|trans }}
+        </div>
+        {{ block('address_widget') }}
+    </div>
+{% endblock settings_address_widget %}
+
+{% block cron_widget %}
+    {% set type = 'hidden' %}
+    {% set attr = attr|merge({"class": "cron-expr"}) %}
+    {{ block('form_widget') }}
+{% endblock cron_widget %}
+
+{% block discount_row %}
+    <label for="{{ form.value.vars.id }}">{{ label }}</label>
+    <div class="mb-3 multiple-form-group input-group">
+        {{ form_widget(form.value) }}
+        {{ form_widget(form.type) }}
+    </div>
+{% endblock discount_row %}
+
+{% block image_upload_widget %}
+    {%- if compound is defined and compound -%}
+        {%- set element = 'fieldset' -%}
+    {%- endif -%}
+    {%- set widget_attr = {} -%}
+    {%- if help is not empty -%}
+        {%- set widget_attr = {attr: {'aria-describedby': id ~"_help"}} -%}
+    {%- endif -%}
+    <{{ element|default('div') }}{% with {attr: row_attr|merge({class: (row_attr.class|default('') ~ ' mb-3')|trim})} %}{{ block('attributes') }}{% endwith %} {{ stimulus_controller('logo_upload') }}>
+    {{ app_logo(width=100, showDefault=false) }}
+    {{- form_widget(form, widget_attr) -}}
+    {{- form_help(form) -}}
+    </{{ element|default('div') }}>
+{% endblock image_upload_widget %}
+
+{% block money_widget -%}
+    {%- set group_class = 'flex-nowrap' -%}
+    {{ parent() }}
+{%- endblock money_widget %}
+
+{% block form_flow_action_widget %}
+    {% if icon is defined %}
+        {% set attr = attr|merge({class: attr.class ~ ''}) %}
+        {% set label_html = true %}
+        {% set label_text = label|default(name|humanize) %}
+        {%- set label -%}
+            {{ icon|raw }}
+            {%- if label_text is defined -%}
+                {{- label_text -}}
+            {%- endif -%}
+        {%- endset -%}
+    {% endif %}
+    {{ block('submit_widget') }}
+{% endblock %}

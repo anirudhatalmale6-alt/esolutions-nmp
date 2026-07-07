@@ -1,0 +1,166 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends '@SolidInvoiceCore/Form/fields.html.twig' %}
+
+{#
+ # Compact upgrade badge — clickable link to the SaaS plan picker / checkout that
+ # carries the plan name as both the visible label and the hover tooltip. Used in
+ # place of the previous static "Subscription Required" badge + bulky form-hint.
+ #}
+{% macro feature_gated_badge(plan) %}
+    <a href="{{ path('saas_subscription_plans') }}"
+       class="badge bg-azure-lt text-decoration-none text-azure"
+       title="{{ plan
+            ? 'Upgrade to %plan% to unlock this feature'|trans({'%plan%': plan})
+            : 'Upgrade your plan to unlock this feature'|trans }}">
+        {{ ux_icon('tabler:arrow-up-circle', {width: 14, height: 14, class: 'me-1'}) }}
+        {%- if plan -%}
+            {{ 'Upgrade to %plan%'|trans({'%plan%': plan}) }}
+        {%- else -%}
+            {{ 'Upgrade plan'|trans }}
+        {%- endif -%}
+    </a>
+{% endmacro %}
+
+{% macro trial_restricted_badge() %}
+    <a href="{{ path('saas_subscription_checkout') }}"
+       class="badge bg-azure-lt text-decoration-none text-azure"
+       title="{{ 'Activate your subscription to unlock this feature'|trans }}">
+        {{ ux_icon('tabler:arrow-up-circle', {width: 14, height: 14, class: 'me-1'}) }}
+        {{ 'Activate subscription'|trans }}
+    </a>
+{% endmacro %}
+
+{# Trial-Restricted Form Row #}
+{% block checkbox_row %}
+    {% import _self as upgrade %}
+    {% if feature_gated_active|default(false) and toggle('saas_enabled') %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">{{ label|trans }}</label>
+                {{ upgrade.feature_gated_badge(feature_gated_plan|default(null)) }}
+            </div>
+
+            {# Suppress the inner switch label to avoid duplicate-label visual #}
+            {{ form_widget(form, {parent_label_class: 'checkbox-switch', label: false}) }}
+            {{ form_help(form) }}
+            {{ form_errors(form) }}
+        </div>
+    {% elseif trial_restricted_active|default(false) and toggle('saas_enabled') %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">{{ label|trans }}</label>
+                {{ upgrade.trial_restricted_badge() }}
+            </div>
+
+            {# Suppress the inner switch label to avoid duplicate-label visual #}
+            {{ form_widget(form, {parent_label_class: 'checkbox-switch', label: false}) }}
+            {{ form_help(form) }}
+            {{ form_errors(form) }}
+        </div>
+    {% else %}
+        {{ parent() }}
+    {% endif %}
+{% endblock %}
+
+{% block form_row %}
+    {% import _self as upgrade %}
+    {% if feature_gated_active|default(false) and toggle('saas_enabled') %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label">{{ label|trans }}</label>
+                {{ upgrade.feature_gated_badge(feature_gated_plan|default(null)) }}
+            </div>
+
+            {{ form_widget(form) }}
+        </div>
+    {% elseif trial_restricted_active|default(false) and toggle('saas_enabled') %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label">{{ label|trans }}</label>
+                {{ upgrade.trial_restricted_badge() }}
+            </div>
+
+            {{ form_widget(form) }}
+        </div>
+    {% else %}
+        {{ parent() }}
+    {% endif %}
+{% endblock %}
+
+{# Settings Address Widget - improved layout with Bootstrap grid #}
+{% block settings_address_widget %}
+    <div class="card bg-light border-0">
+        <div class="card-body py-3">
+            <div class="row g-3">
+                <div class="col-12">
+                    {{ form_row(form.street1, {label: 'Street Address'|trans, attr: {placeholder: 'Street address line 1'|trans}}) }}
+                </div>
+                <div class="col-12">
+                    {{ form_row(form.street2, {label: 'Street Address 2'|trans, attr: {placeholder: 'Apartment, suite, unit, etc. (optional)'|trans}}) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.city, {label: 'City'|trans, attr: {placeholder: 'City'|trans}}) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.state, {label: 'State / Province'|trans, attr: {placeholder: 'State or province'|trans}}) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.zip, {label: 'Postal Code'|trans, attr: {placeholder: 'ZIP / Postal code'|trans}}) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.country, {label: 'Country'|trans}) }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock settings_address_widget %}
+
+{# Image Upload Widget - logo upload with preview only if logo exists #}
+{% block image_upload_widget %}
+    {% set currentLogo = app_logo(width=80, showDefault=false) %}
+    <div class="logo-upload-card d-flex align-items-start gap-4 p-3 bg-light rounded-3 border">
+        {% if currentLogo is not empty %}
+            <div class="flex-shrink-0">
+                <div class="logo-preview-frame">
+                    {{ currentLogo|raw }}
+                </div>
+            </div>
+        {% endif %}
+        <div class="flex-grow-1">
+            {{ block('dropzone_widget') }}
+            <p class="text-muted small mt-2 mb-0">
+                {{ 'Recommended: Square image, at least 200x200px. PNG or JPG format.'|trans }}
+            </p>
+        </div>
+    </div>
+{% endblock image_upload_widget %}
+
+{# Mail Transport Type - provider selector with config panels #}
+{% block mail_transport_widget %}
+    <div {{ stimulus_controller('mailsettings') }}>
+        {% for child in form %}
+            {% if child.vars.name == 'provider' %}
+                <div class="mb-3">
+                    {{ form_row(child) }}
+                </div>
+            {% else %}
+                <div class="mail-provider-config {{ child.vars.row_attr.class|default('') }}"
+                     data-provider="{{ child.vars.name }}">
+                    <div class="card bg-light border-0 mt-3">
+                        <div class="card-body">
+                            {{ form_widget(child) }}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock mail_transport_widget %}

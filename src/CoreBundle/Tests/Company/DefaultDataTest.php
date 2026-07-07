@@ -1,0 +1,72 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\CoreBundle\Tests\Company;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use Mockery as M;
+use PHPUnit\Framework\TestCase;
+use SolidInvoice\CoreBundle\Company\DefaultData;
+use SolidInvoice\CoreBundle\Config\SystemConfigProvider;
+use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Entity\CustomField\CustomField;
+use SolidInvoice\InvoiceBundle\Config\ConfigProvider as InvoiceConfigProvider;
+use SolidInvoice\MailerBundle\Config\ConfigProvider as MailerConfigProvider;
+use SolidInvoice\PaymentBundle\Entity\PaymentMethod;
+use SolidInvoice\QuoteBundle\Config\ConfigProvider as QuoteConfigProvider;
+use SolidInvoice\SettingsBundle\Entity\Setting;
+
+final class DefaultDataTest extends TestCase
+{
+    use M\Adapter\Phpunit\MockeryPHPUnitIntegration;
+
+    public function testDefaultData(): void
+    {
+        $registry = M::mock(ManagerRegistry::class);
+        $entityManager = M::mock(EntityManagerInterface::class);
+
+        $registry
+            ->expects('getManager')
+            ->andReturn($entityManager);
+
+        $entityManager
+            ->expects('persist')
+            ->with(M::type(Setting::class))
+            ->times(24);
+
+        $entityManager->expects('persist')
+            ->with(M::type(CustomField::class))
+            ->times(3);
+
+        $entityManager->expects('persist')
+            ->with(M::type(PaymentMethod::class))
+            ->times(3);
+
+        $entityManager
+            ->expects('flush')
+            ->once();
+
+        $defaultData = new DefaultData($registry, [
+            new SystemConfigProvider(),
+            new InvoiceConfigProvider(),
+            new QuoteConfigProvider(),
+            new MailerConfigProvider(),
+        ]);
+
+        $company = new Company();
+        $company->setName('Test Company');
+
+        $defaultData->__invoke($company, ['currency' => 'EUR']);
+    }
+}

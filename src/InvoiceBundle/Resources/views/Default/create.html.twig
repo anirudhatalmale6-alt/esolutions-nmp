@@ -1,0 +1,21 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% set isEdit = isEdit|default(false) %}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block content %}
+    {% if recurring %}
+        <twig:CreateRecurringInvoice :form="form" :invoice="invoice" :isEdit="isEdit" />
+    {% else %}
+        <twig:CreateInvoice :form="form" :dto="dto" :isEdit="isEdit" :invoice="invoice|default(null)" />
+    {% endif %}
+{% endblock content %}
+

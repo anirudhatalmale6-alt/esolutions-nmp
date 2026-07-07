@@ -1,0 +1,161 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% set menuItem = 'profile' %}
+
+{% extends "@SolidInvoiceUser/Layout/profile.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:user', {width: 24, height: 24, class: 'me-2'}) }}{{ "profile.show.title"|trans({"%username%" : app.user.userIdentifier}) }}{% endblock title %}
+
+{% block profile_content %}
+    {# Profile Header with Avatar #}
+    <div class="profile-header">
+        <div class="profile-avatar">
+            {% set initials = (app.user.firstName|slice(0, 1) ~ app.user.lastName|slice(0, 1))|upper %}
+            {{ initials }}
+        </div>
+        <div class="profile-header-info">
+            <h1 class="profile-name">{{ app.user.firstName }} {{ app.user.lastName }}</h1>
+            <p class="profile-email">{{ app.user.email }}</p>
+        </div>
+    </div>
+
+    {# Personal Information Section #}
+    <div class="profile-section">
+        <div class="profile-section-header">
+            <div class="section-icon">
+                {{ ux_icon('tabler:user', {width: 20, height: 20}) }}
+            </div>
+            <div class="profile-section-title">
+                <h3 class="section-title">{{ 'Personal Information'|trans }}</h3>
+                <p class="section-description">{{ 'Your contact details and account information'|trans }}</p>
+            </div>
+        </div>
+
+        <div class="profile-section-body">
+            <div class="profile-detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">{{ 'First Name'|trans }}</span>
+                    <span class="detail-value">{{ app.user.firstName }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">{{ 'Last Name'|trans }}</span>
+                    <span class="detail-value">{{ app.user.lastName }}</span>
+                </div>
+                <div class="detail-item detail-item-wide">
+                    <span class="detail-label">{{ 'profile.show.email'|trans }}</span>
+                    <span class="detail-value">{{ app.user.email }}</span>
+                </div>
+                {% if app.user.mobile %}
+                    <div class="detail-item detail-item-wide">
+                        <span class="detail-label">{{ 'profile.show.mobile'|trans }}</span>
+                        <span class="detail-value">{{ app.user.mobile }}</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="profile-section-footer">
+            <a href="{{ path('_edit_profile') }}" class="btn btn-primary">
+                {{ ux_icon('tabler:pencil', {width: 18, height: 18}) }}
+                {{ 'profile.show.update_profile'|trans }}
+            </a>
+        </div>
+    </div>
+
+    {# Security Section #}
+    <div class="profile-section">
+        <div class="profile-section-header">
+            <div class="section-icon section-icon--security">
+                {{ ux_icon('tabler:shield', {width: 20, height: 20}) }}
+            </div>
+            <div class="profile-section-title">
+                <h3 class="section-title">{{ 'Security'|trans }}</h3>
+                <p class="section-description">{{ 'Manage your account security settings'|trans }}</p>
+            </div>
+        </div>
+
+        <div class="profile-section-body">
+            <div class="security-status">
+                {# Two-Factor Authentication #}
+                <div class="security-item">
+                    <div class="security-item-info">
+                        <div class="security-item-icon {{ app.user.is2FaEnabled ? 'security-item-icon-success' : 'security-item-icon-warning' }}">
+                            {{ ux_icon(app.user.is2FaEnabled ? 'tabler:shield-check' : 'tabler:shield-x', {width: 20, height: 20}) }}
+                        </div>
+                        <div class="security-item-content">
+                            <h4 class="security-item-title">{{ 'Two-Factor Authentication'|trans }}</h4>
+                            <p class="security-item-description">
+                                {% if app.user.is2FaEnabled %}
+                                    {{ 'Two-factor authentication is enabled'|trans }}
+                                {% else %}
+                                    {{ 'Add an extra layer of security to your account'|trans }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="security-item-action">
+                        <a href="{{ path('_2fa_list') }}" class="btn btn-sm btn-outline-primary">
+                            {{ app.user.is2FaEnabled ? 'Manage'|trans : 'Enable'|trans }}
+                        </a>
+                    </div>
+                </div>
+
+                {% toggle 'google_oauth_login' %}
+                    {# Google Account Linking #}
+                    <div class="security-item">
+                        <div class="security-item-info">
+                            <div class="security-item-icon {{ app.user.googleId is not empty ? 'security-item-icon-success' : 'security-item-icon-warning' }}">
+                                {{ ux_icon(app.user.googleId is not empty ? 'tabler:brand-google' : 'tabler:unlink', {width: 20, height: 20}) }}
+                            </div>
+                            <div class="security-item-content">
+                                <h4 class="security-item-title">{{ 'Google Account'|trans }}</h4>
+                                <p class="security-item-description">
+                                    {% if app.user.googleId is not empty %}
+                                        {{ 'Your account is linked with Google'|trans }}
+                                    {% else %}
+                                        {{ 'Link your account with Google for easier sign-in'|trans }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="security-item-action">
+                            {% if app.user.googleId is empty %}
+                                <a href="{{ path('_oauth_connect', {'service': 'google'}) }}" class="btn btn-sm btn-outline-primary google-signin-btn">
+                                    {{ ux_icon('tabler:brand-google', {width: 16, height: 16}) }}
+                                    {{ 'Sign in with Google'|trans }}
+                                </a>
+                            {% else %}
+                                <span class="badge bg-success-lt">{{ 'Linked'|trans }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endtoggle %}
+
+                {# Password #}
+                <div class="security-item">
+                    <div class="security-item-info">
+                        <div class="security-item-icon security-item-icon-success">
+                            {{ ux_icon('tabler:lock', {width: 20, height: 20}) }}
+                        </div>
+                        <div class="security-item-content">
+                            <h4 class="security-item-title">{{ 'Password'|trans }}</h4>
+                            <p class="security-item-description">{{ 'Change your password to keep your account secure'|trans }}</p>
+                        </div>
+                    </div>
+                    <div class="security-item-action">
+                        <a href="{{ path('_change_password') }}" class="btn btn-sm btn-outline-primary">
+                            {{ 'Change Password'|trans }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock profile_content %}

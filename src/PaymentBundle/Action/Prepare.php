@@ -1,0 +1,262 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\PaymentBundle\Action;
+
+use const FILTER_VALIDATE_BOOLEAN;
+use Brick\Math\BigNumber;
+use Brick\Math\RoundingMode;
+use Carbon\Carbon;
+use Generator;
+use Payum\Core\Payum;
+use Payum\Core\Registry\RegistryInterface;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Response\FlashResponse;
+use SolidInvoice\CoreBundle\Traits\SaveableTrait;
+use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\InvoiceBundle\Model\Graph;
+use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
+use SolidInvoice\PaymentBundle\Entity\Payment;
+use SolidInvoice\PaymentBundle\Entity\PaymentMethod;
+use SolidInvoice\PaymentBundle\Enum\PaymentStatus;
+use SolidInvoice\PaymentBundle\Event\PaymentCompleteEvent;
+use SolidInvoice\PaymentBundle\Event\PaymentEvents;
+use SolidInvoice\PaymentBundle\Form\Type\PaymentType;
+use SolidInvoice\PaymentBundle\Repository\PaymentMethodRepository;
+use Symfony\Bridge\Twig\Attribute\Template;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Routing\RouterInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Workflow\WorkflowInterface;
+use function array_map;
+use function filter_var;
+use function in_array;
+
+// @TODO: Refactor this class to make it cleaner
+/**
+ * @see \SolidInvoice\PaymentBundle\Tests\Action\PrepareTest
+ */
+final class Prepare
+{
+    use SaveableTrait;
+
+    /**
+     * @param Payum $payum
+     */
+    public function __construct(
+        private readonly WorkflowInterface $invoiceStateMachine,
+        private readonly PaymentMethodRepository $paymentMethodRepository,
+        private readonly AuthorizationCheckerInterface $authorization,
+        private readonly TokenStorageInterface $tokenStorage,
+        private readonly FormFactoryInterface $formFactory,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly RegistryInterface $payum,
+        private readonly RouterInterface $router,
+        private readonly CompanySelector $companySelector,
+        private readonly InvoiceRepository $invoiceRepository,
+    ) {
+    }
+
+    /**
+     * @return array{form: FormView, invoice: Invoice, internal: array<int, string>}|Response|null
+     */
+    #[Template('@SolidInvoicePayment/Payment/create.html.twig')]
+    public function __invoke(Request $request, string $uuid): array | Response | null
+    {
+        $invoice = $this->invoiceRepository->findOneBy(['uuid' => $uuid]);
+
+        if (! $invoice instanceof Invoice) {
+            throw new NotFoundHttpException();
+        }
+
+        try {
+            $isAuthenticated = $this->authorization->isGranted('IS_AUTHENTICATED_REMEMBERED');
+        } catch (AuthenticationCredentialsNotFoundException) {
+            $isAuthenticated = false;
+        }
+
+        if (! $this->invoiceStateMachine->can($invoice, Graph::TRANSITION_PAY)) {
+            $route = $isAuthenticated
+                ? $this->router->generate('_invoices_view', ['id' => $invoice->getId()])
+                : $this->router->generate('_view_invoice_external', ['uuid' => $invoice->getUuid()]);
+
+            return new class($route) extends RedirectResponse implements FlashResponse {
+                public function __construct(
+                    string $route
+                ) {
+                    parent::__construct($route);
+                }
+
+                public function getFlash(): Generator
+                {
+                    yield self::FLASH_DANGER => 'payment.create.exception.invoice_cannot_be_paid';
+                }
+            };
+        }
+
+        $this->companySelector->switchCompany($invoice->getCompany()->getId());
+
+        if ($this->paymentMethodRepository->getTotalMethodsConfigured($isAuthenticated) < 1) {
+            $url = $isAuthenticated
+                ? $this->router->generate('_invoices_view', ['id' => $invoice->getId()])
+                : $this->router->generate('_view_invoice_external', ['uuid' => $invoice->getUuid()]);
+
+            return new class($url) extends RedirectResponse implements FlashResponse {
+                public function getFlash(): Generator
+                {
+                    yield self::FLASH_DANGER => 'payment.create.exception.no_payment_methods';
+                }
+            };
+        }
+
+        $preferredChoices = $this->paymentMethodRepository->findBy(['gatewayName' => 'credit']);
+
+        $offlinePaymentGateways = array_map(
+            static fn (PaymentMethod $paymentMethod) => $paymentMethod->getGatewayName(),
+            $this->paymentMethodRepository->findBy(['factoryName' => 'offline'])
+        );
+
+        $form = $this->formFactory->create(
+            PaymentType::class,
+            [
+                'amount' => $invoice->getBalance(),
+            ],
+            [
+                'user' => $this->getUser(),
+                'currency' => $invoice->getClient()->getCurrency(),
+                'preferred_choices' => $preferredChoices,
+            ]
+        );
+
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $data = $form->getData();
+            $amount = BigNumber::of($data['amount']);
+
+            /** @var PaymentMethod $paymentMethod */
+            $paymentMethod = $data['payment_method'];
+
+            if (! $isAuthenticated && $paymentMethod->isInternal()) {
+                throw new AccessDeniedHttpException();
+            }
+
+            $paymentName = $paymentMethod->getGatewayName();
+
+            // @TODO: credit should be a gateway on it's own
+            if ('credit' === $paymentName) {
+                $clientCredit = $invoice->getClient()->getCredit()->getValue();
+
+                $invalid = '';
+                if ($amount->isGreaterThan($clientCredit)) {
+                    $invalid = 'payment.create.exception.not_enough_credit';
+                } elseif ($amount->isGreaterThan($invoice->getBalance())) {
+                    $invalid = 'payment.create.exception.amount_exceeds_balance';
+                }
+
+                if ($invalid !== '') {
+                    $session = $request->getSession();
+
+                    if ($session instanceof Session) {
+                        $session->getFlashbag()->add(FlashResponse::FLASH_DANGER, $invalid);
+                    }
+
+                    return [
+                        'form' => $form->createView(),
+                        'invoice' => $invoice,
+                        'internal' => $offlinePaymentGateways,
+                    ];
+                }
+            }
+
+            $data['capture_online'] ??= ! in_array($paymentName, $offlinePaymentGateways, true);
+
+            $payment = new Payment();
+            $payment->setInvoice($invoice);
+            $payment->setStatus(PaymentStatus::New);
+            $payment->setMethod($data['payment_method']);
+            /** @var BigNumber $value */
+            $value = $data['amount'];
+            $payment->setTotalAmount($value->toBigDecimal()->toScale(2, RoundingMode::HalfEven)->toInt());
+            $payment->setCurrencyCode($invoice->getClient()->getCurrency()->getCode());
+            $payment->setDescription('');
+            $payment->setClient($invoice->getClient());
+            $payment->setNumber($invoice->getId()?->toString());
+            $payment->setClientEmail($invoice->getClient()->getContacts()->first()->getEmail());
+            $payment->setReference($data['reference'] ?? null);
+            $payment->setNotes($data['notes'] ?? null);
+            $invoice->addPayment($payment);
+            $this->save($payment);
+
+            if (filter_var($data['capture_online'], FILTER_VALIDATE_BOOLEAN)) {
+                $captureToken = $this->payum
+                    ->getTokenFactory()
+                    ->createCaptureToken(
+                        $paymentName,
+                        $payment,
+                        '_payments_done' // the route to redirect after capture;
+                    );
+
+                return new RedirectResponse($captureToken->getTargetUrl());
+            }
+
+            $payment->setStatus(PaymentStatus::Captured);
+            $payment->setCompleted(Carbon::now());
+            $this->save($payment);
+
+            $event = new PaymentCompleteEvent($payment);
+            $this->eventDispatcher->dispatch($event, PaymentEvents::PAYMENT_COMPLETE);
+
+            if (($response = $event->getResponse()) instanceof Response) {
+                return $response;
+            }
+
+            return new RedirectResponse(
+                $isAuthenticated
+                    ? $this->router->generate('_payments_index')
+                    : $this->router->generate('_view_invoice_external', ['uuid' => $invoice->getUuid()])
+            );
+        }
+
+        return [
+            'form' => $form->createView(),
+            'invoice' => $invoice,
+            'internal' => $offlinePaymentGateways,
+        ];
+    }
+
+    private function getUser(): ?UserInterface
+    {
+        if (! ($token = $this->tokenStorage->getToken()) instanceof TokenInterface) {
+            return null;
+        }
+
+        if (! is_object($user = $token->getUser())) {
+            return null;
+        }
+
+        return $user;
+    }
+}

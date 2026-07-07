@@ -1,0 +1,59 @@
+<div {{ attributes }}>
+    {# Section Header #}
+    <div class="client-section-header">
+        <h3 class="client-section-title">
+            {{ ux_icon('tabler:building', {width: 20, height: 20, class: 'text-primary'}) }}
+            {{ 'client.heading.addresses'|trans }}
+            <span class="badge bg-secondary-lt">{{ client.addresses|length }}</span>
+        </h3>
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#add-address">
+            {{ ux_icon('tabler:plus', {width: 16, height: 16}) }}
+            {{ 'client.address.add'|trans }}
+        </button>
+    </div>
+
+    {# Addresses Grid #}
+    <div class="row g-3">
+        {% for address in client.addresses %}
+            <div class="col-md-6">
+                <twig:AddressInfo :address="address" :key="address.id" />
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="empty">
+                    <div class="empty-icon">
+                        {{ ux_icon('tabler:map-pin-off', {width: 48, height: 48}) }}
+                    </div>
+                    <p class="empty-title">{{ 'client.addresses.empty.title'|trans }}</p>
+                    <p class="empty-subtitle text-secondary">{{ 'client.addresses.empty.description'|trans }}</p>
+                    <div class="empty-action">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-address">
+                            {{ ux_icon('tabler:plus', {width: 16, height: 16}) }}
+                            {{ 'client.address.add'|trans }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {# Add Address Modal #}
+    {{ form_start(form, {
+        attr: {
+            'data-action': 'live#action:prevent',
+            'data-live-action-param': 'save'
+        }
+    }) }}
+    <twig:Ui:Modal id="add-address" title="{{ 'Add Address'|trans }}">
+        {{ form_row(form) }}
+
+        <twig:block name="footer">
+            <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+            <button type="submit" class="btn btn-primary">
+                {{ ux_icon('tabler:device-floppy', {width: 16, height: 16}) }}
+                {{ 'Save'|trans }}
+            </button>
+        </twig:block>
+    </twig:Ui:Modal>
+    {{ form_end(form) }}
+</div>

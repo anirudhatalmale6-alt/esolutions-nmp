@@ -1,0 +1,67 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\UserBundle\Form\Type;
+
+use SolidInvoice\UserBundle\DTO\ChangePassword;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+
+/**
+ * @see \SolidInvoice\UserBundle\Tests\Form\Type\ChangePasswordTypeTest
+ * @extends AbstractType<ChangePassword>
+ */
+class ChangePasswordType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        if (true === $options['confirm_password']) {
+            $builder->add('currentPassword', PasswordType::class, [
+                'label' => 'Current Password',
+                'attr' => [
+                    'autocomplete' => 'current-password',
+                ],
+            ]);
+        }
+
+        $builder->add('plainPassword', RepeatedType::class, [
+            'type' => PasswordType::class,
+            'options' => [
+                'attr' => [
+                    'autocomplete' => 'new-password',
+                ],
+            ],
+            'first_options' => [
+                'label' => 'New Password',
+            ],
+            'second_options' => [
+                'label' => 'Confirm New Password',
+            ],
+            'invalid_message' => "The passwords doesn't match",
+        ]);
+    }
+
+    public function configureOptions(OptionsResolver $resolver): void
+    {
+        $resolver->setDefaults([
+            'data_class' => ChangePassword::class,
+            'confirm_password' => true,
+            'csrf_token_id' => 'change_password',
+        ]);
+
+        $resolver->setAllowedTypes('confirm_password', 'bool');
+    }
+}

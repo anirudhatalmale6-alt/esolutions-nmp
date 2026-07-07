@@ -1,0 +1,90 @@
+{
+  "entrypoints": {
+    "_platform_ui": {
+      "js": [
+        "/static/runtime.49acbb6b.js",
+        "/static/456.752b4b58.js",
+        "/static/38.a98e1851.js",
+        "/static/_platform_ui.2ca1f65b.js"
+      ],
+      "css": [
+        "/static/38.1bbbcffe.css"
+      ]
+    },
+    "app": {
+      "js": [
+        "/static/runtime.49acbb6b.js",
+        "/static/456.752b4b58.js",
+        "/static/308.c44fd5dc.js",
+        "/static/app.425fdf5a.js"
+      ],
+      "css": [
+        "/static/app.439c2797.css"
+      ]
+    },
+    "login": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/login.b0007662.css"
+      ]
+    },
+    "register": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/register.aa058c8c.css"
+      ]
+    },
+    "installation": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/installation.4c3fa2e1.css"
+      ]
+    },
+    "pdf": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/pdf.5bad99b2.css"
+      ]
+    },
+    "email-colors": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/email-colors.095d1aa9.css"
+      ]
+    },
+    "email-modern": {
+      "js": [
+        "/static/runtime.49acbb6b.js"
+      ],
+      "css": [
+        "/static/email-modern.640dc4d9.css"
+      ]
+    }
+  },
+  "integrity": {
+    "/static/runtime.49acbb6b.js": "sha384-MVaUasE3sxK+2P7ZxHJZc1D/I0jhCNiDzeUkObZLzrBJ1KpChs7CpWt0ZeKvU7zX",
+    "/static/456.752b4b58.js": "sha384-SEEVu+/wcd4CYrbhJfmthCc4BjpqTgvDoJpevBADRBTVB6Eeahd7Tk2gTzCLF0NS",
+    "/static/38.a98e1851.js": "sha384-dAOCGQDQf8bDlmsNDVoMkMdnnBbNTAbJZyfJknMRxoIiJLby+ZvaxFE33rRh1iWB",
+    "/static/_platform_ui.2ca1f65b.js": "sha384-94/ylQrc7OIQdjBMeh7WPVIPKZ70TbF+9tEwLEvT27wWxM0CKu9Zub1nRRJXN5dQ",
+    "/static/38.1bbbcffe.css": "sha384-1K8iVB4jkd2jJhy96scGk5ng4fdTYthytlbxOJfiGlvf9SFZm046oUEEX+05oZ+S",
+    "/static/308.c44fd5dc.js": "sha384-M9PK6zM+xaJqJUaYv/xyy/fOyPfEJdS7eh95ShFVU8UM4DO9m1bNTONhUa0n3BRY",
+    "/static/app.425fdf5a.js": "sha384-Zmp6K2WT1wp3qugOoIOxQzqPdT1Jglk/CJeYvuI+iKKmy/rJ3sJg35XUKCxrmlp2",
+    "/static/app.439c2797.css": "sha384-KCxgYSIAbpWJcgMZ+pcFJMYS/e5vEb4WmolgH/nx3kY01MJAvrGKhGEHoOjvpCNJ",
+    "/static/login.b0007662.css": "sha384-kZH1kihtHxm1sJSFIwXZQW0vHHeYAnHzpYoqCqV8jBQHapG5DbwaA7v5F7kbtgFj",
+    "/static/register.aa058c8c.css": "sha384-b0PPBWE9Dgl9HwXlBsJ4bVGA78A/EEzNJCFO2SnaRJecRcbg3IdSiwuZiufiPHYl",
+    "/static/installation.4c3fa2e1.css": "sha384-AY965CA+cq0c9TA57AgMXUxDxOShpiwhAbNJ9noJPf1jTODj720F79uWZXuPXw3b",
+    "/static/pdf.5bad99b2.css": "sha384-PjXKaP9yqm4nMFPDqMh/Kl/E0WDIKw/ne2J/IjKCUe46BShwkshHTg/zmyx00k+o",
+    "/static/email-colors.095d1aa9.css": "sha384-qg89WCsfuOpB0a7dpMJNdEZugQ0mvSXCaEW4wjyzFC+X1DwPH+22IaDW5KMTfLpE",
+    "/static/email-modern.640dc4d9.css": "sha384-iqTsy7iHe1+GdPmdjt5JrIu3iegMN4gEagMKK7bTcyUx3oW7ZsQNlhwvXAxtvavU"
+  }
+}

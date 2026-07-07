@@ -1,0 +1,267 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\UserBundle\Twig\Components;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use ReflectionClass;
+use SolidInvoice\NotificationBundle\Attribute\AsNotification;
+use SolidInvoice\NotificationBundle\Entity\TransportSetting;
+use SolidInvoice\NotificationBundle\Entity\UserNotification as UserNotificationEntity;
+use SolidInvoice\NotificationBundle\Enum\NotificationCategory;
+use SolidInvoice\NotificationBundle\Notification\NotificationMessage;
+use SolidInvoice\NotificationBundle\Repository\TransportSettingRepository;
+use SolidInvoice\NotificationBundle\Repository\UserNotificationRepository;
+use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Form\Type\NotificationSettingType;
+use SolidInvoice\UserBundle\Form\Type\NotificationType;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
+use Symfony\UX\LiveComponent\Attribute\LiveAction;
+use Symfony\UX\LiveComponent\Attribute\LiveProp;
+use Symfony\UX\LiveComponent\ComponentWithFormTrait;
+use Symfony\UX\LiveComponent\DefaultActionTrait;
+use Symfony\UX\TwigComponent\Attribute\ExposeInTemplate;
+use function str_replace;
+use function ucwords;
+
+/**
+ * @see \SolidInvoice\UserBundle\Tests\Twig\Components\UserNotificationTest
+ */
+#[AsLiveComponent]
+final class UserNotification extends AbstractController
+{
+    use DefaultActionTrait;
+    use ComponentWithFormTrait;
+
+    #[LiveProp(writable: true, url: true)]
+    public string $action = '';
+
+    /**
+     * @var list<string>
+     */
+    public array $notificationList = [];
+
+    /**
+     * @param ServiceLocator<NotificationMessage> $notificationLocator
+     */
+    public function __construct(
+        private readonly UserNotificationRepository $userNotificationRepository,
+        private readonly TransportSettingRepository $transportSettingRepository,
+        #[AutowireLocator('solid_invoice_notification.notification', 'name')]
+        private readonly ServiceLocator $notificationLocator,
+        private readonly ManagerRegistry $registry,
+    ) {
+        $this->notificationList = array_keys($notificationLocator->getProvidedServices());
+    }
+
+    /**
+     * @return FormInterface<mixed>
+     */
+    protected function instantiateForm(): FormInterface
+    {
+        $formData = [];
+
+        foreach ($this->userNotificationRepository->findBy(['user' => $this->getUser()]) as $userNotification) {
+            $event = $userNotification->getEvent();
+
+            $formData[$event] = [
+                'event' => $event,
+                'transports' => [],
+            ];
+
+            foreach ($userNotification->getTransports() as $transport) {
+                $formData[$event]['transports'][] = $transport->getId()->toString();
+            }
+
+            if ($userNotification->isEmail()) {
+                $formData[$event]['transports'][] = NotificationSettingType::EMAIL_NOTIFICATION;
+            }
+        }
+
+        return $this->createForm(NotificationType::class, $formData);
+    }
+
+    /**
+     * @return list<UserNotificationEntity>
+     */
+    #[ExposeInTemplate]
+    public function allNotifications(): array
+    {
+        return $this->userNotificationRepository->findAll();
+    }
+
+    /**
+     * @return list<TransportSetting>
+     */
+    #[ExposeInTemplate]
+    public function allTransports(): array
+    {
+        return $this->transportSettingRepository->findAll();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    #[ExposeInTemplate]
+    public function groupNotificationsByCategory(): array
+    {
+        $grouped = [];
+
+        foreach ($this->notificationList as $event) {
+            $attribute = $this->getNotificationAttribute($event);
+            if (! $attribute instanceof AsNotification) {
+                continue;
+            }
+
+            $categoryLabel = $attribute->category->getLabel();
+            if (! isset($grouped[$categoryLabel])) {
+                $grouped[$categoryLabel] = [];
+            }
+
+            $grouped[$categoryLabel][] = $event;
+        }
+
+        return $grouped;
+    }
+
+    public function getEventTitle(string $event): string
+    {
+        $attribute = $this->getNotificationAttribute($event);
+
+        if (! $attribute instanceof AsNotification) {
+            return ucwords(str_replace('_', ' ', $event));
+        }
+
+        return $attribute->title;
+    }
+
+    public function getEventDescription(string $event): string
+    {
+        $attribute = $this->getNotificationAttribute($event);
+
+        if (! $attribute instanceof AsNotification) {
+            return '';
+        }
+
+        return $attribute->description;
+    }
+
+    public function getEventIcon(string $event): string
+    {
+        $attribute = $this->getNotificationAttribute($event);
+
+        return $attribute?->icon ?? 'tabler:bell';
+    }
+
+    public function getCategoryIcon(string $categoryLabel): string
+    {
+        // Extract enum from label
+        foreach (NotificationCategory::cases() as $category) {
+            if ($category->getLabel() === $categoryLabel) {
+                return $category->getIcon();
+            }
+        }
+
+        return 'tabler:bell';
+    }
+
+    public function getTransportIcon(string $transport): string
+    {
+        $transportLower = strtolower($transport);
+
+        return match (true) {
+            str_contains($transportLower, 'slack') => 'tabler:brand-slack',
+            str_contains($transportLower, 'discord') => 'tabler:brand-discord',
+            str_contains($transportLower, 'telegram') => 'tabler:brand-telegram',
+            str_contains($transportLower, 'teams') => 'tabler:brand-teams',
+            str_contains($transportLower, 'twilio') => 'tabler:message',
+            str_contains($transportLower, 'sms') => 'tabler:message',
+            str_contains($transportLower, 'vonage') => 'tabler:message',
+            str_contains($transportLower, 'messagebird') => 'tabler:message',
+            default => 'tabler:bell',
+        };
+    }
+
+    private function getNotificationAttribute(string $eventName): ?AsNotification
+    {
+        if (! $this->notificationLocator->has($eventName)) {
+            return null;
+        }
+
+        $notification = $this->notificationLocator->get($eventName);
+        $reflection = new ReflectionClass($notification);
+
+        $attributes = $reflection->getAttributes(AsNotification::class);
+
+        if ($attributes === []) {
+            return null;
+        }
+
+        return $attributes[0]->newInstance();
+    }
+
+    #[LiveAction()]
+    public function save(): Response
+    {
+        $this->submitForm();
+        $submittedData = $this->form?->getData();
+        $user = $this->getUser();
+        assert($user instanceof User);
+        $em = $this->registry->getManagerForClass(UserNotificationEntity::class);
+        assert($em instanceof EntityManagerInterface);
+        foreach ($submittedData as $notification) {
+            $userNotification = $this->userNotificationRepository->findOneBy(['event' => $notification['event'], 'user' => $user]);
+
+            if (! $userNotification instanceof UserNotificationEntity) {
+                $userNotification = new UserNotificationEntity();
+                $userNotification->setEvent($notification['event']);
+                $userNotification->setUser($user);
+            }
+
+            $userNotification->setEmail(false);
+
+            $existingTransports = $userNotification->getTransports();
+
+            foreach ($existingTransports as $existingTransport) {
+                $userNotification->removeTransport($existingTransport);
+            }
+
+            foreach ($notification['transports'] as $transportId) {
+                if ($transportId === NotificationSettingType::EMAIL_NOTIFICATION) {
+                    $userNotification->setEmail(true);
+                    continue;
+                }
+
+                $transport = $this->transportSettingRepository->find($transportId);
+
+                if (! $transport instanceof TransportSetting) {
+                    continue;
+                }
+
+                $userNotification->addTransport($transport);
+            }
+
+            $em->persist($userNotification);
+        }
+
+        $em->flush();
+        $this->addFlash('success', 'Notification saved!');
+        return $this->redirectToRoute('_profile_notifications');
+    }
+}

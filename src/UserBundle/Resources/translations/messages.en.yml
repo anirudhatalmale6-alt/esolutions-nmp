@@ -1,0 +1,244 @@
+profile:
+    show:
+        title: 'Profile - %username%'
+        'yes': 'Yes'
+        'no': 'No'
+        username: Username
+        email: Email
+        mobile: Mobile
+        last_login: 'Last Login'
+        enabled: Enabled
+        locked: Locked
+        expired: Expired
+        roles: Roles
+        change_password: 'Change Password'
+        update_profile: 'Update Profile'
+    edit:
+        title: 'Update Profile'
+        subtitle: 'Update your personal information and contact details'
+        success: 'Your profile has been updated'
+        cancel: Cancel
+        submit: Save
+        section:
+            personal:
+                title: 'Personal Details'
+                description: 'Your name and contact information'
+    api:
+        title: 'API Tokens'
+        create: 'Create Token'
+        tokens:
+            empty: 'You don''t have any API tokens'
+            revoke: Revoke
+            revoke_message: 'Are you sure you want to revoke this token? This is irreversible, and all applications using the token will be affected'
+            history: 'View History'
+            used:
+                text: '%date% from %ip%'
+                never: Never
+                last: 'Last Used:'
+            created:
+                title: 'Your new API token'
+                done: 'Done'
+                warning:
+                    title: 'Copy this token now.'
+                    body: 'For security reasons it will not be shown again. If you lose it, revoke this token and create a new one.'
+        form:
+            title: 'Create API Token'
+            actions:
+                save: Save
+                close: Close
+            token_important: 'Important!'
+            token_copy_warning: 'Copy this token now. For security reasons, it will not be shown again.'
+            token_name: 'Token Name'
+            token_value: 'Token Value'
+            token_copy: 'Copy'
+            token_usage: 'Use this token in the X-API-TOKEN header for API requests.'
+            token_confirmed: 'I have copied the token'
+        history:
+            title: 'API History'
+            actions:
+                close: Close
+            last_calls_shown: 'Only the last 100 calls are shown'
+            last_calls_shown_note: 'Note:'
+            list:
+                date: Date
+                ip: 'IP Address'
+                resource: Resource
+                user_agent: 'User Agent'
+    password_change:
+        success: 'Your password has been updated'
+
+security:
+    login:
+        login: Login
+        username: 'Email Address'
+        password: Password
+        remember: 'Keep me logged in'
+        forgot_password: 'Forgot Password'
+        or: or
+        login_with_google: 'Login with Google'
+        no_account: "Don't have an account yet?"
+        register_now: 'Register Now'
+    register:
+        title: Register
+        heading: 'Create your free account'
+        subheading: 'Get started with eSolutions today'
+        email: 'Email Address'
+        password: Password
+        password_confirm: 'Confirm Password'
+        cta: 'Create your free account'
+        submit: Register
+        success: 'Your account has been created. Please verify your email address before logging in.'
+        terms_agreement: 'I agree to the Terms & Conditions and Privacy Policy'
+        features:
+            title: 'Start invoicing in minutes'
+            subtitle: 'Join thousands of freelancers and small businesses managing their finances with eSolutions'
+            invoices:
+                title: 'Professional Invoices'
+                description: 'Create beautiful, customizable invoices in seconds'
+            clients:
+                title: 'Client Management'
+                description: 'Keep all your client information organized in one place'
+            payments:
+                title: 'Payment Tracking'
+                description: 'Accept payments online and track every transaction'
+            tax:
+                title: 'Tax Management'
+                description: 'Automatic tax calculations and detailed reporting'
+        trust:
+            encryption: 'Bank-level encryption'
+            opensource: 'Open Source'
+            control: 'Your data, your control'
+        links:
+            login: 'Already have an account?'
+            signin: 'Sign in'
+            google: 'Sign up with Google'
+        placeholders:
+            email: 'your@email.com'
+            company: 'Your Company Name'
+            password: 'Create a strong password'
+        strength:
+            label: 'At least 8 characters'
+            weak: 'Weak password'
+            medium: 'Medium strength'
+            strong: 'Strong password'
+
+users:
+  invite_user: 'Invite User'
+  invitation:
+    success: 'Invitation sent successfully!'
+    accept:
+      success: 'Invitation accepted successfully! You can now log in.'
+    delete:
+      success: 'Invitation deleted successfully!'
+    exists: 'There is already an existing invitation for this email address'
+  add: 'Add User'
+  edit: 'Edit User'
+  title: 'Users'
+  create:
+    generate_password: 'Generate Random Password'
+    success: 'User created successfully!'
+  save: 'Save'
+  grid:
+    invitation:
+        actions:
+            resend: 'Resend Invitation'
+    actions:
+        edit: 'Edit'
+        delete: 'Delete'
+  stats:
+    active_users: 'Active Users'
+    pending_invitations: 'Pending Invitations'
+    recently_joined: 'Recently Joined (30d)'
+  tabs:
+    active_users: 'Active Users'
+    pending_invitations: 'Pending Invitations'
+  empty:
+    title: 'No users yet'
+    description: 'Get started by inviting your first team member to collaborate.'
+  invitations:
+    empty:
+      title: 'No pending invitations'
+      description: 'All invitations have been accepted or there are no pending invitations.'
+  invite:
+    title: 'Invite User'
+    subtitle: 'Send an invitation to a new user to join your organization'
+    details:
+      title: 'Invitation Details'
+      description: 'Enter the email address of the person you want to invite'
+    email:
+      label: 'Email Address'
+      help: 'The user will receive an invitation email with instructions to set up their account'
+    send: 'Send Invitation'
+    info: 'The invited user will receive an email with a link to accept the invitation and set up their account. The invitation link will expire after 7 days.'
+
+change_password:
+    submit: 'Save'
+
+forgot_password:
+    reset:
+        title: 'Reset Password'
+        heading: 'Reset your password'
+    request:
+        title: 'Forgot your password?'
+        heading: 'Forgot your password?'
+        description: 'Forgot your password? Enter your email to reset your password.'
+        back_to_login: 'Back to login'
+        submit: 'Reset Password'
+        username: 'Email address'
+    check_email:
+        title: 'Email Sent'
+        heading: 'Check your email'
+        content: |
+            An email has been sent. It contains a link you must click to reset your password.
+
+            If you don't get an email check your spam folder or try again.
+        expiry: 'This link will expire in %tokenLifetime%'
+
+notifications:
+    title: 'Notification Preferences'
+    subtitle: 'Choose which events trigger notifications and where you receive them'
+    available_channels: 'Available Channels'
+    notify_via: 'Notify via:'
+    add_integration: 'Add Integration'
+    save_preferences: 'Save Preferences'
+    manage_integrations: 'Manage Integrations'
+    notification_channels: 'Notification Channels'
+    integrations_count: 'You have %count% integration(s) configured'
+    email_always_available: 'Email notifications are always available. Add integrations to receive notifications via other channels.'
+    empty:
+        title: 'No Notifications Available'
+        description: 'Notification events will appear here when they are available in the system'
+    events:
+        client_created:
+            title: 'Client Created'
+            description: 'When a new client is added to your account'
+        invoice_status_changed:
+            title: 'Invoice Status Changed'
+            description: 'When an invoice status changes (draft, sent, paid, etc.)'
+        payment_received:
+            title: 'Payment Received'
+            description: 'When a payment is received for an invoice'
+        quote_status_changed:
+            title: 'Quote Status Changed'
+            description: 'When a quote status changes (draft, sent, accepted, etc.)'
+    categories:
+        client: 'Client Notifications'
+        invoice: 'Invoice Notifications'
+        payment: 'Payment Notifications'
+        quote: 'Quote Notifications'
+
+onboarding:
+    flash:
+        invoice_created: "🎉 Your first invoice is ready! You can edit it, send it to your client, or download a PDF."
+        onboarding_complete: "Welcome to eSolutions! You're all set up and ready to go."
+
+email_verification:
+    gate:
+        reason: 'Please verify your email address before %action%.'
+    banner:
+        title: 'Verify your email'
+        message: 'Some features (sending invoices, activating recurring invoices) are disabled until you verify your email address. Check your inbox for the verification link.'
+    flash:
+        send_invoice: 'Please verify your email address before sending invoices. Check your inbox for the verification link.'
+        send_quote: 'Please verify your email address before sending quotes. Check your inbox for the verification link.'
+        send_reminder: 'Please verify your email address before sending payment reminders. Check your inbox for the verification link.'

@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\UserBundle\Repository;
+
+use Doctrine\Common\Collections\Order;
+use Doctrine\Persistence\ManagerRegistry;
+use SolidInvoice\ApiBundle\Security\ApiTokenHasher;
+use SolidInvoice\UserBundle\Entity\ApiToken;
+use SolidInvoice\UserBundle\Entity\ApiTokenHistory;
+use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
+
+/**
+ * @extends EntityRepository<ApiTokenHistory>
+ */
+class ApiTokenHistoryRepository extends EntityRepository
+{
+    public function __construct(
+        ManagerRegistry $registry,
+        private readonly ApiTokenHasher $hasher,
+    ) {
+        parent::__construct($registry, ApiTokenHistory::class);
+    }
+
+    public function addHistory(ApiTokenHistory $history, string $plaintextToken): void
+    {
+        $entityManager = $this->getEntityManager();
+
+        /** @var ApiToken|null $apiToken */
+        $apiToken = $entityManager
+            ->getRepository(ApiToken::class)
+            ->findOneBy(['token' => $this->hasher->hash($plaintextToken)]);
+
+        if (null === $apiToken) {
+            return;
+        }
+
+        $apiToken->addHistory($history);
+
+        $entityManager->persist($history);
+        $entityManager->flush();
+
+        /*
+         @TODO: This needs to be revisited, maybe by doing a scheduled job cleanup
+        // delete the history for all but the last 100 records for each api token
+        // This is to ensure the database doesn't grow to an unmanageable size
+        $queryBuilder = $this->createQueryBuilder('a');
+        $ids = $queryBuilder
+            ->select('a.id')
+            ->where('a.token = :token')
+            ->orderBy('a.created', Order::Descending->value)
+            ->setMaxResults(100)
+            ->getQuery()
+            ->getDQL();
+        $qb = $this->createQueryBuilder('h');
+        $qb->delete()
+            ->where($qb->expr()->in('h.id', $ids))
+            ->setParameter('token', $apiToken->getId(), UlidType::NAME)
+            ->getQuery()
+            ->execute();
+        */
+    }
+
+    /**
+     * @return iterable<int, ApiTokenHistory>
+     */
+    public function getHistoryForToken(ApiToken $apiToken): iterable
+    {
+        return $this->createQueryBuilder('h')
+            ->where('h.token = :token')
+            ->setMaxResults(100)
+            ->orderBy('h.created', Order::Descending->value)
+            ->setParameter('token', $apiToken->getId(), UlidType::NAME)
+            ->getQuery()
+            ->toIterable();
+    }
+}

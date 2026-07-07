@@ -1,0 +1,337 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\InvoiceBundle\Tests\Functional\Api;
+
+use Carbon\Carbon;
+use DateTimeInterface;
+use PHPUnit\Framework\Attributes\Group;
+use SolidInvoice\ApiBundle\Test\ApiTestCase;
+use SolidInvoice\ClientBundle\Test\Factory\ClientFactory;
+use SolidInvoice\ClientBundle\Test\Factory\ContactFactory;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Entity\Discount;
+use SolidInvoice\CoreBundle\Test\Factory\CompanyFactory;
+use SolidInvoice\CronBundle\Enum\ScheduleEndType;
+use SolidInvoice\CronBundle\Enum\ScheduleRecurringType;
+use SolidInvoice\InvoiceBundle\Entity\RecurringInvoice;
+use SolidInvoice\InvoiceBundle\Entity\RecurringInvoiceLine;
+use SolidInvoice\InvoiceBundle\Entity\RecurringOptions;
+use SolidInvoice\InvoiceBundle\Test\Factory\RecurringInvoiceFactory;
+use Symfony\Component\Uid\Ulid;
+use Zenstruck\Foundry\Persistence\Proxy;
+use Zenstruck\Foundry\Test\Factories;
+use function array_map;
+
+#[Group('functional')]
+final class RecurringInvoiceTest extends ApiTestCase
+{
+    use Factories;
+
+    protected function getResourceClass(): string
+    {
+        return RecurringInvoice::class;
+    }
+
+    public function testGetCollection(): void
+    {
+        $client = ClientFactory::createOne()->_real();
+        $contacts = ContactFactory::createMany(1, ['client' => $client]);
+        RecurringInvoiceFactory::createMany(3, [
+            'client' => $client,
+            'users' => $contacts,
+            'discount' => new Discount()->setType(Discount::TYPE_PERCENTAGE)->setValue(0),
+        ]);
+
+        $data = $this->requestGetCollection('/api/recurring-invoices');
+
+        self::assertArraySubset([
+            '@context' => $this->getContextForResource(RecurringInvoice::class),
+            '@id' => '/api/recurring-invoices',
+            '@type' => 'Collection',
+        ], $data);
+    }
+
+    public function testCannotAccessRecurringInvoiceFromDifferentCompany(): void
+    {
+        $otherCompany = CompanyFactory::new()->create();
+        self::getContainer()->get(CompanySelector::class)->switchCompany($otherCompany->getId());
+        $foreignClient = ClientFactory::createOne(['company' => $otherCompany]);
+        $foreignRecurringInvoice = RecurringInvoiceFactory::createOne(['client' => $foreignClient])->_real();
+        self::getContainer()->get(CompanySelector::class)->switchCompany($this->company->getId());
+
+        $response = self::$client->request('GET', $this->getIriFromResource($foreignRecurringInvoice), [
+            'headers' => ['accept' => 'application/ld+json'],
+        ]);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testCreate(): void
+    {
+        $client = ClientFactory::createOne()->_real();
+
+        $contacts = array_map(
+            fn (Proxy $contact) => $this->getIriFromResource($contact->_real()),
+            ContactFactory::createMany($this->faker->numberBetween(1, 5), ['client' => $client])
+        );
+
+        $date = date(DateTimeInterface::ATOM);
+
+        $data = [
+            'users' => $contacts,
+            'client' => $this->getIriFromResource($client),
+            'dateStart' => $date,
+            'dateEnd' => null,
+            'recurringOptions' => [
+                'type' => ScheduleRecurringType::WEEKLY,
+                'endType' => ScheduleEndType::AFTER,
+                'days' => ['4', '5'],
+                'endOccurrence' => 1,
+            ],
+            'discount' => [
+                'type' => 'percentage',
+                'value' => 10.0,
+            ],
+            'lines' => [
+                [
+                    'price' => 100.1,
+                    'qty' => 1.0,
+                    'description' => 'Foo Line',
+                ],
+            ],
+        ];
+
+        $result = $this->requestPost('/api/recurring-invoices', $data);
+
+        self::assertArrayHasKey('id', $result);
+        self::assertArrayHasKey('id', $result['lines'][0]);
+        self::assertTrue(Ulid::isValid($result['id']));
+        self::assertTrue(Ulid::isValid($result['lines'][0]['id']));
+
+        unset($result['id'], $result['@id'], $result['lines'][0]['id'], $result['lines'][0]['@id'], $result['recurringOptions']['@id']);
+
+        self::assertEqualsCanonicalizing([
+            '@context' => '/api/contexts/RecurringInvoice',
+            '@type' => 'RecurringInvoice',
+            'client' => $this->getIriFromResource($client),
+            'dateStart' => Carbon::now()->format('Y-m-d\T00:00:00+02:00'),
+            'dateEnd' => null,
+            'lines' => [
+                [
+                    '@type' => 'RecurringInvoiceLine',
+                    'description' => 'Foo Line',
+                    'price' => 100.1,
+                    'qty' => 1,
+                    'total' => 100.1,
+                    'taxes' => [],
+                ],
+            ],
+            'users' => $contacts,
+            'recurringOptions' => [
+                '@type' => 'RecurringOptions',
+                'type' => 'weekly',
+                'days' => [4, 5],
+                'endType' => 'after',
+                'endDate' => null,
+                'endOccurrence' => 1,
+            ],
+            'status' => 'draft',
+            'invoiceTaxes' => [],
+            'total' => 90.09,
+            'baseTotal' => 100.1,
+            'tax' => 0,
+            'discount' => [
+                'type' => 'percentage',
+                'value' => 10,
+            ],
+            'terms' => null,
+            'notes' => null,
+            'withholdingAmount' => 0,
+            'payableAmount' => 90.09,
+            'customFields' => [],
+        ], $result);
+    }
+
+    public function testDelete(): void
+    {
+        $recurringInvoice = RecurringInvoiceFactory::createOne()->_real();
+
+        $this->requestDelete($this->getIriFromResource($recurringInvoice));
+    }
+
+    public function testGet(): void
+    {
+        $client = ClientFactory::createOne();
+        $contacts = ContactFactory::createMany($this->faker->numberBetween(1, 5), ['client' => $client]);
+
+        /** @var RecurringInvoice $recurringInvoice */
+        $recurringInvoice = RecurringInvoiceFactory::createOne([
+            'recurringOptions' => new RecurringOptions()
+                ->setType(ScheduleRecurringType::WEEKLY)
+                ->setEndType(ScheduleEndType::AFTER)
+                ->setEndOccurrence(1),
+            'users' => $contacts,
+            'lines' => [
+                new RecurringInvoiceLine()
+                    ->setDescription('Test Line')
+                    ->setPrice(100)
+                    ->setQty(1)
+            ],
+            'discount' => new Discount()
+                ->setType(Discount::TYPE_PERCENTAGE)
+                ->setValue(0),
+        ])->_real();
+
+        $data = $this->requestGet($this->getIriFromResource($recurringInvoice));
+
+        unset($data['recurringOptions']['@id']);
+
+        // Verify discount separately to avoid non-deterministic sort in assertEqualsCanonicalizing
+        // (PHP's sort() behaves non-deterministically when comparing arrays with mixed key types)
+        self::assertSame([
+            'type' => $recurringInvoice->getDiscount()->getType(),
+            'value' => 0,
+        ], $data['discount']);
+        unset($data['discount']);
+
+        self::assertEqualsCanonicalizing([
+            '@context' => '/api/contexts/RecurringInvoice',
+            '@id' => $this->getIriFromResource($recurringInvoice),
+            '@type' => 'RecurringInvoice',
+            'id' => $recurringInvoice->getId()->toString(),
+            'client' => '/api/clients/' . $recurringInvoice->getClient()->getId()->toString(),
+            'dateStart' => $recurringInvoice->getDateStart()->format('c'),
+            'dateEnd' => null,
+            'lines' => [
+                [
+                    '@id' => $this->getIriFromResource($recurringInvoice->getLines()->first()),
+                    '@type' => 'RecurringInvoiceLine',
+                    'id' => $recurringInvoice->getLines()->first()->getId()->toString(),
+                    'description' => 'Test Line',
+                    'price' => 1,
+                    'qty' => 1,
+                    'total' => 1,
+                    'taxes' => [],
+                ],
+            ],
+            'users' => array_map(fn (Proxy $contact) => $this->getIriFromResource($contact->_real()), $contacts),
+            'status' => $recurringInvoice->getStatus()?->value,
+            'invoiceTaxes' => [],
+            'total' => 1,
+            'baseTotal' => 1,
+            'tax' => 0,
+            'recurringOptions' => [
+                '@type' => 'RecurringOptions',
+                'type' => 'weekly',
+                'days' => [],
+                'endType' => 'after',
+                'endDate' => null,
+                'endOccurrence' => 1,
+            ],
+            'terms' => $recurringInvoice->getTerms(),
+            'notes' => $recurringInvoice->getNotes(),
+            'withholdingAmount' => 0,
+            'payableAmount' => 1,
+            'customFields' => [],
+        ], $data);
+    }
+
+    public function testEdit(): void
+    {
+        $client = ClientFactory::createOne();
+        $contacts = ContactFactory::createMany($this->faker->numberBetween(1, 5), ['client' => $client]);
+
+        /** @var RecurringInvoice $recurringInvoice */
+        $recurringInvoice = RecurringInvoiceFactory::createOne([
+            'users' => $contacts,
+            'lines' => [
+                new RecurringInvoiceLine()
+                    ->setDescription('Test Line')
+                    ->setPrice(100)
+                    ->setQty(1)
+            ],
+            'discount' => new Discount()
+                ->setType(Discount::TYPE_PERCENTAGE)
+                ->setValue(0),
+        ])->_real();
+
+        $data = $this->requestPatch(
+            $this->getIriFromResource($recurringInvoice),
+            [
+                'dateStart' => '2012-01-01',
+                'discount' => [
+                    'type' => 'percentage',
+                    'value' => 10.0,
+                ],
+                'lines' => [
+                    [
+                        'price' => 100.0,
+                        'qty' => 1.0,
+                        'description' => 'Foo Line',
+                    ],
+                ],
+            ]
+        );
+
+        unset($data['recurringOptions']['@id']);
+
+        // Verify discount and dateStart separately to avoid non-deterministic sort in assertEqualsCanonicalizing
+        // (PHP's sort() behaves non-deterministically when comparing arrays with mixed key types)
+        self::assertSame('2012-01-01T00:00:00+02:00', $data['dateStart']);
+        self::assertSame([
+            'type' => 'percentage',
+            'value' => 10,
+        ], $data['discount']);
+        unset($data['dateStart'], $data['discount']);
+
+        self::assertEqualsCanonicalizing([
+            '@context' => '/api/contexts/RecurringInvoice',
+            '@id' => $this->getIriFromResource($recurringInvoice),
+            '@type' => 'RecurringInvoice',
+            'id' => $recurringInvoice->getId()->toString(),
+            'client' => $this->getIriFromResource($recurringInvoice->getClient()),
+            'dateEnd' => null,
+            'lines' => [
+                [
+                    '@id' => $this->getIriFromResource($recurringInvoice->getLines()->first()),
+                    '@type' => 'RecurringInvoiceLine',
+                    'id' => $recurringInvoice->getLines()->first()->getId()->toString(),
+                    'description' => 'Foo Line',
+                    'price' => 100,
+                    'qty' => 1,
+                    'total' => 100,
+                    'taxes' => [],
+                ],
+            ],
+            'users' => array_map(fn (Proxy $contact) => $this->getIriFromResource($contact->_real()), $contacts),
+            'recurringOptions' => [
+                '@type' => 'RecurringOptions',
+                'type' => 'weekly',
+                'days' => [1],
+                'endType' => 'after',
+                'endDate' => null,
+                'endOccurrence' => 1,
+            ],
+            'status' => $recurringInvoice->getStatus()?->value,
+            'invoiceTaxes' => [],
+            'total' => 90,
+            'baseTotal' => 100,
+            'tax' => 0,
+            'terms' => $recurringInvoice->getTerms(),
+            'notes' => $recurringInvoice->getNotes(),
+            'withholdingAmount' => 0,
+            'payableAmount' => 90,
+            'customFields' => [],
+        ], $data);
+    }
+}

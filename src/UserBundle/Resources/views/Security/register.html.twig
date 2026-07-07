@@ -1,0 +1,219 @@
+{#
+# This file is part of SolidInvoice package.
+#
+# (c) Pierre du Plessis <open-source@solidworx.co>
+#
+# This source file is subject to the MIT license that is bundled
+# with this source code in the file LICENSE.
+#}
+
+{% extends '@SolidInvoiceCore/Layout/base.html.twig' %}
+
+{% block page_title %}{{ app_name }} - {{ "security.register.title"|trans }}{% endblock page_title %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('register') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {% toggle 'turnstile_captcha' %}
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endtoggle %}
+{% endblock %}
+
+{% block body %}
+    <div class="container-fluid registration-split-layout">
+        <div class="row min-vh-100">
+            {# LEFT SIDE: Registration Form #}
+            <div class="col-12 col-lg-6 registration-form-side d-flex align-items-center justify-content-center">
+                <div class="registration-form-container w-100">
+                    {# Logo & Title #}
+                    <div class="text-center mb-4">
+                        <span class="navbar-brand navbar-brand-autodark h1">
+                            {{ app_logo(showDefault: true, showOnlyAppIcon: true) }} {{ app_name }}
+                        </span>
+                    </div>
+
+                    {# Main Card #}
+                    <div class="card card-md">
+                        <div class="card-body">
+                            <h2 class="h2 text-center mb-4">
+                                {{ 'security.register.heading'|trans }}
+                            </h2>
+                            <p class="text-muted text-center mb-4">
+                                {{ 'security.register.subheading'|trans }}
+                            </p>
+
+                            {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
+
+                            {# Email Field #}
+                            <div class="mb-3">
+                                {{ form_widget(form.email) }}
+                                {{ form_errors(form.email) }}
+                            </div>
+
+                            {# Password Field with Strength Indicator #}
+                            <div class="mb-3">
+
+                                <div class="input-group input-group-flat" {{ stimulus_controller('password-visibility', controllerClasses = { 'hidden': 'd-none' }) }}>
+                                    <div class="input-group-text">
+                                        {{ ux_icon('tabler:password', {width: 24, height: 24}) }}
+                                    </div>
+
+                                    {{ form_widget(form.plainPassword, {
+                                        'class': 'form-control',
+                                        'attr': {
+                                            'placeholder': 'security.register.placeholders.password'|trans,
+                                            'autocomplete': 'new-password',
+                                            'data-password-visibility-target': 'input',
+                                        }|merge(stimulus_target('password-visibility', 'input').toArray())
+                                    }) }}
+
+                                    <span class="input-group-text">
+                                        <a href="#" class="link-secondary" data-bs-toggle="tooltip" aria-label="Show password" data-bs-original-title="Show password" {{ stimulus_action('password-visibility', 'toggle') }}>
+                                            <span {{ stimulus_target('password-visibility', 'icon') }}>
+                                                {{ ux_icon('tabler:eye', {width: 24, height: 24}) }}
+                                            </span>
+                                            <span {{ stimulus_target('password-visibility', 'icon') }} class="d-none">
+                                                {{ ux_icon('tabler:eye-closed', {width: 24, height: 24}) }}
+                                            </span>
+                                        </a>
+                                    </span>
+                                    {{ form_errors(form.plainPassword) }}
+                                </div>
+                            </div>
+
+                            {# Terms & Conditions Checkbox #}
+                            <div class="mb-3">
+                                {{ form_widget(form.acceptTerms, {'attr': {'class': 'form-check-input'}}) }}
+                                {{ form_errors(form.acceptTerms) }}
+                            </div>
+
+                            {% toggle 'turnstile_captcha' %}
+                                <div class="mb-3">
+                                    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+                                    {{ form_errors(form.captcha) }}
+                                </div>
+                            {% endtoggle %}
+
+                            <div class="form-footer">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    {{ ux_icon('tabler:user-plus', {width: 24, height: 24}) }} {{ 'security.register.cta'|trans }}
+                                </button>
+                            </div>
+
+                            {{ form_end(form) }}
+                            
+                            {% toggle 'google_oauth_login' %}
+                                <div class="hr-text">{{ 'or'|trans }}</div>
+                                <div class="row">
+                                    <div class="col">
+                                        <a href="{{ path('_oauth_connect', {'service': 'google' }) }}" class="btn btn-outline-secondary w-100">
+                                            {{ ux_icon('tabler:brand-google', {width: 24, height: 24}) }}
+                                            {{ 'security.register.links.google'|trans }}
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endtoggle %}
+                        </div>
+                    </div>
+                    
+                    <div class="text-center text-secondary mt-3">
+                        {{ "security.register.links.login"|trans }}
+                        <a href="{{ path('_login_main') }}" class="link-primary">
+                            {{ 'security.register.links.signin'|trans }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 d-none d-lg-flex registration-features-side">
+                <div class="registration-features-content d-flex align-items-center">
+                    <div class="w-100 p-5">
+                        <h2 class="h1 text-white mb-4">
+                            {{ 'security.register.features.title'|trans }}
+                        </h2>
+                        <p class="text-white-50 fs-4 mb-5">
+                            {{ 'security.register.features.subtitle'|trans }}
+                        </p>
+
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <div class="d-flex gap-3">
+                                    <div class="text-primary bg-white rounded p-2 align-self-center flex-shrink-0">
+                                        {{ ux_icon('tabler:file-invoice', {width: 32, height: 32}) }}
+                                    </div>
+                                    <div>
+                                        <h3 class="h4 text-white mb-2">{{ 'security.register.features.invoices.title'|trans }}</h3>
+                                        <p class="text-white-50">{{ 'security.register.features.invoices.description'|trans }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="d-flex gap-3">
+                                    <div class="text-primary bg-white rounded p-2 align-self-center flex-shrink-0">
+                                        {{ ux_icon('tabler:users', {width: 32, height: 32}) }}
+                                    </div>
+                                    <div>
+                                        <h3 class="h4 text-white mb-2">{{ 'security.register.features.clients.title'|trans }}</h3>
+                                        <p class="text-white-50">{{ 'security.register.features.clients.description'|trans }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="d-flex gap-3">
+                                    <div class="text-primary bg-white rounded p-2 align-self-center flex-shrink-0">
+                                        {{ ux_icon('tabler:credit-card', {width: 32, height: 32}) }}
+                                    </div>
+                                    <div>
+                                        <h3 class="h4 text-white mb-2">{{ 'security.register.features.payments.title'|trans }}</h3>
+                                        <p class="text-white-50">{{ 'security.register.features.payments.description'|trans }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="d-flex gap-3">
+                                    <div class="text-primary bg-white rounded p-2 align-self-center flex-shrink-0">
+                                        {{ ux_icon('tabler:receipt-tax', {width: 32, height: 32}) }}
+                                    </div>
+                                    <div>
+                                        <h3 class="h4 text-white mb-2">{{ 'security.register.features.tax.title'|trans }}</h3>
+                                        <p class="text-white-50">{{ 'security.register.features.tax.description'|trans }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-4 border-top border-white-10">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-auto">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        {{ ux_icon('tabler:shield-check', {width: 24, height: 24, class: 'text-white'}) }}
+                                        <span class="text-white-50">{{ 'security.register.trust.encryption'|trans }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        {{ ux_icon('tabler:brand-github', {width: 24, height: 24, class: 'text-white'}) }}
+                                        <span class="text-white-50">{{ 'security.register.trust.opensource'|trans }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        {{ ux_icon('tabler:lock', {width: 24, height: 24, class: 'text-white'}) }}
+                                        <span class="text-white-50">{{ 'security.register.trust.control'|trans }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

@@ -1,0 +1,157 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+{% extends "@SolidInvoiceCore/Layout/Email/base.html.twig" %}
+{% import "@SolidInvoiceCore/Layout/Email/components.html.twig" as email %}
+
+{% set invoicePath = url("_view_invoice_external", {"uuid" : invoice.uuid}) %}
+
+{%- block title -%}
+    {{ "invoice.title"|trans({"%id%" : invoice.invoiceId}, 'email') }}
+{%- endblock -%}
+
+{%- block header -%}
+    {{ email.view_online_link(invoicePath) }}
+{%- endblock -%}
+
+{%- block head_extra -%}
+    <script type="application/ld+json">
+        [
+            {
+                "@context": "http://schema.org",
+                "@type": "Invoice",
+                "accountId": "{{ invoice.invoiceId }}",
+                "minimumPaymentDue": {
+                    "@type": "PriceSpecification",
+                    "price": "{{ invoice.total|formatCurrency(invoice.client.currency) }}"
+                },
+                "paymentDue": "{{ invoice.due|date }}",
+                "paymentStatus": "PaymentDue",
+                "provider": {
+                    "@type": "Organization",
+                    "name": "{{ invoice.client.name }}"
+                },
+                "totalPaymentDue": {
+                    "@type": "PriceSpecification",
+                    "price": "{{ invoice.balance|formatCurrency(invoice.client.currency) }}"
+                }
+            },
+            {
+                "@context": "http://schema.org",
+                "@type": "EmailMessage",
+                "description": "View invoice",
+                "potentialAction": {
+                    "@type": "ViewAction",
+                    "name": "View invoice",
+                    "target": "{{ invoicePath }}"
+                }
+            }
+        ]
+    </script>
+{%- endblock head_extra -%}
+
+
+{%- block content -%}
+    {# Invoice intro message #}
+    {% apply inky_to_html %}
+        <row>
+            <columns>
+                <p style="color: #1e293b; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0; Margin: 0 0 24px 0;">
+                    {{ 'invoice.info'|trans({'%company%': setting('system/company/company_name'), '%created%': invoice.created|date}, 'email') }}
+                </p>
+            </columns>
+        </row>
+    {% endapply %}
+
+    {{ email.spacer('sm') }}
+
+    {# Invoice details section #}
+    {{ email.info_row('invoice.number'|trans({}, 'email'), invoice.invoiceId) }}
+    {{ email.spacer('xs') }}
+    {{ email.info_row('invoice.created'|trans({}, 'email'), invoice.created|date) }}
+
+    {% if invoice.due %}
+        {{ email.spacer('xs') }}
+        {{ email.info_row('invoice.due'|trans({}, 'email'), invoice.due|date) }}
+    {% endif %}
+
+    {{ email.divider('md') }}
+
+    {# Financial breakdown #}
+    {{ email.info_row('invoice.subtotal'|trans({}, 'email'), invoice.baseTotal|formatCurrency(invoice.client.currency)) }}
+
+    {% set _tb = tax_breakdown(invoice) %}
+    {% if invoice.tax.positive %}
+        {{ email.spacer('xs') }}
+        {{ email.info_row('invoice.line_tax'|trans({}, 'email'), invoice.tax|formatCurrency(invoice.client.currency)) }}
+        {% for row in _tb.lineTaxRows %}
+            {{ email.spacer('xs') }}
+            {{ email.info_row(row.name ~ ' (' ~ (row.type.value == 'Flat Rate' ? row.rate : row.rate ~ '%') ~ ')', row.amount|formatCurrency(invoice.client.currency)) }}
+        {% endfor %}
+        {% for row in _tb.additiveRows %}
+            {{ email.spacer('xs') }}
+            {{ email.info_row(row.name ~ ' (' ~ (row.type.value == 'Flat Rate' ? row.rate : row.rate ~ '%') ~ ')', row.amount|formatCurrency(invoice.client.currency)) }}
+        {% endfor %}
+    {% endif %}
+
+    {% if invoice.discount.type is not empty %}
+        {{ email.spacer('xs') }}
+        {{ email.info_row('invoice.discount'|trans({}, 'email'), '-' ~ discount(invoice)|formatCurrency(invoice.client.currency)) }}
+    {% endif %}
+
+    {% if invoice.payments|length > 0 and not invoice.balance.zero %}
+        {% for payment in invoice.payments|filter((v) => v.status == enum('SolidInvoice\\PaymentBundle\\Enum\\PaymentStatus').Captured) %}
+            {{ email.spacer('xs') }}
+            {{ email.info_row('invoice.payment_method'|trans({'%method%': payment.method.name}, 'email'), (payment.total * -1)|formatCurrency(invoice.client.currency)) }}
+        {% endfor %}
+    {% endif %}
+
+    {{ email.spacer('sm') }}
+
+    {# Total/Balance - highlighted #}
+    {{ email.info_row(
+        invoice.payments|length > 0 and not invoice.balance.zero ? 'invoice.balance'|trans({}, 'email') : 'invoice.total'|trans({}, 'email'),
+        invoice.payments|length > 0 and not invoice.balance.zero ? invoice.balance|formatCurrency(invoice.client.currency) : invoice.total|formatCurrency(invoice.client.currency),
+        true
+    ) }}
+
+    {% if invoice.withholdingAmount.positive %}
+        {{ email.spacer('xs') }}
+        {{ email.info_row('invoice.withholding'|trans({}, 'email'), '-' ~ invoice.withholdingAmount|formatCurrency(invoice.client.currency)) }}
+        {{ email.spacer('xs') }}
+        {{ email.info_row('invoice.amount_payable'|trans({}, 'email'), payable_amount(invoice)|formatCurrency(invoice.client.currency), true) }}
+    {% endif %}
+
+    {# Terms section if present #}
+    {% if invoice.terms is not empty %}
+        {{ email.divider('md') }}
+
+        {% apply inky_to_html %}
+            <row>
+                <columns small="12">
+                    <p style="font-weight: 600; color: #1e293b; margin: 0 0 8px 0; Margin: 0 0 8px 0;">{{ 'invoice.terms'|trans({}, 'email') }}</p>
+                    <div style="color: #626976; font-size: 14px; line-height: 1.6;">
+                        {{ invoice.terms|nl2br }}
+                    </div>
+                </columns>
+            </row>
+        {% endapply %}
+    {% endif %}
+
+    {# Payment button #}
+    {% if payments_configured(false) %}
+        {{ email.divider('lg') }}
+        {{ email.button('invoice.pay_now'|trans([], 'email'), url('_payments_create', {'uuid': invoice.uuid}), 'primary', 'large') }}
+    {% endif %}
+
+    {{ email.spacer('md') }}
+{%- endblock -%}
+
+{%- block footer -%}
+    {{ email.footer(true, false) }}
+{%- endblock footer -%}

@@ -1,0 +1,87 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends '@SolidInvoiceCore/Layout/default_no_nav.html.twig' %}
+
+{% block heading %}
+    {% include '@SolidInvoiceSaas/subscription/_header.html.twig' %}
+{% endblock heading %}
+
+{% block content %}
+    {% set availableCompanies = app.user.companies|filter(v => v.id != company_id()) %}
+
+    <div class="subscription-page subscription-pricing-page subscription-pending-page">
+        <div class="subscription-container">
+            {# Hero #}
+            <div class="subscription-icon subscription-icon-info">
+                {{ ux_icon('tabler:rocket', {width: 32, height: 32}) }}
+            </div>
+
+            <h1 class="subscription-title">{{ 'Activate Your Subscription'|trans }}</h1>
+            <p class="subscription-subtitle">
+                {{ 'Pick a plan and start running your business with SolidInvoice in minutes.'|trans }}
+            </p>
+
+            {# Plan picker #}
+            {% if plans|default([])|length > 0 %}
+                <div class="mt-4 mb-2">
+                    {% include '@SolidInvoiceSaas/subscription/_plans_grid.html.twig' with { plans: plans } only %}
+                </div>
+
+                <p class="text-secondary small mt-3 mb-0">
+                    {{ ux_icon('tabler:lock', {width: 14, height: 14, class: 'me-1'}) }}
+                    {{ 'Secure checkout · Cancel anytime · No hidden fees'|trans }}
+                </p>
+            {% else %}
+                {# Fallback when no plans are configured — keep the original CTA so the user can still complete activation. #}
+                <div class="subscription-actions mt-4">
+                    <a href="{{ path('saas_subscription_checkout') }}" class="btn btn-primary btn-lg">
+                        {{ ux_icon('tabler:credit-card', {width: 20, height: 20}) }} {{ 'Activate Subscription'|trans }}
+                    </a>
+                </div>
+            {% endif %}
+
+            {# Edge Case: Just Completed Payment #}
+            <twig:Ui:Alert type="info" class="mt-4 text-start">
+                <div class="d-flex align-items-start gap-2">
+                    {{ ux_icon('tabler:info-circle', {width: 20, height: 20}) }}
+                    <div>
+                        <strong>{{ 'Just completed checkout?'|trans }}</strong><br>
+                        {% trans %}
+                            If you just completed the payment process, your subscription may take a moment to activate. You can refresh this page or wait a few seconds.
+                        {% endtrans %}
+                    </div>
+                </div>
+            </twig:Ui:Alert>
+
+            {# Multiple Companies #}
+            {% if availableCompanies|length > 0 %}
+                <twig:Ui:Alert type="info" class="mt-3 text-start">
+                    <div class="d-flex align-items-center gap-2">
+                        {{ ux_icon('tabler:building', {width: 20, height: 20}) }}
+                        <div>
+                            {{ 'Already activated?'|trans }}
+                            <a href="{{ path('_switch_company', {'id': availableCompanies|first.id}) }}" class="alert-link">
+                                {{ 'Switch to another company'|trans }}
+                            </a>
+                        </div>
+                    </div>
+                </twig:Ui:Alert>
+            {% endif %}
+
+            {# Help #}
+            <p class="text-secondary small mt-4 mb-0">
+                {{ 'Need a hand?'|trans }}
+                <a href="https://solidinvoice.co/contact" target="_blank" rel="external noreferrer noopener">
+                    {{ 'Contact support'|trans }}
+                </a>
+            </p>
+        </div>
+    </div>
+{% endblock content %}

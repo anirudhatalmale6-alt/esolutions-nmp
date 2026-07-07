@@ -1,0 +1,76 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/Email/notification.html.twig" %}
+{% import "@SolidInvoiceCore/Layout/Email/components.html.twig" as email %}
+
+{%- block title -%}
+    {{ 'client.create.heading'|trans({}, 'email') }}
+{%- endblock -%}
+
+{%- block content -%}
+    {% apply inky_to_html %}
+        <row>
+            <columns>
+                <p style="color: #1e293b; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0; Margin: 0 0 24px 0;">
+                    {{ 'client.create.message'|trans({}, 'email') }}
+                </p>
+            </columns>
+        </row>
+    {% endapply %}
+
+    {{ email.spacer('sm') }}
+
+    {# Client details #}
+    {{ email.info_row('client.create.details.name'|trans({}, 'email'), client.name, true) }}
+
+    {{ email.spacer('sm') }}
+
+    {% if client.website is not empty %}
+        {% set website_url = client.website starts with 'http://' or client.website starts with 'https://' ? client.website : 'https://' ~ client.website %}
+        {{ email.info_row('client.create.details.website'|trans({}, 'email'), ('<a href="' ~ website_url|e('html_attr') ~ '" rel="external noreferrer noopener" target="_blank" style="color: #206bc4; text-decoration: none;">' ~ client.website|e ~ '</a>')|raw) }}
+        {{ email.spacer('xs') }}
+    {% endif %}
+
+    {% for identifier in tax_identifiers(client) %}
+        {{ email.info_row(identifier.label, identifier.value) }}
+        {{ email.spacer('xs') }}
+    {% endfor %}
+
+    {# Contacts section #}
+    {% if client.contacts|length > 0 %}
+        {{ email.divider('md') }}
+
+        {% apply inky_to_html %}
+            <row>
+                <columns>
+                    <h3 style="color: #1e293b; font-size: 18px; font-weight: 700; margin: 0 0 16px 0; Margin: 0 0 16px 0;">
+                        {{ 'client.create.contacts.heading'|trans({}, 'email') }}
+                    </h3>
+                </columns>
+            </row>
+        {% endapply %}
+
+        {% for contact in client.contacts %}
+            {{ email.info_row('client.create.contacts.name'|trans({}, 'email'), contact.firstName ~ ' ' ~ contact.lastName) }}
+            {{ email.spacer('xs') }}
+            {{ email.info_row('client.create.details.email'|trans({}, 'email'), contact.email) }}
+            {% if not loop.last %}
+                {{ email.spacer('sm') }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    {{ email.divider('md') }}
+
+    {# View button #}
+    {{ email.button('client.create.view_client'|trans({}, 'email'), url('_clients_view', {'id': client.id}), 'primary', 'large') }}
+
+    {{ email.spacer('md') }}
+{%- endblock -%}

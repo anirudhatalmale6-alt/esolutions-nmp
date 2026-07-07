@@ -1,0 +1,64 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{{ form_errors(form) }}
+
+<div class="contact-card">
+    <div class="contact-card-header">
+        <div class="contact-avatar">
+            {{ ux_icon('tabler:user', {width: 20, height: 20}) }}
+        </div>
+        <div class="contact-card-title">
+            <span class="contact-label">{{ 'Contact'|trans }}</span>
+        </div>
+        <div class="contact-card-actions">
+            {#{{ form_widget(form.vars.button_delete, {
+                label: '',
+                attr: {
+                    class: 'btn btn-ghost-danger btn-sm',
+                    title: 'client.contact.delete'|trans,
+                    'aria-label': 'client.contact.delete'|trans
+                }
+            }) }}#}
+        </div>
+    </div>
+
+    <div class="contact-card-body">
+        <div class="contact-form-grid">
+            <div class="contact-field contact-field-name">
+                {{ form_row(form.firstName, {
+                    attr: {
+                        placeholder: 'John'|trans
+                    }
+                }) }}
+            </div>
+            <div class="contact-field contact-field-name">
+                {{ form_row(form.lastName, {
+                    attr: {
+                        placeholder: 'Doe'|trans
+                    }
+                }) }}
+            </div>
+            <div class="contact-field contact-field-email">
+                {{ form_row(form.email, {
+                    attr: {
+                        placeholder: 'john.doe@example.com'
+                    }
+                }) }}
+            </div>
+        </div>
+
+        {% if form.customFields|length > 0 %}
+        <div class="mt-2">
+            <strong class="d-block mb-1">{{ 'Custom fields'|trans }}</strong>
+            {{ form_widget(form.customFields) }}
+        </div>
+        {% endif %}
+    </div>
+</div>

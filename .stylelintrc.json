@@ -1,0 +1,48 @@
+{
+    "extends": "stylelint-config-standard-scss",
+    "plugins": ["stylelint-scss"],
+    "customSyntax": "postcss-scss",
+    "ignoreFiles": [
+        "assets/scss/email/**",
+        "assets/scss/email.scss"
+    ],
+    "rules": {
+        "no-duplicate-selectors": null,
+        "color-hex-length": "long",
+        "color-named": "never",
+        "declaration-block-no-duplicate-properties": true,
+        "declaration-block-single-line-max-declarations": 1,
+        "block-no-empty": true,
+        "selector-attribute-quotes": "always",
+        "function-url-quotes": "always",
+        "comment-empty-line-before": "always",
+        "rule-empty-line-before": "always",
+        "selector-pseudo-element-colon-notation": "double",
+        "selector-max-universal": 0,
+        "no-descending-specificity": null,
+        "color-function-alias-notation": null,
+        "selector-pseudo-element-no-unknown": [true, {
+            "ignorePseudoElements": ["v-deep"]
+        }],
+        "at-rule-no-unknown": null,
+        "scss/at-rule-no-unknown": true,
+        "selector-class-pattern": [
+            "^([a-z][a-z0-9]*)(-[a-z0-9]+)*(--[a-z0-9]+(-[a-z0-9]+)*)?(__[a-z0-9]+(-[a-z0-9]+)*)?(--[a-z0-9]+(-[a-z0-9]+)*)?$",
+            {
+                "message": "Expected class selector to be BEM or kebab-case"
+            }
+        ],
+        "selector-id-pattern": [
+            "^[a-z][a-zA-Z0-9]*$",
+            {
+                "message": "Expected id selector to be camelCase"
+            }
+        ],
+        "keyframes-name-pattern": [
+            "^([a-z][a-z0-9]*)(-[a-z0-9]+)*$",
+            {
+                "message": "Expected keyframe name to be kebab-case"
+            }
+        ]
+    }
+}

@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\CoreBundle\Pdf;
+
+use Mpdf\Mpdf;
+use Mpdf\MpdfException;
+use Mpdf\Output\Destination;
+use Psr\Log\LoggerInterface;
+
+/**
+ * @see \SolidInvoice\CoreBundle\Tests\Pdf\GeneratorTest
+ */
+class Generator
+{
+    public function __construct(
+        private readonly string $cacheDir,
+        private readonly LoggerInterface $logger
+    ) {
+    }
+
+    /**
+     * @throws MpdfException
+     */
+    public function generate(string $html): string
+    {
+        $mpdf = new Mpdf([
+            'tempDir' => $this->cacheDir . '/pdf',
+            'margin_left' => 15,
+            'margin_right' => 15,
+            'margin_top' => 20,
+            'margin_bottom' => 25,
+            'margin_header' => 10,
+            'margin_footer' => 10,
+            'default_font' => 'helvetica',
+        ]);
+
+        $mpdf->allow_charset_conversion = false;
+        $mpdf->showWatermarkText = true;
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->SetProtection(['print']);
+        $mpdf->setLogger($this->logger);
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output(null, Destination::STRING_RETURN);
+    }
+
+    public function canPrintPdf(): bool
+    {
+        return \extension_loaded('mbstring') && \extension_loaded('gd');
+    }
+}

@@ -1,0 +1,84 @@
+<div {{ attributes }}>
+    <div class="client-contact-card card">
+        <div class="card-header">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="client-contact-avatar">
+                        {{ ux_icon('tabler:user', {width: 16, height: 16}) }}
+                    </span>
+                    <span class="client-contact-name">{{ computed.contact }}</span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-ghost-secondary btn-icon btn-icon-sm"
+                            title="{{ 'contact_edit'|trans }}"
+                            data-model="edit" data-value="true" data-action="live#update:prevent">
+                        {{ ux_icon('tabler:pencil', {width: 16, height: 16}) }}
+                    </button>
+                    {% if this.canDelete %}
+                        <button type="button" class="btn btn-ghost-danger btn-icon btn-icon-sm"
+                                title="{{ 'contact_delete'|trans }}"
+                                data-bs-toggle="modal" data-bs-target="#delete-contact-{{ computed.contact.id }}">
+                            {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            {% if this.edit %}
+                {{ form_start(form, {attr: {
+                    'data-action': 'live#action:prevent',
+                    'data-live-action-param': 'save'
+                }}) }}
+
+                {{ form_row(form) }}
+
+                <div class="client-form-actions">
+                    <button type="button" class="btn btn-ghost" data-model="edit" data-value="false" data-action="live#update:prevent">
+                        {{ 'Cancel'|trans }}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {{ ux_icon('tabler:device-floppy', {width: 16, height: 16}) }}
+                        {{ 'Save'|trans }}
+                    </button>
+                </div>
+                {{ form_end(form) }}
+            {% else %}
+                <div class="client-contact-detail">
+                    <span class="client-contact-detail-icon">
+                        {{ ux_icon('tabler:mail', {width: 16, height: 16}) }}
+                    </span>
+                    <div>
+                        <div class="client-contact-detail-label">{{ 'client.contact.details.email'|trans }}</div>
+                        <div class="client-contact-detail-value">
+                            <a href="mailto:{{ computed.contact.email }}">{{ computed.contact.email }}</a>
+                        </div>
+                    </div>
+                </div>
+
+                <twig:CustomFieldsList :target="enum('SolidInvoice\\CoreBundle\\Enum\\CustomFieldTarget').CONTACT" :recordId="computed.contact.id" />
+
+            {% endif %}
+        </div>
+    </div>
+
+    {% if this.canDelete %}
+        <twig:Ui:Modal id="delete-contact-{{ computed.contact.id }}" title="{{ 'Confirm'|trans }}" status="danger" :centered="true">
+            <div class="text-center py-3">
+                <div class="mb-3">
+                    {{ ux_icon('tabler:user-minus', {width: 48, height: 48, class: 'text-danger'}) }}
+                </div>
+                <p>{{ 'Are you sure you want to delete the contact?'|trans }}</p>
+            </div>
+
+            <twig:block name="footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                <button type="button" class="btn btn-danger" data-action="live#action:prevent" data-live-action-param="delete">
+                    {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                    {{ 'Confirm'|trans }}
+                </button>
+            </twig:block>
+        </twig:Ui:Modal>
+    {% endif %}
+</div>

@@ -1,0 +1,507 @@
+name: "Release"
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SolidInvoice version"
+        required: false
+        type: string
+      branch:
+        description: "Branch to build from (defaults to version/tag if not specified)"
+        required: false
+        type: string
+      release:
+        description: "Push builds to release"
+        required: false
+        type: boolean
+        default: true
+
+env:
+  SOLIDINVOICE_ENV: prod
+  SOLIDINVOICE_DEBUG: 0
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.check.outputs.ref }}
+      branch: ${{ steps.check.outputs.branch }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Get version
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_INPUT: ${{ github.event.inputs.release }}
+        run: |
+          if [[ "${REF_TYPE}" == "tag" ]]; then
+            ref="${REF_NAME}"
+          elif [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_VERSION}" ]]; then
+            ref="${INPUT_VERSION}"
+          else
+            ref="$(gh release view --repo solidinvoice/solidinvoice --json tagName --jq '.tagName')"
+          fi
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+
+          # Use explicitly provided branch, or fall back to ref (tag)
+          branch="${INPUT_BRANCH:-${ref}}"
+          echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
+
+          if [[ "${EVENT_NAME}" == "push" && "${REF_TYPE}" == "tag" ]]; then
+            echo "release=1" >> "${GITHUB_OUTPUT}"
+          else
+            echo "release=$([[ "${RELEASE_INPUT}" == "true" ]] && echo 1 || echo 0)" >> "${GITHUB_OUTPUT}"
+          fi
+
+  build-dist:
+    permissions:
+      contents: write  # for actions/create-release to create a release
+    name: Build Assets
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
+        with:
+          coverage: none
+          ini-values: memory_limit=-1
+          php-version-file: .php-version
+
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+
+      - name: Build Release Artifact
+        env:
+          RELEASE: ${{ needs.prepare.outputs.release }}
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          BUILD_BRANCH: ${{ needs.prepare.outputs.branch }}
+          BUILD_VERSION: ${{ needs.prepare.outputs.ref }}
+        run: "./scripts/build_dist.sh ${BUILD_BRANCH} ${BUILD_VERSION}"
+
+      - name: Upload TAR archive
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.tar.gz
+          path: build/dist/SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.tar.gz
+
+      - name: Upload ZIP archive
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.zip
+          path: build/dist/SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.zip
+
+  build-mac:
+    name: Build ${{ matrix.os }}-${{ matrix.platform }} binaries
+    needs: [prepare, build-dist]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: arm64
+            os: macos-latest
+          - platform: x86_64
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      SOLIDINVOICE_VERSION: ${{ needs.prepare.outputs.ref }}
+      PHP_VERSION: 8.5
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - name: Download archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.tar.gz
+          path: build/dist
+
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: frankenphp/go.mod
+          cache-dependency-path: frankenphp/go.sum
+
+      # Cache key is based on the build scripts (which determine PHP version and
+      # extensions) so the cache is invalidated automatically when they change.
+      - name: Restore static-php cache
+        id: restore-static-php
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: frankenphp/dist/static-php-cli
+          key: ${{ matrix.os }}-${{ matrix.platform }}-static-php-${{ env.PHP_VERSION }}-${{ hashFiles('frankenphp/build-static.sh', 'frankenphp/build-solidinvoice.sh') }}
+          restore-keys: |
+              ${{ matrix.os }}-${{ matrix.platform }}-static-php-${{ env.PHP_VERSION }}-
+              ${{ matrix.os }}-${{ matrix.platform }}-static-php-
+
+      - name: Build SolidInvoice
+        run: ./scripts/build_binary.sh ${{ needs.prepare.outputs.ref }}
+        env:
+          # GITHUB_TOKEN needs to be defined twice here.
+          # GH_TOKEN is used by the gh cli utility to upload the binary files
+          # GITHUB_TOKEN is used by static-php-cli script to make api calls to Github
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          RELEASE: ${{ needs.prepare.outputs.release }}
+          # Use pre-built extension binaries where available to avoid compiling
+          # PHP and all extensions from source (~50 min → a few minutes).
+          SPC_OPT_DOWNLOAD_ARGS: "--ignore-cache-sources=php-src --retry 5 --prefer-pre-built"
+
+      - name: Upload static-php-cli build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: static-php-build-logs-${{ matrix.os }}-${{ matrix.platform }}
+          path: |
+            frankenphp/dist/static-php-cli/log/spc.output.log
+            frankenphp/dist/static-php-cli/log/spc.shell.log
+            frankenphp/dist/static-php-cli/log/php-src.config.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save static-php cache
+        if: steps.restore-static-php.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: frankenphp/dist/static-php-cli
+          key: ${{ matrix.os }}-${{ matrix.platform }}-static-php-${{ env.PHP_VERSION }}-${{ hashFiles('frankenphp/build-static.sh', 'frankenphp/build-solidinvoice.sh') }}
+
+  build-linux:
+    name: Build Linux ${{ matrix.arch }} binary
+    needs: [prepare, build-dist]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      SOLIDINVOICE_VERSION: ${{ needs.prepare.outputs.ref }}
+      PHP_VERSION: 8.5
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: frankenphp/go.mod
+          cache-dependency-path: frankenphp/go.sum
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
+        with:
+          coverage: none
+          ini-values: memory_limit=-1
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake bison cmake flex libtool pkg-config re2c upx
+
+      - name: Restore static-php cache
+        id: restore-static-php
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: frankenphp/dist/static-php-cli
+          key: linux-${{ matrix.arch }}-static-php-${{ env.PHP_VERSION }}-${{ hashFiles('frankenphp/build-static.sh', 'frankenphp/build-solidinvoice.sh') }}
+          restore-keys: |
+              linux-${{ matrix.arch }}-static-php-${{ env.PHP_VERSION }}-
+              linux-${{ matrix.arch }}-static-php-
+
+      - name: Download archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: SolidInvoice-${{ needs.prepare.outputs.ref || github.ref }}.tar.gz
+          path: build/dist
+
+      - name: Build SolidInvoice
+        run: ./scripts/build_binary.sh ${{ needs.prepare.outputs.ref }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          RELEASE: ${{ needs.prepare.outputs.release }}
+          # Unset CI so build-static.sh preserves downloads/ and source/ for caching
+          CI: ""
+          SPC_OPT_DOWNLOAD_ARGS: "--ignore-cache-sources=php-src --retry 5 --prefer-pre-built"
+
+      - name: Upload static-php-cli build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: static-php-build-logs-linux-${{ matrix.arch }}
+          path: |
+            frankenphp/dist/static-php-cli/log/spc.output.log
+            frankenphp/dist/static-php-cli/log/spc.shell.log
+            frankenphp/dist/static-php-cli/log/php-src.config.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save static-php cache
+        if: steps.restore-static-php.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: frankenphp/dist/static-php-cli
+          key: linux-${{ matrix.arch }}-static-php-${{ env.PHP_VERSION }}-${{ hashFiles('frankenphp/build-static.sh', 'frankenphp/build-solidinvoice.sh') }}
+
+      - name: Login to DockerHub
+        if: needs.prepare.outputs.release == '1'
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          username: ${{ vars.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set up Docker Buildx
+        if: needs.prepare.outputs.release == '1'
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Copy binary to Docker context
+        if: needs.prepare.outputs.release == '1'
+        run: cp frankenphp/dist/solidinvoice-linux-${{ matrix.arch }} docker/solidinvoice
+
+      - name: Build and push Docker image
+        if: needs.prepare.outputs.release == '1'
+        id: build
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c # v6.9.0
+        with:
+          targets: package
+          source: .
+          set: |
+            package.platform=${{ matrix.platform }}
+            package.tags=
+            package.output=type=image,name=solidinvoice/solidinvoice,push-by-digest=true,name-canonical=true,push=true
+        env:
+          SOLIDINVOICE_VERSION: ${{ needs.prepare.outputs.ref }}
+          LATEST: ${{ !contains(needs.prepare.outputs.ref, '-') }}
+
+      - name: Export digest for manifest merge
+        if: needs.prepare.outputs.release == '1'
+        run: |
+          mkdir -p /tmp/digests
+          digest=$(jq -r '."package"."containerimage.digest"' <<< "$METADATA")
+          touch "/tmp/digests/${digest#sha256:}"
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+
+      - name: Upload digest artifact
+        if: needs.prepare.outputs.release == '1'
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: digest-linux-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+  publish-docker:
+    name: Publish multi-platform Docker image
+    needs: [prepare, build-linux]
+    permissions:
+      contents: read
+    if: needs.prepare.outputs.release == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Login to DockerHub
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          username: ${{ vars.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Download digests
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: digest-linux-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Create and push multi-platform manifest
+        run: |
+          IMAGE="solidinvoice/solidinvoice"
+
+          TAGS="-t ${IMAGE}:${VERSION}"
+
+          # For stable releases (no pre-release suffix like -alpha1, -beta2), also tag
+          # with major, major.minor, major.minor.patch, and latest
+          if [[ "${VERSION}" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            TAGS="${TAGS} -t ${IMAGE}:${MAJOR}.${MINOR}.${PATCH}"
+            TAGS="${TAGS} -t ${IMAGE}:${MAJOR}.${MINOR}"
+            TAGS="${TAGS} -t ${IMAGE}:${MAJOR}"
+            TAGS="${TAGS} -t ${IMAGE}:latest"
+          fi
+
+          # Combine per-platform digests into a single multi-arch manifest
+          # shellcheck disable=SC2086
+          docker buildx imagetools create ${TAGS} \
+            $(printf "${IMAGE}@sha256:%s " $(ls /tmp/digests/))
+        env:
+          VERSION: ${{ needs.prepare.outputs.ref }}
+
+  publish-helm:
+    name: Publish Helm Chart
+    needs: [prepare, publish-docker]
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Add subchart repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add meilisearch https://meilisearch.github.io/meilisearch-kubernetes
+          helm repo update
+
+      - name: Set chart version
+        env:
+          VERSION: ${{ needs.prepare.outputs.ref }}
+        run: |
+          # Strip leading 'v' — Helm versions must not have a 'v' prefix
+          CHART_VERSION="${VERSION#v}"
+          echo "CHART_VERSION=${CHART_VERSION}" >> "$GITHUB_ENV"
+          sed -i "s/^version: .*/version: ${CHART_VERSION}/" helm/solidinvoice/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${CHART_VERSION}\"/" helm/solidinvoice/Chart.yaml
+
+      - name: Update Helm dependencies
+        run: helm dep update helm/solidinvoice
+
+      - name: Package chart
+        run: helm package helm/solidinvoice --destination /tmp/helm-packages
+
+      - name: Upload chart to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.ref }}
+        run: |
+          gh release upload "$VERSION" /tmp/helm-packages/*.tgz \
+            --repo solidinvoice/solidinvoice --clobber
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart to GHCR (OCI)
+        run: |
+          for chart in /tmp/helm-packages/*.tgz; do
+            helm push "$chart" oci://ghcr.io/solidinvoice/charts
+          done
+
+      - name: Publish to Helm repository (gh-pages)
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+
+          # Save files we need before the branch switch wipes the working tree
+          cp helm/artifacthub-repo.yml /tmp/artifacthub-repo.yml 2>/dev/null || true
+
+          # Discard the working-tree edits made by the version bump and
+          # 'helm dep update' (Chart.yaml / Chart.lock). They're already baked
+          # into the packaged .tgz, and would otherwise block the branch switch
+          # ("local changes would be overwritten by checkout").
+          git checkout -- .
+
+          # Switch to gh-pages branch, creating an orphan if it doesn't exist yet
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . --quiet
+          fi
+
+          # Copy packaged chart into the gh-pages root
+          cp /tmp/helm-packages/*.tgz .
+
+          # Ensure the custom domain CNAME is in place
+          echo "charts.solidinvoice.co" > CNAME
+
+          # Copy Artifact Hub repository configuration
+          cp /tmp/artifacthub-repo.yml . 2>/dev/null || true
+
+          # Regenerate index.yaml, merging with any existing entries
+          if [ -f index.yaml ]; then
+            helm repo index . \
+              --url "https://charts.solidinvoice.co" \
+              --merge index.yaml
+          else
+            helm repo index . \
+              --url "https://charts.solidinvoice.co"
+          fi
+
+          git add index.yaml *.tgz CNAME
+          [ -f artifacthub-repo.yml ] && git add artifacthub-repo.yml
+          git commit -m "chore: release Helm chart ${CHART_VERSION}"
+          git push origin gh-pages

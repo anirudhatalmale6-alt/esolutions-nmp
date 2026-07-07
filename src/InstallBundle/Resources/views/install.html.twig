@@ -1,0 +1,18 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends '@SolidInvoiceInstall/layout.html.twig' %}
+
+{% block content %}
+    <div class="w-75 mx-auto">
+        <div class="card shadow-lg">
+            <twig:SystemInstallation :form="form" />
+        </div>
+    </div>
+{% endblock %}

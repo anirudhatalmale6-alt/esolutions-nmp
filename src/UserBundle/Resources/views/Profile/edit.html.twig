@@ -1,0 +1,95 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% set menuItem = 'profile' %}
+
+{% extends "@SolidInvoiceUser/Layout/profile.html.twig" %}
+
+{% block title %}{{ "profile.edit.title"|trans }}{% endblock title %}
+{% block page_title %}{{ ux_icon('tabler:user-edit', {width: 24, height: 24, class: 'me-2'}) }}{{ "profile.edit.title"|trans }}{% endblock page_title %}
+
+{% block profile_content %}
+    <div class="form-page">
+        {{ form_start(form) }}
+
+        {{ form_errors(form) }}
+
+        <div class="form-page-container form-page-container--narrow">
+            {# Page Header #}
+            <div class="form-page-header">
+                <div class="form-page-header-content">
+                    <div class="form-page-icon">
+                        {{ ux_icon('tabler:user-edit', {width: 28, height: 28}) }}
+                    </div>
+                    <div>
+                        <h1 class="form-page-title">{{ 'profile.edit.title'|trans }}</h1>
+                        <p class="form-page-subtitle">{{ 'profile.edit.subtitle'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+
+            {# Main Form Content #}
+            <div class="form-page-sections">
+                <section class="form-page-section" id="profile-details">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            {{ ux_icon('tabler:settings', {width: 20, height: 20}) }}
+                        </div>
+                        <div class="section-header-text">
+                            <h2 class="section-title">{{ 'profile.edit.section.personal.title'|trans }}</h2>
+                            <p class="section-description">{{ 'profile.edit.section.personal.description'|trans }}</p>
+                        </div>
+                    </div>
+
+                    <div class="section-content">
+                        <div class="form-grid">
+                            <div class="form-field">
+                                {{ form_row(form.firstName) }}
+                            </div>
+
+                            <div class="form-field">
+                                {{ form_row(form.lastName) }}
+                            </div>
+
+                            <div class="form-field form-field-wide">
+                                {{ form_row(form.email) }}
+                            </div>
+
+                            <div class="form-field form-field-wide">
+                                {{ form_row(form.mobile) }}
+                            </div>
+
+                            <div class="form-field form-field-wide">
+                                {{ form_row(form.current_password) }}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {{ form_rest(form) }}
+
+            {# Sticky Footer with Actions #}
+            <div class="form-page-actions">
+                <div class="form-page-actions-inner">
+                    <a href="{{ path('_profile') }}" class="btn btn-ghost">
+                        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+                        {{ 'profile.edit.cancel'|trans }}
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-save">
+                        {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
+                        {{ 'profile.edit.submit'|trans }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{ form_end(form) }}
+    </div>
+{% endblock profile_content %}

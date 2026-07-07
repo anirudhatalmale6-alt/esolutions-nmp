@@ -1,0 +1,153 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\ApiBundle\Security;
+
+use Doctrine\Persistence\ManagerRegistry;
+use SolidInvoice\ApiBundle\Security\Provider\ApiTokenUserProvider;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Company\ResolvedHost;
+use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Listener\HostRoutingListener;
+use SolidInvoice\UserBundle\Entity\ApiToken;
+use SolidInvoice\UserBundle\Entity\ApiTokenHistory;
+use SolidInvoice\UserBundle\Repository\ApiTokenHistoryRepository;
+use SolidInvoice\UserBundle\Repository\ApiTokenRepository;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\AccessDecision;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
+use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
+use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+/**
+ * @see \SolidInvoice\ApiBundle\Tests\Security\ApiTokenAuthenticatorTest
+ */
+class ApiTokenAuthenticator extends AbstractAuthenticator
+{
+    public function __construct(
+        private readonly ApiTokenUserProvider $userProvider,
+        private readonly ManagerRegistry $registry,
+        private readonly TranslatorInterface $translator,
+        private readonly CompanySelector $companySelector,
+        private readonly AuthorizationCheckerInterface $authorizationChecker,
+        private readonly ApiTokenRepository $apiTokenRepository,
+    ) {
+    }
+
+    public function supports(Request $request): bool
+    {
+        return null !== $this->extractToken($request);
+    }
+
+    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+    {
+        $apiToken = $this->extractToken($request);
+
+        $history = new ApiTokenHistory();
+
+        $history->setMethod($request->getMethod())
+            ->setIp($request->getClientIp())
+            ->setRequestData($request->request->all())
+            ->setUserAgent($request->server->get('HTTP_USER_AGENT'))
+            ->setResource($request->getPathInfo());
+
+        /** @var ApiTokenHistoryRepository $repository */
+        $repository = $this->registry->getRepository(ApiTokenHistory::class);
+
+        $repository->addHistory($history, $apiToken);
+
+        $apiTokenEntity = $this->apiTokenRepository->findOneByPlaintext($apiToken);
+
+        if ($apiTokenEntity instanceof ApiToken) {
+            $resolved = $request->attributes->get(HostRoutingListener::REQUEST_ATTR);
+
+            if ($resolved instanceof ResolvedHost && $resolved->isCustomDomain() && (! $resolved->company instanceof Company || ! $resolved->company->getId()->equals($apiTokenEntity->getCompany()->getId()))) {
+                throw new CustomUserMessageAuthenticationException('Invalid API token');
+            }
+
+            $this->companySelector->switchCompany($apiTokenEntity->getCompany()->getId());
+
+            $decision = new AccessDecision();
+
+            // Symfony 7.3+ accepts an AccessDecision as a third optional argument;
+            // the interface declaration still describes it via comment-only signature.
+            // @phpstan-ignore arguments.count
+            if (! $this->authorizationChecker->isGranted(Attribute::ACCESS, null, $decision)) {
+                return new JsonResponse(
+                    ['message' => $this->extractReason($decision)],
+                    Response::HTTP_FORBIDDEN,
+                );
+            }
+        }
+
+        return null;
+    }
+
+    private function extractToken(Request $request): ?string
+    {
+        $apiToken = trim((string) $request->headers->get('X-API-TOKEN'));
+
+        return $apiToken === '' ? null : $apiToken;
+    }
+
+    private function extractReason(AccessDecision $decision): string
+    {
+        $reasons = [];
+
+        foreach ($decision->votes as $vote) {
+            foreach ($vote->reasons as $reason) {
+                $reasons[] = $reason;
+            }
+        }
+
+        $message = trim(implode(' ', $reasons));
+
+        return $message === '' ? 'Access denied.' : $message;
+    }
+
+    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
+    {
+        $data = [
+            'message' => $this->translator->trans($exception->getMessageKey(), $exception->getMessageData())
+        ];
+
+        return new JsonResponse($data, Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function authenticate(Request $request): Passport
+    {
+        $apiToken = $this->extractToken($request);
+
+        if (null === $apiToken) {
+            // The token header was missing or empty, authentication fails with
+            // HTTP Status Code 401 "Unauthorized"
+            throw new CustomUserMessageAuthenticationException('No API token provided');
+        }
+
+        $userIdentifier = $this->userProvider->getUsernameForToken($apiToken);
+
+        if (! $userIdentifier) {
+            throw new CustomUserMessageAuthenticationException('Invalid API token');
+        }
+
+        return new SelfValidatingPassport(new UserBadge($userIdentifier));
+    }
+}

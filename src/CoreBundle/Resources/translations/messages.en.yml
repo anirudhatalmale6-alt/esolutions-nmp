@@ -1,0 +1,50 @@
+menu:
+    button:
+        create: Create
+    top:
+        dashboard: Dashboard
+        profile: Profile
+        api: 'API Tokens'
+        logout: Logout
+        system: 'System'
+        settings: Settings
+        integrations: Integrations
+        tax: 'Tax Rates'
+        users: 'Users'
+        custom_fields: 'Custom Fields'
+exception:
+    error:
+        text: 'The following error occurred:'
+    not_found:
+        text: 'Sorry, but the page you were trying to view does not exist.'
+    403:
+        title: 'Access denied'
+        text: "You don't have permission to view this page."
+    404:
+        title: 'Page not found'
+        text: "We couldn't find the page you were looking for."
+    500:
+        title: 'Internal server error'
+        text: 'Something went wrong on our end. Please try again in a moment.'
+    generic:
+        title: 'Oops, something went wrong'
+        text: 'An unexpected error occurred. Please try again.'
+    action:
+        back: 'Go back'
+        dashboard: 'Go to dashboard'
+        sign_in: 'Sign in'
+billing:
+    subtotal: SubTotal
+    tax: Tax
+    discount: Discount
+    total: Total
+notification.send_failed: 'Failed to send notification. Please verify your email configuration in Settings.'
+powered_by: 'Powered By'
+pdf:
+    page: 'Page'
+    of: 'of'
+invalid_file: 'Invalid File'
+create_new: 'Create New'
+invoice: Invoice
+quote: Quote
+client: Client

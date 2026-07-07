@@ -1,0 +1,461 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% set currency = invoice.client.currency %}
+{% set hasOutstandingBalance = invoice.payments|length > 0 and not invoice.balance.zero %}
+
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <style type="text/css">
+        {{ file(asset('static/pdf.css')) }}
+
+        @page {
+            margin-top: 20mm;
+            margin-bottom: 25mm;
+            margin-left: 15mm;
+            margin-right: 15mm;
+            footer: footer;
+        }
+    </style>
+</head>
+<body>
+
+{# ============================================================================
+   STATUS WATERMARK
+============================================================================ #}
+{% if false %}{# status watermark removed per client request #}
+    <watermarktext content="{{ invoice.status.value|upper }}" alpha="0.08"/>
+{% endif %}
+
+{# ============================================================================
+   PAGE FOOTER (mPDF specific)
+============================================================================ #}
+<pagefooter
+    name="footer"
+    content-left=""
+    content-right="{{ 'pdf.page'|trans }} {PAGENO} {{ 'pdf.of'|trans }} {nb}"
+    line="on"
+    footer-style="border-top: 1px solid #e2e8f0; font-size: 8pt; color: #64748b; padding-top: 8px;"
+/>
+
+{# ============================================================================
+   HEADER SECTION - Company Info + Invoice Details
+============================================================================ #}
+<table class="invoice-header-table" cellpadding="0" cellspacing="0">
+    <tr>
+        <td class="header-left" style="width: 50%; vertical-align: top;">
+            {# Company Logo #}
+            {% set logo = setting('system/company/logo') %}
+            {% if logo is not empty %}
+                <div class="company-logo" style="margin-bottom: 14px;">
+                    {{ app_logo(80) }}
+                </div>
+            {% endif %}
+
+            {# Company Name #}
+            <div class="company-name" style="font-size: 18pt; font-weight: bold; color: #1e293b; margin-bottom: 8px; margin-top: 4px;">
+                {{ company_name() }}
+            </div>
+
+            {# Company Details #}
+            <div class="company-details" style="font-size: 9pt; color: #475569; line-height: 1.6;">
+                {% for identifier in tax_identifiers() %}
+                    <div><span style="font-weight: 600; color: #1e293b;">{{ identifier.label }}:</span> {{ identifier.value }}</div>
+                {% endfor %}
+
+                {% set email = setting('system/company/contact_details/email') %}
+                {% if email is not empty %}
+                    <div>{{ email }}</div>
+                {% endif %}
+
+                {% set phoneNumber = setting('system/company/contact_details/phone_number') %}
+                {% if phoneNumber is not empty %}
+                    <div>{{ phoneNumber }}</div>
+                {% endif %}
+
+                {% set companyAddress = setting('system/company/contact_details/address', null, true) %}
+                {% if companyAddress is not empty %}
+                    <div>{{ address(companyAddress)|replace({"\n": ", "}) }}</div>
+                {% endif %}
+            </div>
+        </td>
+
+        <td class="header-right" style="width: 50%; vertical-align: top; text-align: right;">
+            {# Invoice Label #}
+            <div class="invoice-label" style="font-size: 10pt; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">
+                {{ 'invoice.pdf.title'|trans }}
+            </div>
+
+            {# Invoice Number #}
+            <div class="invoice-number" style="font-size: 24pt; font-weight: bold; color: #1e293b; margin-bottom: 16px;">
+                #{{ invoice.invoiceId }}
+            </div>
+
+            {# Invoice Dates #}
+            <table class="invoice-dates-table" cellpadding="0" cellspacing="0" style="margin-left: auto; margin-bottom: 16px;">
+                <tr>
+                    <td class="date-label" style="font-size: 9pt; color: #64748b; text-align: right; padding: 4px 16px 4px 0;">
+                        {{ 'invoice.date'|trans }}
+                    </td>
+                    <td class="date-value" style="font-size: 9pt; color: #1e293b; font-weight: 500; text-align: right; padding: 4px 0;">
+                        {{ invoice.invoiceDate|date('F j, Y') }}
+                    </td>
+                </tr>
+                {% if invoice.due %}
+                    {% set now = "now"|date("U") %}
+                    {% set dueTimestamp = invoice.due|date("U") %}
+                    {% set daysDiff = ((dueTimestamp - now) / 86400)|round(0, 'floor') %}
+                    {% set isOverdue = daysDiff < 0 %}
+                    {% set daysOverdue = (daysDiff * -1) %}
+
+                    <tr>
+                        <td class="date-label" style="font-size: 9pt; color: #64748b; text-align: right; padding: 4px 16px 4px 0;">
+                            {{ 'invoice.due_date'|trans }}
+                        </td>
+                        <td class="date-value" style="font-size: 9pt; font-weight: 500; text-align: right; padding: 4px 0; {% if isOverdue %}color: #dc2626;{% else %}color: #1e293b;{% endif %}">
+                            {{ invoice.due|date('F j, Y') }}
+                        </td>
+                    </tr>
+                    {# Due date urgency indicator #}
+                    {% if invoice.status != enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
+                        <tr>
+                            <td colspan="2" style="text-align: right; padding: 2px 0 4px 0;">
+                                {% if isOverdue %}
+                                    <span style="font-size: 8pt; font-weight: bold; color: #dc2626; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        {{ 'invoice.pdf.overdue_by'|trans({'%days%': daysOverdue}) }}
+                                    </span>
+                                {% elseif daysDiff == 0 %}
+                                    <span style="font-size: 8pt; font-weight: bold; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        {{ 'invoice.pdf.due_today'|trans }}
+                                    </span>
+                                {% elseif daysDiff <= 7 %}
+                                    <span style="font-size: 8pt; font-weight: 600; color: #f59e0b;">
+                                        {{ 'invoice.pdf.due_in_days'|trans({'%days%': daysDiff}) }}
+                                    </span>
+                                {% else %}
+                                    <span style="font-size: 8pt; color: #64748b;">
+                                        {{ 'invoice.pdf.due_in_days'|trans({'%days%': daysDiff}) }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endif %}
+            </table>
+
+            {# Total Due Box #}
+            <table cellpadding="0" cellspacing="0" style="margin-left: auto;">
+                <tr>
+                    <td style="background-color: #2e963a; color: #ffffff; padding: 14px 20px; border-radius: 6px; text-align: right;">
+                        <div style="font-size: 8pt; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                            {% if hasOutstandingBalance %}
+                                {{ 'invoice.balance_due'|trans }}
+                            {% else %}
+                                {{ 'invoice.total_due'|trans }}
+                            {% endif %}
+                        </div>
+                        <div style="font-size: 18pt; font-weight: bold;">
+                            {% if hasOutstandingBalance %}
+                                {{ invoice.balance|formatCurrency(currency) }}
+                            {% else %}
+                                {{ invoice.total|formatCurrency(currency) }}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<br />
+
+{# ============================================================================
+   BILL TO SECTION (Simplified - removed website and extra contact details)
+============================================================================ #}
+<div class="bill-to-section" style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
+    {# Section Label #}
+    <div class="section-label" style="font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #2e963a; display: inline-block;">
+        {{ 'invoice.to'|trans }}
+    </div>
+
+    {# Business Name #}
+    <div class="client-name" style="font-size: 14pt; font-weight: 600; color: #1e293b; margin-bottom: 8px;">
+        {{ invoice.client }}
+    </div>
+
+    {# Client Details - Contact Person, Address, Contact Number, Email #}
+    {% set primaryUser = invoice.users|length > 0 ? invoice.users|first : null %}
+    <div class="client-details" style="font-size: 9pt; color: #475569; line-height: 1.6;">
+        {% if primaryUser is not null and (primaryUser.firstName is not empty or primaryUser.lastName is not empty) %}
+            <div><span style="font-weight: 600; color: #1e293b;">Contact Person:</span> {{ primaryUser.firstName }} {{ primaryUser.lastName }}</div>
+        {% endif %}
+
+        {% for identifier in tax_identifiers(invoice.client) %}
+            <div><span style="font-weight: 600; color: #1e293b;">{{ identifier.label }}:</span> {{ identifier.value }}</div>
+        {% endfor %}
+
+        {% for clientAddress in invoice.client.addresses %}
+            <div>{{ clientAddress|replace({"\n": ", "}) }}</div>
+        {% endfor %}
+
+        {% if primaryUser is not null %}
+            {% for row in contact_custom_fields(primaryUser) %}
+                <div><span style="font-weight: 600; color: #1e293b;">{{ row.label }}:</span> {{ row.value }}</div>
+            {% endfor %}
+            {% if primaryUser.email is not empty %}
+                <div><span style="font-weight: 600; color: #1e293b;">Email:</span> {{ primaryUser.email }}</div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{# ============================================================================
+   LINE ITEMS TABLE
+============================================================================ #}
+<table class="items-table" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+    <thead>
+        <tr style="background-color: #f8fafc;">
+            <th class="col-description" style="padding: 12px 16px; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; text-align: left; border-bottom: 2px solid #e2e8f0;">
+                {{ 'invoice.item.heading.description'|trans }}
+            </th>
+            <th class="col-price" style="padding: 12px 16px; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; text-align: right; border-bottom: 2px solid #e2e8f0;">
+                {{ 'invoice.item.heading.price'|trans }}
+            </th>
+            <th class="col-qty" style="padding: 12px 16px; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; text-align: right; border-bottom: 2px solid #e2e8f0;">
+                {{ 'invoice.item.heading.qty'|trans }}
+            </th>
+            {% if invoice.tax.positive %}
+                <th class="col-tax" style="padding: 12px 16px; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; text-align: right; border-bottom: 2px solid #e2e8f0;">
+                    {{ 'invoice.item.heading.tax'|trans }}
+                </th>
+            {% endif %}
+            <th class="col-total" style="padding: 12px 16px; font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; text-align: right; border-bottom: 2px solid #e2e8f0;">
+                {{ 'invoice.item.heading.total'|trans }}
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in invoice.lines %}
+            <tr{% if loop.index is even %} style="background-color: #fafbfc;"{% endif %}>
+                <td class="col-description" style="padding: 12px 16px; font-size: 9pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; vertical-align: top;">
+                    {{ line.description|nl2br }}
+                </td>
+                <td class="col-price" style="padding: 12px 16px; font-size: 9pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: 'Courier New', monospace;">
+                    {{ line.price|formatCurrency(currency) }}
+                </td>
+                <td class="col-qty" style="padding: 12px 16px; font-size: 9pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: 'Courier New', monospace;">
+                    {{ line.qty }}
+                </td>
+                {% if invoice.tax.positive %}
+                    <td class="col-tax" style="padding: 12px 16px; font-size: 9pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right;">
+                        {% for lineTax in line.taxes %}{{ lineTax.nameSnapshot }} ({{ lineTax.typeSnapshot.value == 'Flat Rate' ? lineTax.rateSnapshot : lineTax.rateSnapshot ~ '%' }}){% if not loop.last %}, {% endif %}{% endfor %}
+                    </td>
+                {% endif %}
+                <td class="col-total" style="padding: 12px 16px; font-size: 9pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: 'Courier New', monospace; font-weight: 600;">
+                    {{ line.total|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{# ============================================================================
+   CLIENT-VISIBLE CUSTOM FIELDS
+============================================================================ #}
+<twig:CustomFieldsListPdf
+    :target="enum('SolidInvoice\\CoreBundle\\Enum\\CustomFieldTarget').INVOICE"
+    :recordId="invoice.id"
+    :visibility="enum('SolidInvoice\\CoreBundle\\Enum\\CustomFieldVisibility').CLIENT_VISIBLE"
+/>
+
+{# ============================================================================
+   TOTALS SUMMARY
+============================================================================ #}
+<div class="totals-wrapper">
+    <table class="totals-table" cellpadding="0" cellspacing="0" style="width: 280px; border-collapse: collapse; margin-left: auto;">
+        {# Subtotal #}
+        <tr class="subtotal-row">
+            <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; font-weight: 600; color: #1e293b;">
+                {{ 'invoice.subtotal'|trans }}
+            </td>
+            <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #1e293b;">
+                {{ invoice.baseTotal|formatCurrency(currency) }}
+            </td>
+        </tr>
+
+        {# Tax breakdown #}
+        {% set _tb = tax_breakdown(invoice) %}
+        {% if invoice.tax.positive %}
+            <tr class="tax-row">
+                <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                    {{ 'invoice.line_tax'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #1e293b;">
+                    {{ invoice.tax|formatCurrency(currency) }}
+                </td>
+            </tr>
+            {% for row in _tb.lineTaxRows %}
+                <tr class="tax-breakdown-row">
+                    <td class="label-cell" style="padding: 4px 20px 4px 24px; font-size: 8pt; text-align: right; color: #64748b;">
+                        {{ row.name }} ({{ row.type.value == 'Flat Rate' ? row.rate : row.rate ~ '%' }})
+                    </td>
+                    <td class="value-cell" style="padding: 4px 12px; font-size: 8pt; text-align: right; font-family: 'Courier New', monospace; color: #475569;">
+                        {{ row.amount|formatCurrency(currency) }}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endif %}
+        {% for row in _tb.additiveRows %}
+            <tr class="invoice-tax-row">
+                <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                    {{ row.name }} ({{ row.type.value == 'Flat Rate' ? row.rate : row.rate ~ '%' }})
+                </td>
+                <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #1e293b;">
+                    {{ row.amount|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endfor %}
+        {% for row in _tb.informationalRows %}
+            <tr class="invoice-tax-row">
+                <td class="label-cell" style="padding: 4px 20px 4px 24px; font-size: 8pt; text-align: right; color: #64748b;">
+                    {{ row.name }} ({{ row.type.value == 'Flat Rate' ? row.rate : row.rate ~ '%' }}){% if row.note %} — {{ row.note }}{% endif %}
+                </td>
+                <td class="value-cell" style="padding: 4px 12px; font-size: 8pt; text-align: right; font-family: 'Courier New', monospace; color: #64748b;">
+                    {{ 'invoice.invoice_taxes.informational'|trans }}
+                </td>
+            </tr>
+        {% endfor %}
+
+        {# Discount #}
+        {% if invoice.discount.type is not empty %}
+            <tr class="discount-row">
+                <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                    {{ 'invoice.discount'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #ef4444;">
+                    -{{ discount(invoice)|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endif %}
+
+        {# Partial Payments #}
+        {% if invoice.payments|length > 0 and not invoice.balance.zero %}
+            {% for payment in invoice.payments|filter((v) => v.status == enum('SolidInvoice\\PaymentBundle\\Enum\\PaymentStatus').Captured) %}
+                <tr class="payment-row">
+                    <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                        {{ 'invoice.payment.label'|trans }}: {{ payment.method.name }}
+                    </td>
+                    <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #10b981;">
+                        -{{ payment.totalAmount|formatCurrency(currency) }}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endif %}
+
+        {# Divider #}
+        <tr class="divider-row">
+            <td colspan="2" style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;"></td>
+        </tr>
+
+        {# Total or Balance #}
+        {% if hasOutstandingBalance %}
+            <tr class="balance-row" style="background-color: #fef3c7;">
+                <td class="label-cell" style="padding: 14px 20px 14px 12px; font-size: 12pt; font-weight: bold; text-align: right; color: #1e293b;">
+                    {{ 'invoice.balance'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #92400e;">
+                    {{ invoice.balance|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% else %}
+            <tr class="total-row" style="background-color: #f0fdf4;">
+                <td class="label-cell" style="padding: 14px 20px 14px 12px; font-size: 12pt; font-weight: bold; text-align: right; color: #1e293b;">
+                    {{ 'invoice.total'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #166534;">
+                    {{ invoice.total|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endif %}
+        {% if invoice.withholdingAmount.positive %}
+            <tr class="withholding-row">
+                <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                    {{ 'invoice.withholding'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #ef4444;">
+                    -{{ invoice.withholdingAmount|formatCurrency(currency) }}
+                </td>
+            </tr>
+            <tr class="payable-row" style="background-color: #f0fdf4;">
+                <td class="label-cell" style="padding: 14px 20px 14px 12px; font-size: 12pt; font-weight: bold; text-align: right; color: #1e293b;">
+                    {{ 'invoice.amount_payable'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #166534;">
+                    {{ payable_amount(invoice)|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endif %}
+    </table>
+</div>
+
+{# ============================================================================
+   PAYMENT INSTRUCTIONS (only show if invoice not paid and payments configured)
+============================================================================ #}
+{% if invoice.status != enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid and payments_configured(false) > 0 %}
+    {% set paymentUrl = url("_payments_create", {"uuid" : invoice.uuid}) %}
+    <div class="payment-section" style="margin-top: 24px; padding: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+        <table cellpadding="0" cellspacing="0" style="width: 100%;">
+            <tr>
+                <td style="vertical-align: middle;">
+                    <div style="font-size: 10pt; font-weight: bold; color: #166534; margin-bottom: 4px;">
+                        {{ 'invoice.pdf.payment_title'|trans }}
+                    </div>
+                    <div style="font-size: 9pt; color: #15803d;">
+                        {{ 'invoice.pdf.payment_description'|trans }}
+                    </div>
+                </td>
+                <td style="text-align: right; vertical-align: middle; width: 140px;">
+                    <table cellpadding="0" cellspacing="0" style="margin-left: auto;">
+                        <tr>
+                            <td style="background-color: #2e963a; padding: 10px 20px; border-radius: 6px; text-align: center;">
+                                <a href="{{ paymentUrl }}" style="color: #ffffff; font-size: 10pt; font-weight: bold; text-decoration: none;">
+                                    {{ 'invoice.action.pay_now'|trans }}
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #bbf7d0;">
+            <div style="font-size: 8pt; color: #15803d;">
+                {{ 'invoice.pdf.payment_url_label'|trans }}: <a href="{{ paymentUrl }}" style="color: #166534;">{{ paymentUrl }}</a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{# ============================================================================
+   TERMS & CONDITIONS
+============================================================================ #}
+{% if invoice.terms is not empty %}
+    <div class="terms-section" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+        <div class="terms-title" style="font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 8px;">
+            {{ 'invoice.terms'|trans }}
+        </div>
+        <div class="terms-content" style="font-size: 9pt; color: #475569; line-height: 1.6;">
+            {{ invoice.terms|nl2br }}
+        </div>
+    </div>
+{% endif %}
+
+</body>
+</html>

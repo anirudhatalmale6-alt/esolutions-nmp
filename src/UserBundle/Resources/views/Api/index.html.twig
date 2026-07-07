@@ -1,0 +1,47 @@
+{##
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% set menuItem = 'api-tokens' %}
+
+{% extends "@SolidInvoiceUser/Layout/profile.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:key', {width: 24, height: 24, class: 'me-2'}) }}{{ "profile.api.title"|trans }}{% endblock title %}
+
+{% block profile_content %}
+    {# Stats Row #}
+    <twig:ApiTokenStats />
+
+    {# One-time token display alert #}
+    {% if app.request.hasPreviousSession and app.flashes('success') %}
+        {% for message in app.flashes('success') %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {# Main Card #}
+    <twig:Ui:Card>
+        <twig:block name="header">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <div class="alert alert-info mb-0">
+                    {{ ux_icon('tabler:info-circle', {width: 20, height: 20}) }}
+                    {{ 'To view the API documentation, visit the'|trans }} <a href="{{ path('api_doc') }}" target="_blank" class="alert-link">{{ 'API documentation'|trans }}</a> {{ 'page.'|trans }}
+                </div>
+                <twig:CreateApiToken />
+            </div>
+        </twig:block>
+
+        <twig:ApiTokenList />
+    </twig:Ui:Card>
+
+    {# History Modal #}
+    <twig:ApiTokenHistoryModal :tokenId="app.request.query.get('view_history')" />
+{% endblock profile_content %}

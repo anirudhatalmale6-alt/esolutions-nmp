@@ -1,0 +1,341 @@
+<html><body>
+<div class="form-page" id="in-a-real-scenario-it-would-already-have-one---provide-one-yourself-if-needed" data-controller="live" data-live-name-value="ClientForm" data-live-url-value="/_components/ClientForm" data-live-props-value='{"formData":null,"formName":"client","client":{"name":"Foo Bar","website":"https:\/\/example.com","currencyCode":"SBD","contacts":[],"addresses":[],"taxIdentifiers":[],"customFields":[],"_token":""},"isValidated":false,"validatedFields":[],"@attributes":{"id":"in-a-real-scenario-it-would-already-have-one---provide-one-yourself-if-needed"},"@checksum":"REPLACED_CHECKSUM"}'>
+    <form name="client" method="post" data-model="on(change)|*" data-action="live#action:prevent" data-live-action-param="save" class="client-form">
+
+    
+
+    <div class="form-page-container form-page-container--medium">
+                <div class="form-page-header">
+            <div class="form-page-header-content">
+                <div class="form-page-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.85M19 21V10.85M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"></path></svg>
+                </div>
+                <div>
+                                            <h1 class="form-page-title">Add Client</h1>
+                        <p class="form-page-subtitle">Add a new client to start creating invoices and quotes</p>
+                                    </div>
+            </div>
+        </div>
+
+                <div class="form-page-sections">
+
+                        <section class="form-page-section" id="client-info">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M9 8h1m-1 4h1m-1 4h1m4-8h1m-1 4h1m-1 4h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"></path></svg>
+                    </div>
+                    <div class="section-header-text">
+                        <h2 class="section-title">Client Info</h2>
+                        <p class="section-description">Basic information about your client's business</p>
+                    </div>
+                </div>
+
+                <div class="section-content">
+                    <div class="form-grid">
+                        <div class="form-field form-field-wide">
+                            <div class="mb-3">                
+                                <label class="control-label required form-label required" for="client_name">Name</label><input type="text" id="client_name" name="client[name]" data-required="required" maxlength="125" placeholder="Acme Corporation" class="form-control" value="Foo Bar">
+</div>
+                        </div>
+
+                        <div class="form-field">
+                            <div class="mb-3">                
+            <label class="control-label form-label" for="client_website">Website</label><input type="text" id="client_website" name="client[website]" inputmode="url" placeholder="https://example.com" class="form-control" value="https://example.com">
+</div>
+                        </div>
+
+                        <div class="form-field">
+                            <div class="mb-3">                
+            <label class="control-label form-label" for="client_currencyCode">Currency code</label>    <div class="input-group input-icon-group">
+        <span class="input-group-text">
+            <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 14c0 1.657 2.686 3 6 3s6-1.343 6-3s-2.686-3-6-3s-6 1.343-6 3"></path><path d="M9 14v4c0 1.656 2.686 3 6 3s6-1.344 6-3v-4M3 6c0 1.072 1.144 2.062 3 2.598s4.144.536 6 0S15 7.072 15 6s-1.144-2.062-3-2.598s-4.144-.536-6 0S3 4.928 3 6"></path><path d="M3 6v10c0 .888.772 1.45 2 2"></path><path d="M3 11c0 .888.772 1.45 2 2"></path></g></svg>
+        </span>
+        <select id="client_currencyCode" name="client[currencyCode]" data-controller="symfony--ux-autocomplete--autocomplete" data-symfony--ux-autocomplete--autocomplete-max-results-value="10" data-symfony--ux-autocomplete--autocomplete-loading-more-text-value="Loading more results..." data-symfony--ux-autocomplete--autocomplete-no-results-found-text-value="No results found" data-symfony--ux-autocomplete--autocomplete-no-more-results-text-value="No more results" data-symfony--ux-autocomplete--autocomplete-create-option-text-value="Add %placeholder%..." data-symfony--ux-autocomplete--autocomplete-preload-value="focus" class="form-select"><option value="">System Default</option>
+<option value="AED">United Arab Emirates Dirham</option>
+<option value="AFN">Afghan Afghani</option>
+<option value="ALL">Albanian Lek</option>
+<option value="AMD">Armenian Dram</option>
+<option value="AOA">Angolan Kwanza</option>
+<option value="ARS">Argentine Peso</option>
+<option value="AUD">Australian Dollar</option>
+<option value="AWG">Aruban Florin</option>
+<option value="AZN">Azerbaijani Manat</option>
+<option value="BAM">Bosnia-Herzegovina Convertible Mark</option>
+<option value="BBD">Barbadian Dollar</option>
+<option value="BDT">Bangladeshi Taka</option>
+<option value="BGN">Bulgarian Lev</option>
+<option value="BHD">Bahraini Dinar</option>
+<option value="BIF">Burundian Franc</option>
+<option value="BMD">Bermudan Dollar</option>
+<option value="BND">Brunei Dollar</option>
+<option value="BOB">Bolivian Boliviano</option>
+<option value="BOV">Bolivian Mvdol</option>
+<option value="BRL">Brazilian Real</option>
+<option value="BSD">Bahamian Dollar</option>
+<option value="BTN">Bhutanese Ngultrum</option>
+<option value="BWP">Botswanan Pula</option>
+<option value="BYN">Belarusian Ruble</option>
+<option value="BZD">Belize Dollar</option>
+<option value="CAD">Canadian Dollar</option>
+<option value="CDF">Congolese Franc</option>
+<option value="CHE">WIR Euro</option>
+<option value="CHF">Swiss Franc</option>
+<option value="CHW">WIR Franc</option>
+<option value="CLF">Chilean Unit of Account (UF)</option>
+<option value="CLP">Chilean Peso</option>
+<option value="CNY">Chinese Yuan</option>
+<option value="COP">Colombian Peso</option>
+<option value="COU">Colombian Real Value Unit</option>
+<option value="CRC">Costa Rican Col&Atilde;&sup3;n</option>
+<option value="CUP">Cuban Peso</option>
+<option value="CVE">Cape Verdean Escudo</option>
+<option value="CZK">Czech Koruna</option>
+<option value="DJF">Djiboutian Franc</option>
+<option value="DKK">Danish Krone</option>
+<option value="DOP">Dominican Peso</option>
+<option value="DZD">Algerian Dinar</option>
+<option value="EGP">Egyptian Pound</option>
+<option value="ERN">Eritrean Nakfa</option>
+<option value="ETB">Ethiopian Birr</option>
+<option value="EUR">Euro</option>
+<option value="FJD">Fijian Dollar</option>
+<option value="FKP">Falkland Islands Pound</option>
+<option value="GBP">British Pound</option>
+<option value="GEL">Georgian Lari</option>
+<option value="GHS">Ghanaian Cedi</option>
+<option value="GIP">Gibraltar Pound</option>
+<option value="GMD">Gambian Dalasi</option>
+<option value="GNF">Guinean Franc</option>
+<option value="GTQ">Guatemalan Quetzal</option>
+<option value="GYD">Guyanaese Dollar</option>
+<option value="HKD">Hong Kong Dollar</option>
+<option value="HNL">Honduran Lempira</option>
+<option value="HTG">Haitian Gourde</option>
+<option value="HUF">Hungarian Forint</option>
+<option value="IDR">Indonesian Rupiah</option>
+<option value="ILS">Israeli New Shekel</option>
+<option value="INR">Indian Rupee</option>
+<option value="IQD">Iraqi Dinar</option>
+<option value="IRR">Iranian Rial</option>
+<option value="ISK">Icelandic Kr&Atilde;&sup3;na</option>
+<option value="JMD">Jamaican Dollar</option>
+<option value="JOD">Jordanian Dinar</option>
+<option value="JPY">Japanese Yen</option>
+<option value="KES">Kenyan Shilling</option>
+<option value="KGS">Kyrgyz Som</option>
+<option value="KHR">Cambodian Riel</option>
+<option value="KMF">Comorian Franc</option>
+<option value="KPW">North Korean Won</option>
+<option value="KRW">South Korean Won</option>
+<option value="KWD">Kuwaiti Dinar</option>
+<option value="KYD">Cayman Islands Dollar</option>
+<option value="KZT">Kazakhstani Tenge</option>
+<option value="LAK">Laotian Kip</option>
+<option value="LBP">Lebanese Pound</option>
+<option value="LKR">Sri Lankan Rupee</option>
+<option value="LRD">Liberian Dollar</option>
+<option value="LSL">Lesotho Loti</option>
+<option value="LYD">Libyan Dinar</option>
+<option value="MAD">Moroccan Dirham</option>
+<option value="MDL">Moldovan Leu</option>
+<option value="MGA">Malagasy Ariary</option>
+<option value="MKD">Macedonian Denar</option>
+<option value="MMK">Myanmar Kyat</option>
+<option value="MNT">Mongolian Tugrik</option>
+<option value="MOP">Macanese Pataca</option>
+<option value="MRU">Mauritanian Ouguiya</option>
+<option value="MUR">Mauritian Rupee</option>
+<option value="MVR">Maldivian Rufiyaa</option>
+<option value="MWK">Malawian Kwacha</option>
+<option value="MXN">Mexican Peso</option>
+<option value="MXV">Mexican Investment Unit</option>
+<option value="MYR">Malaysian Ringgit</option>
+<option value="MZN">Mozambican Metical</option>
+<option value="NAD">Namibian Dollar</option>
+<option value="NGN">Nigerian Naira</option>
+<option value="NIO">Nicaraguan C&Atilde;&sup3;rdoba</option>
+<option value="NOK">Norwegian Krone</option>
+<option value="NPR">Nepalese Rupee</option>
+<option value="NZD">New Zealand Dollar</option>
+<option value="OMR">Omani Rial</option>
+<option value="PAB">Panamanian Balboa</option>
+<option value="PEN">Peruvian Sol</option>
+<option value="PGK">Papua New Guinean Kina</option>
+<option value="PHP">Philippine Peso</option>
+<option value="PKR">Pakistani Rupee</option>
+<option value="PLN">Polish Zloty</option>
+<option value="PYG">Paraguayan Guarani</option>
+<option value="QAR">Qatari Riyal</option>
+<option value="RON">Romanian Leu</option>
+<option value="RSD">Serbian Dinar</option>
+<option value="RUB">Russian Ruble</option>
+<option value="RWF">Rwandan Franc</option>
+<option value="SAR">Saudi Riyal</option>
+<option value="SBD" selected>Solomon Islands Dollar</option>
+<option value="SCR">Seychellois Rupee</option>
+<option value="SDG">Sudanese Pound</option>
+<option value="SEK">Swedish Krona</option>
+<option value="SGD">Singapore Dollar</option>
+<option value="SHP">St. Helena Pound</option>
+<option value="SLE">Sierra Leonean Leone</option>
+<option value="SOS">Somali Shilling</option>
+<option value="SRD">Surinamese Dollar</option>
+<option value="SSP">South Sudanese Pound</option>
+<option value="STN">S&Atilde;&pound;o Tom&Atilde;&copy; &amp; Pr&Atilde;&shy;ncipe Dobra</option>
+<option value="SVC">Salvadoran Col&Atilde;&sup3;n</option>
+<option value="SYP">Syrian Pound</option>
+<option value="SZL">Swazi Lilangeni</option>
+<option value="THB">Thai Baht</option>
+<option value="TJS">Tajikistani Somoni</option>
+<option value="TMT">Turkmenistani Manat</option>
+<option value="TND">Tunisian Dinar</option>
+<option value="TOP">Tongan Pa&Ecirc;&raquo;anga</option>
+<option value="TRY">Turkish Lira</option>
+<option value="TTD">Trinidad &amp; Tobago Dollar</option>
+<option value="TWD">New Taiwan Dollar</option>
+<option value="TZS">Tanzanian Shilling</option>
+<option value="UAH">Ukrainian Hryvnia</option>
+<option value="UGX">Ugandan Shilling</option>
+<option value="USD">US Dollar</option>
+<option value="USN">US Dollar (Next day)</option>
+<option value="UYI">Uruguayan Peso (Indexed Units)</option>
+<option value="UYU">Uruguayan Peso</option>
+<option value="UYW">Uruguayan Nominal Wage Index Unit</option>
+<option value="UZS">Uzbekistani Som</option>
+<option value="VED">Bol&Atilde;&shy;var Soberano</option>
+<option value="VES">Venezuelan Bol&Atilde;&shy;var</option>
+<option value="VND">Vietnamese Dong</option>
+<option value="VUV">Vanuatu Vatu</option>
+<option value="WST">Samoan Tala</option>
+<option value="XAF">Central African CFA Franc</option>
+<option value="XCD">East Caribbean Dollar</option>
+<option value="XCG">Caribbean guilder</option>
+<option value="XOF">West African CFA Franc</option>
+<option value="XPF">CFP Franc</option>
+<option value="YER">Yemeni Rial</option>
+<option value="ZAR">South African Rand</option>
+<option value="ZMW">Zambian Kwacha</option>
+<option value="ZWG">Zimbabwean Gold</option></select>
+    </div>
+</div>                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+                        <section class="form-page-section" id="client-contacts-collection">
+                <div class="section-header">
+                    <div class="section-icon section-icon-required">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m1-17.87a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.85"></path></svg>
+                    </div>
+                    <div class="section-header-text">
+                        <h2 class="section-title">
+                            Contact Info
+                            <span class="badge bg-primary-lt ms-1">Required</span>
+                        </h2>
+                        <p class="section-description">Add at least one contact person for this client</p>
+                    </div>
+                </div>
+
+                <div class="section-content">
+                    <div class="contacts-list">
+                                                    <div class="empty-contacts-hint">
+                                <p class="text-muted mb-0">Click the button below to add your first contact</p>
+                            </div>
+                                            </div>
+
+                    
+
+                    <div class="add-item-action">
+                        <button type="button" id="client_contacts_add" name="client[contacts][add]" data-action="live#action" data-live-action-param="addCollectionItem" data-live-name-param="client[contacts]" class="btn btn-outline-primary add-item-btn btn">Add Contact</button>
+                    </div>
+                </div>
+            </section>
+
+                        <section class="form-page-section client-form-section-optional" id="client-tax-identifiers-collection">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m9 14l6-6"></path><path fill="currentColor" d="M9 8.5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0m5 5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0"></path><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2z"></path></g></svg>
+                    </div>
+                    <div class="section-header-text">
+                        <h2 class="section-title">
+                            Tax Identifiers
+                            <span class="badge bg-secondary-lt ms-1">Optional</span>
+                        </h2>
+                        <p class="section-description">The client's tax registration numbers (VAT, GSTIN, TIN, ABN, etc.). These appear on invoices and quotes issued to this client.</p>
+                    </div>
+                </div>
+
+                <div class="section-content">
+                    <div class="tax-identifiers-list">
+                                            </div>
+
+                    
+
+                    <div class="add-item-action">
+                        <button type="button" id="client_taxIdentifiers_add" name="client[taxIdentifiers][add]" data-action="live#action" data-live-action-param="addCollectionItem" data-live-name-param="client[taxIdentifiers]" class="btn btn-outline-primary add-item-btn btn">Add tax identifier</button>
+                    </div>
+                </div>
+            </section>
+
+                        <section class="form-page-section client-form-section-optional" id="client-address-collection">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0"></path><path d="M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0"></path></g></svg>
+                    </div>
+                    <div class="section-header-text">
+                        <h2 class="section-title">
+                            Address Info
+                            <span class="badge bg-secondary-lt ms-1">Optional</span>
+                        </h2>
+                        <p class="section-description">Add billing or shipping addresses for this client</p>
+                    </div>
+                </div>
+
+                <div class="section-content">
+                    <div class="addresses-list">
+                                                    <div class="empty-addresses-hint">
+                                <p class="text-muted mb-0">No addresses added yet. Click the button below to add one.</p>
+                            </div>
+                                            </div>
+
+                    
+
+                    <div class="add-item-action">
+                        <button type="button" id="client_addresses_add" name="client[addresses][add]" data-action="live#action" data-live-action-param="addCollectionItem" data-live-name-param="client[addresses]" class="btn btn-outline-primary add-item-btn btn">Add Address</button>
+                    </div>
+                </div>
+            </section>
+                                </div>
+
+        <fieldset class="mb-3">                
+    <div id="client_contacts"></div>
+</fieldset>
+<fieldset class="mb-3">                
+    <div id="client_addresses"></div>
+</fieldset>
+<fieldset class="mb-3">                
+    <div id="client_taxIdentifiers"></div>
+</fieldset>
+<fieldset class="mb-3">                
+    <div id="client_customFields"></div>
+</fieldset>
+<input type="hidden" id="client__token" name="client[_token]" data-controller="csrf-protection">
+
+                <div class="form-page-actions">
+            <div class="form-page-actions-inner form-page-actions-inner--medium">
+                <button type="button" class="btn btn-ghost" onclick="history.back()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l6 6m-6-6l6-6"></path></svg>
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-save">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewbox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"></path><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0-4 0m4-10v4H8V4"></path></g></svg>
+                    Save Client
+                </button>
+            </div>
+        </div>
+    </div>
+
+    </form>
+</div>
+</body></html>

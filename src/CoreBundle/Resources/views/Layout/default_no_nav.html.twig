@@ -1,0 +1,41 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends '@SolidInvoiceCore/Layout/base.html.twig' %}
+
+{% block heading %}
+    {% set title = block('title') is defined ? block('title') %}
+
+    {% if title is not empty %}
+        <h1>{{ block('title') }}</h1>
+    {% endif %}
+{% endblock %}
+
+{% block body %}
+    <div class="page-wrapper">
+        {% if block('heading') is defined and block('heading')|trim is not empty %}
+            <div class="page-header d-print-none">
+                <div class="container-xl">
+                    <div class="row g-2 align-items-center">
+                        <div class="col">
+                            {{ block('heading') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="page-body">
+            <div class="container-xl">
+                {% include "@SolidInvoiceCore/flash.html.twig" %}
+                {{ block('content') is defined ? block('content') }}
+            </div>
+        </div>
+    </div>
+{% endblock body %}

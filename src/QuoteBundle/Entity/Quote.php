@@ -1,0 +1,659 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\QuoteBundle\Entity;
+
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\NumericFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiProperty;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use Brick\Math\BigDecimal;
+use Brick\Math\BigInteger;
+use Brick\Math\BigNumber;
+use Brick\Math\Exception\MathException;
+use DateTimeInterface;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\EntityNotFoundException;
+use Doctrine\ORM\Mapping as ORM;
+use SolidInvoice\ApiBundle\State\Processor\QuoteToInvoiceProcessor;
+use SolidInvoice\ApiBundle\State\Processor\QuoteTransitionProcessor;
+use SolidInvoice\ApiBundle\State\Provider\QuoteItemProvider;
+use SolidInvoice\ClientBundle\Entity\Client;
+use SolidInvoice\ClientBundle\Entity\Contact;
+use SolidInvoice\CoreBundle\Doctrine\Type\BigIntegerType;
+use SolidInvoice\CoreBundle\Entity\Discount;
+use SolidInvoice\CoreBundle\Entity\LineInterface;
+use SolidInvoice\CoreBundle\Traits\Entity\Archivable;
+use SolidInvoice\CoreBundle\Traits\Entity\CompanyAware;
+use SolidInvoice\CoreBundle\Traits\Entity\TimeStampable;
+use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\QuoteBundle\Enum\QuoteStatus;
+use SolidInvoice\QuoteBundle\Repository\QuoteRepository;
+use SolidInvoice\QuoteBundle\Traits\QuoteStatusTrait;
+use SolidInvoice\TaxBundle\Entity\InvoiceTax;
+use Symfony\Bridge\Doctrine\IdGenerator\UlidGenerator;
+use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
+use Symfony\Component\Uid\Ulid;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Validator\Constraints as Assert;
+
+#[ORM\Table(name: Quote::TABLE_NAME)]
+#[ORM\Entity(repositoryClass: QuoteRepository::class)]
+#[ORM\HasLifecycleCallbacks]
+#[ApiFilter(SearchFilter::class, properties: ['status' => 'exact', 'client' => 'exact'])]
+#[ApiFilter(DateFilter::class, properties: ['due'])]
+#[ApiFilter(NumericFilter::class, properties: ['total', 'baseTotal', 'tax'])]
+#[ApiFilter(OrderFilter::class, properties: ['due', 'status'])]
+#[ApiResource(
+    operations: [new GetCollection(), new Get(), new Post(), new Patch(), new Delete()],
+    normalizationContext: [
+        'groups' => ['quote_api:read'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ],
+    denormalizationContext: [
+        'groups' => ['quote_api:write'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/clients/{clientId}/quotes',
+    operations: [new GetCollection()],
+    uriVariables: [
+        'clientId' => new Link(
+            fromProperty: 'quotes',
+            fromClass: Client::class,
+        ),
+    ],
+    normalizationContext: [
+        'groups' => ['quote_api:read'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ],
+    denormalizationContext: [
+        'groups' => ['quote_api:write'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ]
+)]
+#[ApiResource(
+    uriTemplate: '/quotes/{id}/transitions/{transition}',
+    operations: [
+        new Post(
+            input: false,
+            output: Quote::class,
+            name: 'quote_transition',
+            provider: QuoteItemProvider::class,
+            processor: QuoteTransitionProcessor::class,
+        ),
+    ],
+    uriVariables: [
+        'id' => new Link(fromClass: Quote::class),
+    ],
+    normalizationContext: [
+        'groups' => ['quote_api:read'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/quotes/{id}/invoice',
+    operations: [
+        new Post(
+            input: false,
+            output: Invoice::class,
+            name: 'quote_to_invoice',
+            provider: QuoteItemProvider::class,
+            processor: QuoteToInvoiceProcessor::class,
+        ),
+    ],
+    uriVariables: ['id' => new Link(fromClass: Quote::class)],
+    normalizationContext: [
+        'groups' => ['invoice_api:read'],
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => false,
+    ],
+)]
+class Quote
+{
+    final public const string TABLE_NAME = 'quotes';
+
+    use Archivable;
+    use QuoteStatusTrait {
+        Archivable::isArchived insteadof QuoteStatusTrait;
+    }
+    use TimeStampable;
+    use CompanyAware;
+
+    #[ORM\Column(name: 'id', type: UlidType::NAME)]
+    #[ORM\Id]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: UlidGenerator::class)]
+    #[Groups(['quote_api:read', 'searchable'])]
+    private ?Ulid $id = null;
+
+    #[ORM\Column(name: 'quote_id', type: Types::STRING, length: 255)]
+    #[Groups(['quote_api:read', 'quote_api:write', 'searchable'])]
+    private string $quoteId = '';
+
+    #[ORM\Column(name: 'uuid', type: Types::STRING, length: 36)]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(writable: false)]
+    private ?string $uuid = null;
+
+    #[ORM\Column(name: 'status', type: Types::STRING, length: 25, enumType: QuoteStatus::class)]
+    #[Groups(['quote_api:read', 'searchable'])]
+    #[ApiProperty(writable: false)]
+    private ?QuoteStatus $status = null;
+
+    #[ApiProperty(
+        example: '/api/clients/3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        iris: ['https://schema.org/Organization']
+    )]
+    #[ORM\ManyToOne(targetEntity: Client::class, cascade: ['persist'], inversedBy: 'quotes')]
+    #[Assert\NotBlank]
+    #[Groups(['quote_api:read', 'quote_api:write', 'searchable'])]
+    private ?Client $client = null;
+
+    #[ORM\Column(name: 'total_amount', type: BigIntegerType::NAME)]
+    #[Groups(['quote_api:read', 'searchable'])]
+    #[ApiProperty(
+        writable: false,
+        openapiContext: [
+            'type' => 'number',
+        ],
+        jsonSchemaContext: [
+            'type' => 'number',
+        ]
+    )]
+    private BigNumber $total;
+
+    #[ORM\Column(name: 'baseTotal_amount', type: BigIntegerType::NAME)]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(
+        writable: false,
+        openapiContext: [
+            'type' => 'number',
+        ],
+        jsonSchemaContext: [
+            'type' => 'number',
+        ]
+    )]
+    private BigNumber $baseTotal;
+
+    #[ORM\Column(name: 'tax_amount', type: BigIntegerType::NAME)]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(
+        writable: false,
+        openapiContext: [
+            'type' => 'number',
+        ],
+        jsonSchemaContext: [
+            'type' => 'number',
+        ]
+    )]
+    private BigNumber $tax;
+
+    #[ORM\Column(name: 'withholding_amount', type: BigIntegerType::NAME, options: ['default' => 0])]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(
+        writable: false,
+        openapiContext: [
+            'type' => 'number',
+        ],
+        jsonSchemaContext: [
+            'type' => 'number',
+        ]
+    )]
+    private BigNumber $withholdingAmount;
+
+    #[ORM\Column(name: 'payable_amount', type: BigIntegerType::NAME, options: ['default' => 0])]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(
+        writable: false,
+        openapiContext: [
+            'type' => 'number',
+        ],
+        jsonSchemaContext: [
+            'type' => 'number',
+        ]
+    )]
+    private BigNumber $payableAmount;
+
+    #[ORM\Embedded(class: Discount::class)]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    #[ApiProperty(
+        openapiContext: [
+            'type' => 'object',
+            'properties' => [
+                'type' => [
+                    'oneOf' => [
+                        ['type' => 'string', 'enum' => ['percentage', 'money']],
+                        ['type' => 'null'],
+                    ],
+                ],
+                'value' => [
+                    'oneOf' => [
+                        ['type' => 'number'],
+                        ['type' => 'null'],
+                    ],
+                ],
+            ],
+        ],
+        jsonSchemaContext: [
+            'type' => 'object',
+            'properties' => [
+                'type' => [
+                    'oneOf' => [
+                        ['type' => 'string', 'enum' => ['percentage', 'money']],
+                        ['type' => 'null'],
+                    ],
+                ],
+                'value' => [
+                    'oneOf' => [
+                        ['type' => 'number'],
+                        ['type' => 'null'],
+                    ],
+                ],
+            ],
+        ]
+    )]
+    private Discount $discount;
+
+    #[ORM\Column(name: 'terms', type: Types::TEXT, nullable: true)]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private ?string $terms = null;
+
+    #[ORM\Column(name: 'notes', type: Types::TEXT, nullable: true)]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private ?string $notes = null;
+
+    #[ORM\Column(name: 'due', type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\Type(type: DateTimeInterface::class)]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private ?DateTimeInterface $due = null;
+
+    /**
+     * @var Collection<int, Line>
+     */
+    #[ORM\OneToMany(mappedBy: 'quote', targetEntity: Line::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[Assert\Valid]
+    #[Assert\Count(min: 1, minMessage: 'You need to add at least 1 line to the Quote')]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private Collection $lines;
+
+    /**
+     * @var Collection<int, Contact>
+     */
+    #[ApiProperty(
+        writableLink: true,
+        example: ['/api/clients/3fa85f64-5717-4562-b3fc-2c963f66afa6/contact/3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    )]
+    #[ORM\ManyToMany(targetEntity: Contact::class, inversedBy: 'quotes')]
+    #[ORM\JoinTable(name: 'quote_contact')]
+    #[Assert\Count(min: 1, minMessage: 'You need to select at least 1 user to attach to the Quote')]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private Collection $users;
+
+    #[ORM\OneToOne(mappedBy: 'quote', targetEntity: Invoice::class)]
+    #[Groups(['quote_api:read'])]
+    #[ApiProperty(
+        example: '/api/invoices/3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    )]
+    private ?Invoice $invoice = null;
+
+    /**
+     * @var Collection<int, InvoiceTax>
+     */
+    #[ORM\OneToMany(mappedBy: 'quote', targetEntity: InvoiceTax::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[Groups(['quote_api:read', 'quote_api:write'])]
+    private Collection $invoiceTaxes;
+
+    public function __construct()
+    {
+        $this->discount = new Discount();
+        $this->lines = new ArrayCollection();
+        $this->users = new ArrayCollection();
+        $this->invoiceTaxes = new ArrayCollection();
+        $this->baseTotal = BigDecimal::zero();
+        $this->tax = BigDecimal::zero();
+        $this->total = BigDecimal::zero();
+        $this->withholdingAmount = BigInteger::zero();
+        $this->payableAmount = BigInteger::zero();
+        $this->setUuid(Uuid::v7());
+    }
+
+    public function getId(): ?Ulid
+    {
+        return $this->id;
+    }
+
+    public function getUuid(): Uuid
+    {
+        return Uuid::fromString($this->uuid);
+    }
+
+    public function setUuid(Uuid $uuid): self
+    {
+        $this->uuid = $uuid->toString();
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Contact>
+     */
+    public function getUsers(): Collection
+    {
+        return $this->users;
+    }
+
+    public function addUser(Contact $user): self
+    {
+        if (! $this->users->contains($user)) {
+            $this->users->add($user);
+            // keep bidirectional association in sync
+            if (! $user->getQuotes()->contains($this)) {
+                $user->addQuote($this);
+            }
+        }
+
+        return $this;
+    }
+
+    public function removeUser(Contact $user): self
+    {
+        if ($this->users->removeElement($user)) {
+            $user->removeQuote($this);
+        }
+
+        return $this;
+    }
+
+    public function getStatus(): ?QuoteStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(QuoteStatus $status): static
+    {
+        $this->status = $status;
+        return $this;
+    }
+
+    public function getStatusValue(): ?string
+    {
+        return $this->status?->value;
+    }
+
+    public function setStatusValue(string $status): static
+    {
+        $this->status = QuoteStatus::from($status);
+        return $this;
+    }
+
+    public function getClient(): ?Client
+    {
+        return $this->client;
+    }
+
+    public function setClient(?Client $client): self
+    {
+        $this->client = $client;
+
+        return $this;
+    }
+
+    public function getTotal(): BigNumber
+    {
+        return $this->total;
+    }
+
+    /**
+     * @throws MathException
+     */
+    public function setTotal(BigNumber | float | int | string $total): self
+    {
+        $this->total = BigNumber::of($total);
+
+        return $this;
+    }
+
+    public function getBaseTotal(): BigNumber
+    {
+        return $this->baseTotal;
+    }
+
+    /**
+     * @throws MathException
+     */
+    public function setBaseTotal(BigNumber | float | int | string $baseTotal): self
+    {
+        $this->baseTotal = BigNumber::of($baseTotal);
+
+        return $this;
+    }
+
+    public function getDiscount(): Discount
+    {
+        return $this->discount;
+    }
+
+    public function setDiscount(Discount $discount): self
+    {
+        $this->discount = $discount;
+        return $this;
+    }
+
+    public function getDue(): ?DateTimeInterface
+    {
+        return $this->due;
+    }
+
+    public function setDue(?DateTimeInterface $due): self
+    {
+        $this->due = $due;
+        return $this;
+    }
+
+    public function addLine(LineInterface $line): self
+    {
+        assert($line instanceof Line);
+        $this->lines->add($line);
+        $line->setQuote($this);
+        return $this;
+    }
+
+    public function removeLine(Line $line): self
+    {
+        $this->lines->removeElement($line);
+        $line->setQuote();
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Line>
+     */
+    public function getLines(): Collection
+    {
+        return $this->lines;
+    }
+
+    public function getTerms(): ?string
+    {
+        return $this->terms;
+    }
+
+    public function setTerms(?string $terms): self
+    {
+        $this->terms = $terms;
+        return $this;
+    }
+
+    public function getNotes(): ?string
+    {
+        return $this->notes;
+    }
+
+    public function setNotes(?string $notes): self
+    {
+        $this->notes = $notes;
+        return $this;
+    }
+
+    public function getTax(): BigNumber
+    {
+        return $this->tax;
+    }
+
+    /**
+     * @throws MathException
+     */
+    public function setTax(BigNumber | float | int | string $tax): self
+    {
+        $this->tax = BigNumber::of($tax);
+
+        return $this;
+    }
+
+    #[ORM\PrePersist]
+    public function updateLines(): void
+    {
+        foreach ($this->lines as $line) {
+            $line->setQuote($this);
+        }
+    }
+
+    #[Groups(['searchable'])]
+    #[SerializedName('created')]
+    public function getCreatedTimestamp(): ?int
+    {
+        return $this->created instanceof DateTimeInterface ? $this->created->getTimestamp() : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    #[Groups(['searchable'])]
+    public function getLineDescriptions(): array
+    {
+        return array_values(
+            $this->lines
+                ->map(static fn (Line $line) => $line->getDescription())
+                ->filter(static fn (?string $d) => $d !== null && $d !== '')
+                ->toArray()
+        );
+    }
+
+    public function setInvoice(Invoice $invoice): self
+    {
+        $this->invoice = $invoice;
+        return $this;
+    }
+
+    public function getInvoice(): ?Invoice
+    {
+        return $this->invoice;
+    }
+
+    public function getQuoteId(): string
+    {
+        return $this->quoteId;
+    }
+
+    public function setQuoteId(string $quoteId): void
+    {
+        $this->quoteId = $quoteId;
+    }
+
+    public function setId(Ulid $uuid): self
+    {
+        $this->id = $uuid;
+        return $this;
+    }
+
+    public function isValid(): bool
+    {
+        // We need to handle cases where a quote is archived, but the corresponding invoice is still available.
+        try {
+            return ! $this->isArchived();
+        } catch (EntityNotFoundException) {
+            return false;
+        }
+    }
+
+    public function getWithholdingAmount(): BigNumber
+    {
+        return $this->withholdingAmount;
+    }
+
+    /**
+     * @throws MathException
+     */
+    public function setWithholdingAmount(BigNumber|float|int|string $withholdingAmount): self
+    {
+        $this->withholdingAmount = BigNumber::of($withholdingAmount);
+
+        return $this;
+    }
+
+    public function getPayableAmount(): BigNumber
+    {
+        return $this->payableAmount;
+    }
+
+    /**
+     * @throws MathException
+     */
+    public function setPayableAmount(BigNumber|float|int|string $payableAmount): self
+    {
+        $this->payableAmount = BigNumber::of($payableAmount);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, InvoiceTax>
+     */
+    public function getInvoiceTaxes(): Collection
+    {
+        return $this->invoiceTaxes;
+    }
+
+    public function addInvoiceTax(InvoiceTax $invoiceTax): self
+    {
+        if (! $this->invoiceTaxes->contains($invoiceTax)) {
+            $this->invoiceTaxes->add($invoiceTax);
+            $invoiceTax->setQuote($this);
+        }
+
+        return $this;
+    }
+
+    public function removeInvoiceTax(InvoiceTax $invoiceTax): self
+    {
+        if ($this->invoiceTaxes->removeElement($invoiceTax) && $invoiceTax->getQuote() === $this) {
+            $invoiceTax->setQuote(null);
+        }
+
+        return $this;
+    }
+}

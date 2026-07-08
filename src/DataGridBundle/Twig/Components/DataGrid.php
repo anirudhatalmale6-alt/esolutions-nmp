@@ -36,6 +36,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Throwable;
 use Symfony\Component\Uid\Ulid;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
@@ -152,7 +154,49 @@ class DataGrid extends AbstractController
         #[AutowireLocator(AsDataGrid::DI_TAG, 'name')]
         private readonly ServiceLocator $serviceLocator,
         private readonly GridQueryService $gridQueryService,
+        private readonly RequestStack $requestStack,
     ) {
+    }
+
+    /**
+     * Session key under which this grid's hidden-column choice is stored,
+     * so it is remembered per user across page loads and navigation.
+     */
+    private function columnPrefKey(): string
+    {
+        return 'datagrid_hidden_columns_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $this->name);
+    }
+
+    /**
+     * Load the remembered column choice on first render.
+     * Runs only on initial mount (not on live re-renders), so an explicit
+     * choice already present in the URL always wins; otherwise we fall back
+     * to what the user last selected.
+     */
+    #[PostMount(priority: 5)]
+    public function loadRememberedColumns(): void
+    {
+        if ($this->hiddenColumns !== []) {
+            return;
+        }
+
+        try {
+            $saved = $this->requestStack->getSession()->get($this->columnPrefKey());
+            if (is_array($saved)) {
+                $this->hiddenColumns = array_values($saved);
+            }
+        } catch (Throwable) {
+            // No session available (e.g. stateless request) - ignore.
+        }
+    }
+
+    private function rememberColumns(): void
+    {
+        try {
+            $this->requestStack->getSession()->set($this->columnPrefKey(), $this->hiddenColumns);
+        } catch (Throwable) {
+            // No session available - nothing to persist.
+        }
     }
 
     /**
@@ -400,12 +444,15 @@ class DataGrid extends AbstractController
         } else {
             $this->hiddenColumns[] = $field;
         }
+
+        $this->rememberColumns();
     }
 
     #[LiveAction]
     public function resetColumns(): void
     {
         $this->hiddenColumns = [];
+        $this->rememberColumns();
     }
 
     /**

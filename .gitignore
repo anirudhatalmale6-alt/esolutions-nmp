@@ -7,3 +7,6 @@
 /config/env/.installed
 /config/secrets/prod/*.php
 *.log
+
+# Never track the config vault (DB creds + decryption key) - live-site only
+/config/env/

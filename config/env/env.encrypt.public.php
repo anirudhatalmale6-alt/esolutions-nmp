@@ -1,3 +1,0 @@
-<?php // env.encrypt.public on Tue, 23 Jun 2026 19:38:46 +0000
-
-return "\xBB\x01\x40z5Z\x3BQ\x08\xFD\xB5\xD3\xC3\xA4L\x85\xDC3\x255B\x7Fg068\x07\xA2\xD4\xE7tD";

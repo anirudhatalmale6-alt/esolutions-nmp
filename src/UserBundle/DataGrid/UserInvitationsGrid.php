@@ -68,6 +68,9 @@ final class UserInvitationsGrid extends Grid
     public function actions(): array
     {
         return [
+            Action::new('_user_invite_link', ['id' => 'id'])
+                ->label('Copy Link')
+                ->icon('link'),
             Action::new('_user_resend_invite', ['id' => 'id'])
                 ->label('Resend Invitation')
                 ->icon('mail'),

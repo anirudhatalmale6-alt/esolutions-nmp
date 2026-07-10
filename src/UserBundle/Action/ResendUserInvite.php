@@ -35,20 +35,34 @@ final readonly class ResendUserInvite
     {
         $invitation = $this->invitationRepository->find(Ulid::fromString($id));
 
-        if ($invitation instanceof UserInvitationEntity) {
-            $invitation->renew();
-            $this->invitationRepository->save($invitation);
+        if (! $invitation instanceof UserInvitationEntity) {
+            $route = $this->router->generate('_users_list');
 
-            $this->invitation->sendUserInvitation($invitation);
+            return new class($route) extends RedirectResponse implements FlashResponse {
+                public function getFlash(): Generator
+                {
+                    yield FlashResponse::FLASH_ERROR => 'Invitation is not valid';
+                }
+            };
         }
 
-        $route = $this->router->generate('_users_list');
+        $invitation->renew();
+        $this->invitationRepository->save($invitation);
 
-        return new class($route) extends RedirectResponse implements FlashResponse {
-            public function getFlash(): Generator
-            {
-                yield FlashResponse::FLASH_SUCCESS => 'users.invitation.success';
-            }
-        };
+        // Email delivery is best-effort; the shareable link always works.
+        $emailSent = true;
+
+        try {
+            $this->invitation->sendUserInvitation($invitation);
+        } catch (\Throwable) {
+            $emailSent = false;
+        }
+
+        $route = $this->router->generate('_user_invite_link', [
+            'id' => (string) $invitation->getId(),
+            'sent' => $emailSent ? '1' : '0',
+        ]);
+
+        return new RedirectResponse($route);
     }
 }

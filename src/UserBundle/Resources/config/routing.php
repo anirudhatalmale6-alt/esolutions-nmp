@@ -23,6 +23,7 @@ use SolidInvoice\UserBundle\Action\Notifications;
 use SolidInvoice\UserBundle\Action\Profile;
 use SolidInvoice\UserBundle\Action\Register;
 use SolidInvoice\UserBundle\Action\ResendUserInvite;
+use SolidInvoice\UserBundle\Action\ShowInviteLink;
 use SolidInvoice\UserBundle\Action\Security\ChangePassword;
 use SolidInvoice\UserBundle\Action\Security\OAuthConnect;
 use SolidInvoice\UserBundle\Action\Security\OAuthConnectCheck;
@@ -52,6 +53,10 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_user_delete_invite', '/users/invite/{id}/delete')
         ->controller(DeleteUserInvite::class);
+
+    $routingConfigurator
+        ->add('_user_invite_link', '/users/invite/{id}/link')
+        ->controller(ShowInviteLink::class);
 
     $routingConfigurator
         ->add('_user_accept_invite', '/invite/accept/{id}')

@@ -1,0 +1,105 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-page-container form-page-container--narrow">
+        {# Page Header #}
+        <div class="form-page-header">
+            <div class="form-page-header-content">
+                <div class="form-page-icon">
+                    {{ ux_icon('tabler:link', {width: 28, height: 28}) }}
+                </div>
+                <div>
+                    <h1 class="form-page-title">Invitation link for {{ invitation.email }}</h1>
+                    <p class="form-page-subtitle">Send this link to the person you invited so they can set up their login.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-page-sections">
+            {% if emailSent %}
+                <twig:Ui:Alert type="success" icon="tabler:mail-check">
+                    An invitation email was sent to {{ invitation.email }}. You can also copy the link below and send it directly (for example on WhatsApp), in case the email does not arrive.
+                </twig:Ui:Alert>
+            {% else %}
+                <twig:Ui:Alert type="info" icon="tabler:info-circle">
+                    Copy the link below and send it to {{ invitation.email }} directly (for example on WhatsApp or SMS). When they open it, they can set their password and get access - no email needed.
+                </twig:Ui:Alert>
+            {% endif %}
+
+            <section class="form-page-section">
+                <div class="section-content">
+                    <div class="form-grid">
+                        <div class="form-field form-field-wide">
+                            <label class="form-label" for="invite-link-input">Invitation link</label>
+                            <div class="invite-link-row">
+                                <input type="text" id="invite-link-input" class="form-control" readonly value="{{ link }}" onclick="this.select();">
+                                <button type="button" class="btn btn-primary" id="invite-link-copy">
+                                    {{ ux_icon('tabler:copy', {width: 18, height: 18}) }}
+                                    <span id="invite-link-copy-label">Copy link</span>
+                                </button>
+                            </div>
+                            <p class="form-text text-muted invite-link-note">This link is valid for 7 days. If it expires, open Users, click the three dots next to the person and choose Copy Link again.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        {# Sticky Footer with Actions #}
+        <div class="form-page-actions">
+            <div class="form-page-actions-inner">
+                <a href="{{ path('_users_list') }}" class="btn btn-ghost">
+                    {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+                    Back to users
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .invite-link-row { display: flex; gap: 8px; align-items: center; }
+    .invite-link-row .form-control { flex: 1; }
+    .invite-link-note { margin-top: 8px; }
+</style>
+
+<script>
+    (function () {
+        var btn = document.getElementById('invite-link-copy');
+        var input = document.getElementById('invite-link-input');
+        var label = document.getElementById('invite-link-copy-label');
+        if (!btn || !input) { return; }
+
+        btn.addEventListener('click', function () {
+            input.focus();
+            input.select();
+            input.setSelectionRange(0, 99999);
+
+            var done = function () {
+                if (!label) { return; }
+                var original = label.textContent;
+                label.textContent = 'Copied!';
+                setTimeout(function () { label.textContent = original; }, 1500);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value).then(done, function () {
+                    try { document.execCommand('copy'); done(); } catch (e) {}
+                });
+            } else {
+                try { document.execCommand('copy'); done(); } catch (e) {}
+            }
+        });
+    })();
+</script>
+{% endblock %}

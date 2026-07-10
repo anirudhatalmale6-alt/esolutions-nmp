@@ -97,16 +97,23 @@ final class InviteUser extends AbstractController
 
             $this->userInvitationRepository->save($data);
 
-            $this->userInvitation->sendUserInvitation($data);
+            // Sending the invitation email must never block the invite itself.
+            // On locked-down shared hosting outbound SMTP is often unavailable,
+            // so we still create the invite and fall back to a shareable link.
+            $emailSent = true;
 
-            $route = $this->router->generate('_users_list');
+            try {
+                $this->userInvitation->sendUserInvitation($data);
+            } catch (\Throwable) {
+                $emailSent = false;
+            }
 
-            return new class($route) extends RedirectResponse implements FlashResponse {
-                public function getFlash(): Generator
-                {
-                    yield self::FLASH_SUCCESS => 'users.invitation.success';
-                }
-            };
+            $route = $this->router->generate('_user_invite_link', [
+                'id' => (string) $data->getId(),
+                'sent' => $emailSent ? '1' : '0',
+            ]);
+
+            return new RedirectResponse($route);
         }
 
         return $this->render(

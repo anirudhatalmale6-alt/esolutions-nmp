@@ -44,13 +44,6 @@ class PurchaseRepository extends EntityRepository
             ->getResult();
     }
 
-    public function save(Purchase $purchase): void
-    {
-        $em = $this->getEntityManager();
-        $em->persist($purchase);
-        $em->flush();
-    }
-
     public function delete(Purchase $purchase): void
     {
         $em = $this->getEntityManager();

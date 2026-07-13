@@ -41,13 +41,6 @@ class SupplierRepository extends EntityRepository
             ->getResult();
     }
 
-    public function save(Supplier $supplier): void
-    {
-        $em = $this->getEntityManager();
-        $em->persist($supplier);
-        $em->flush();
-    }
-
     public function delete(Supplier $supplier): void
     {
         $em = $this->getEntityManager();

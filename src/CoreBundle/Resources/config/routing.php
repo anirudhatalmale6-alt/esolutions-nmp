@@ -46,7 +46,7 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->controller(ImportStock::class);
 
     $routingConfigurator
-        ->add('_stock_public', '/stock/view')
+        ->add('_stock_public', '/nmp-inventory')
         ->controller(PublicStock::class);
 
     $routingConfigurator

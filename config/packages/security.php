@@ -128,7 +128,7 @@ return static function (SecurityConfig $config): void {
             '/verify$|' .
             '/logout$|' .
             '/invite/accept/[a-zA-Z0-9-]{26}$|' .
-            '/stock/view$|' .
+            '/nmp-inventory$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .
             '/payment/capture/(?:.*)|' .
             '/payments/done$' .

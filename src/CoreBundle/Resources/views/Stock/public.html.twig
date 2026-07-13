@@ -1,0 +1,121 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # Public, no-login stock availability page. Model / grade / quantity only -
+ # never prices. Self-contained (inline CSS/JS) so it renders anywhere.
+ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ 'Stock Availability'|trans }} - {{ company.name }}</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+        .head { text-align: center; padding: 24px 0 8px; }
+        .head h1 { margin: 0; font-size: 22px; color: #0f172a; }
+        .head .sub { color: #64748b; font-size: 13px; margin-top: 4px; }
+        .summary { text-align: center; color: #475569; font-size: 13px; margin: 10px 0 18px; }
+        .search {
+            width: 100%; padding: 12px 14px; font-size: 15px; border: 1px solid #cbd5e1;
+            border-radius: 10px; margin-bottom: 14px; background: #fff;
+        }
+        .search:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 14px; text-align: left; font-size: 14px; }
+        thead th {
+            background: #f8fafc; color: #64748b; font-size: 11px; text-transform: uppercase;
+            letter-spacing: .5px; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0;
+        }
+        tbody tr { border-bottom: 1px solid #f1f5f9; }
+        tbody tr:last-child { border-bottom: none; }
+        .model { font-weight: 600; color: #0f172a; }
+        .grade { color: #475569; }
+        .qty { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+        th.qty { text-align: right; }
+        .empty { text-align: center; color: #94a3b8; padding: 40px 16px; }
+        .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 18px; }
+        #no-results { display: none; text-align: center; color: #94a3b8; padding: 30px 16px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="head">
+            <h1>{{ company.name }}</h1>
+            <div class="sub">{{ 'Stock Availability'|trans }} &middot; {{ 'Prices on request'|trans }}</div>
+        </div>
+
+        {% if models is empty %}
+            <div class="card"><div class="empty">{{ 'Stock list is being updated. Please check back shortly.'|trans }}</div></div>
+        {% else %}
+            {% set totalUnits = 0 %}
+            {% for model in models %}{% set totalUnits = totalUnits + model.quantity %}{% endfor %}
+            <div class="summary">
+                {{ models|length }} {{ 'models'|trans }} &middot; {{ totalUnits|number_format }} {{ 'units available'|trans }}
+            </div>
+
+            <input type="text" id="stock-search" class="search" placeholder="{{ 'Search model or grade...'|trans }}" autocomplete="off">
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>{{ 'Model'|trans }}</th>
+                            <th>{{ 'Grade'|trans }}</th>
+                            <th class="qty">{{ 'Available'|trans }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-body">
+                        {% for model in models %}
+                            {% for grade in model.grades %}
+                                <tr data-search="{{ (model.name ~ ' ' ~ grade.grade)|lower }}">
+                                    <td class="model">{{ model.name }}</td>
+                                    <td class="grade">{{ grade.grade }}</td>
+                                    <td class="qty">{{ grade.quantity|number_format }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="no-results">{{ 'No matching stock found.'|trans }}</div>
+            </div>
+        {% endif %}
+
+        <div class="foot">{{ company.name }}</div>
+    </div>
+
+    <script>
+        (function () {
+            var input = document.getElementById('stock-search');
+            if (!input) { return; }
+            var rows = Array.prototype.slice.call(document.querySelectorAll('#stock-body tr'));
+            var noResults = document.getElementById('no-results');
+            input.addEventListener('input', function () {
+                var q = input.value.trim().toLowerCase();
+                var shown = 0;
+                rows.forEach(function (row) {
+                    var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                    row.style.display = match ? '' : 'none';
+                    if (match) { shown++; }
+                });
+                noResults.style.display = shown === 0 ? 'block' : 'none';
+            });
+        })();
+    </script>
+</body>
+</html>

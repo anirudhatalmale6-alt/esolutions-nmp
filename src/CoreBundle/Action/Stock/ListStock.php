@@ -14,8 +14,10 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Stock;
 
 use Brick\Math\BigDecimal;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use Symfony\Bridge\Twig\Attribute\Template;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
@@ -23,11 +25,13 @@ final readonly class ListStock
 {
     public function __construct(
         private StockModelRepository $stockModelRepository,
+        private CompanySelector $companySelector,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
     /**
-     * @return array{models: list<\SolidInvoice\CoreBundle\Entity\StockModel>, totalQuantity: int, totalValue: string}
+     * @return array{models: list<\SolidInvoice\CoreBundle\Entity\StockModel>, totalQuantity: int, totalValue: string, shareUrl: string|null}
      */
     #[Template('@SolidInvoiceCore/Stock/list.html.twig')]
     public function __invoke(): array
@@ -42,10 +46,16 @@ final readonly class ListStock
             $totalValue = $totalValue->plus(BigDecimal::of($model->getValue()));
         }
 
+        $companyId = $this->companySelector->getCompany();
+        $shareUrl = $companyId !== null
+            ? $this->urlGenerator->generate('_stock_public', ['token' => (string) $companyId], UrlGeneratorInterface::ABSOLUTE_URL)
+            : null;
+
         return [
             'models' => $models,
             'totalQuantity' => $totalQuantity,
             'totalValue' => (string) $totalValue->toScale(2),
+            'shareUrl' => $shareUrl,
         ];
     }
 }

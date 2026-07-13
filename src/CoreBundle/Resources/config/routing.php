@@ -16,6 +16,7 @@ use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
+use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
 use SolidInvoice\CoreBundle\Action\SelectCompany;
 use SolidInvoice\CoreBundle\Action\ViewBilling;
@@ -43,6 +44,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_import', '/stock/import')
         ->controller(ImportStock::class);
+
+    $routingConfigurator
+        ->add('_stock_public', '/stock/public/{token}')
+        ->controller(PublicStock::class)
+        ->requirements(['token' => '[A-Za-z0-9]{26}']);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

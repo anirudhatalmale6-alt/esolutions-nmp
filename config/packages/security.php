@@ -128,6 +128,7 @@ return static function (SecurityConfig $config): void {
             '/verify$|' .
             '/logout$|' .
             '/invite/accept/[a-zA-Z0-9-]{26}$|' .
+            '/stock/public/[A-Za-z0-9]{26}$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .
             '/payment/capture/(?:.*)|' .
             '/payments/done$' .

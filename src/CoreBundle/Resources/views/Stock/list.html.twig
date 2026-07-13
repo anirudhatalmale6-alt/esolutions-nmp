@@ -36,6 +36,45 @@
         </a>
     </div>
 
+    {% if shareUrl %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="fw-semibold text-nowrap">
+                        {{ ux_icon('tabler:share', {width: 18, height: 18}) }} {{ 'Public share link'|trans }}
+                    </span>
+                    <input type="text" id="stock-share-url" class="form-control" style="max-width: 520px;" value="{{ shareUrl }}" readonly onclick="this.select()">
+                    <button type="button" id="stock-share-copy" class="btn btn-outline-primary">{{ 'Copy'|trans }}</button>
+                    <a href="{{ shareUrl }}" target="_blank" rel="noopener" class="btn btn-link">{{ 'Open'|trans }}</a>
+                </div>
+                <div class="text-muted small mt-2">
+                    {{ 'Share this link with customers - it shows model, grade and quantity only, with no prices, and needs no login.'|trans }}
+                </div>
+            </div>
+        </div>
+        <script>
+            (function () {
+                var btn = document.getElementById('stock-share-copy');
+                var field = document.getElementById('stock-share-url');
+                if (!btn || !field) { return; }
+                btn.addEventListener('click', function () {
+                    field.select();
+                    var done = function () {
+                        var original = btn.innerHTML;
+                        btn.innerHTML = {{ 'Copied!'|trans|json_encode|raw }};
+                        setTimeout(function () { btn.innerHTML = original; }, 1500);
+                    };
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(field.value).then(done, function () { document.execCommand('copy'); done(); });
+                    } else {
+                        document.execCommand('copy');
+                        done();
+                    }
+                });
+            })();
+        </script>
+    {% endif %}
+
     <twig:Ui:Card>
         {% if models is empty %}
             <div class="text-center py-5 text-muted">

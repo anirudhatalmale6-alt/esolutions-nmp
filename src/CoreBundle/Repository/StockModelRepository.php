@@ -45,6 +45,25 @@ class StockModelRepository extends EntityRepository
     }
 
     /**
+     * All stock models for a specific company, grades eager-loaded, name-sorted.
+     * Scopes by company explicitly so it is correct even on public (no-login)
+     * requests where the CompanyFilter is not active.
+     *
+     * @return list<StockModel>
+     */
+    public function findForCompany(Company $company): array
+    {
+        return $this->createQueryBuilder('m')
+            ->leftJoin('m.grades', 'g')
+            ->addSelect('g')
+            ->where('m.company = :company')
+            ->setParameter('company', $company)
+            ->orderBy('m.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Remove every stock model (and, via the ON DELETE CASCADE foreign key,
      * its grades) belonging to the given company. Used before a re-import.
      */

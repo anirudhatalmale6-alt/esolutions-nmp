@@ -9,17 +9,16 @@
 
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
-{% block title %}{{ 'Import stock'|trans }}{% endblock title %}
+{% block title %}{{ ux_icon('tabler:upload', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Import stock'|trans }}{% endblock title %}
 
-{% block heading %}{{ 'Import stock'|trans }}{% endblock %}
+{% block heading %}
+    <a href="{{ path('_stock_list') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to stock'|trans }}
+    </a>
+{% endblock %}
 
 {% block content %}
-    {% if app.request.hasPreviousSession %}
-        {% for message in app.flashes('error') %}
-            <twig:Ui:Alert type="danger" :dismissible="true">{{ message }}</twig:Ui:Alert>
-        {% endfor %}
-    {% endif %}
-
     <twig:Ui:Card>
         <twig:block name="header">
             <h3 class="card-title mb-0">{{ 'Upload Tally stock summary'|trans }}</h3>

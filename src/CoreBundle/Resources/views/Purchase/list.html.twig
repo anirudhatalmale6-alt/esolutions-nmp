@@ -9,20 +9,16 @@
 
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
-{% block title %}{{ 'Purchases'|trans }}{% endblock title %}
+{% block title %}{{ ux_icon('tabler:shopping-cart', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Purchases'|trans }}{% endblock title %}
 
-{% block heading %}{{ 'Purchases'|trans }}{% endblock %}
+{% block heading %}
+    <a href="{{ path('_purchase_new') }}" class="btn btn-primary">
+        {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
+        {{ 'Add purchase'|trans }}
+    </a>
+{% endblock %}
 
 {% block content %}
-    {% if app.request.hasPreviousSession %}
-        {% for message in app.flashes('success') %}
-            <twig:Ui:Alert type="success" :dismissible="true">{{ message }}</twig:Ui:Alert>
-        {% endfor %}
-        {% for message in app.flashes('error') %}
-            <twig:Ui:Alert type="danger" :dismissible="true">{{ message }}</twig:Ui:Alert>
-        {% endfor %}
-    {% endif %}
-
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="card"><div class="card-body">
@@ -42,14 +38,6 @@
                 <div class="h3 mb-0 text-danger">AED {{ totalOutstanding|number_format(2) }}</div>
             </div></div>
         </div>
-    </div>
-
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="text-muted">{{ purchases|length }} {{ 'purchases'|trans }}</div>
-        <a href="{{ path('_purchase_new') }}" class="btn btn-primary">
-            {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
-            {{ 'Add purchase'|trans }}
-        </a>
     </div>
 
     <twig:Ui:Card>

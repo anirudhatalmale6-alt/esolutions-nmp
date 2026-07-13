@@ -9,28 +9,16 @@
 
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
-{% block title %}{{ 'Suppliers'|trans }}{% endblock title %}
+{% block title %}{{ ux_icon('tabler:truck', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Suppliers'|trans }}{% endblock title %}
 
-{% block heading %}{{ 'Suppliers'|trans }}{% endblock %}
+{% block heading %}
+    <a href="{{ path('_supplier_new') }}" class="btn btn-primary">
+        {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
+        {{ 'Add supplier'|trans }}
+    </a>
+{% endblock %}
 
 {% block content %}
-    {% if app.request.hasPreviousSession %}
-        {% for message in app.flashes('success') %}
-            <twig:Ui:Alert type="success" :dismissible="true">{{ message }}</twig:Ui:Alert>
-        {% endfor %}
-        {% for message in app.flashes('error') %}
-            <twig:Ui:Alert type="danger" :dismissible="true">{{ message }}</twig:Ui:Alert>
-        {% endfor %}
-    {% endif %}
-
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div class="text-muted">{{ suppliers|length }} {{ 'suppliers'|trans }}</div>
-        <a href="{{ path('_supplier_new') }}" class="btn btn-primary">
-            {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
-            {{ 'Add supplier'|trans }}
-        </a>
-    </div>
-
     <twig:Ui:Card>
         {% if suppliers is empty %}
             <div class="text-center py-5 text-muted">

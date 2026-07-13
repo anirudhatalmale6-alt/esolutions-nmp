@@ -6,8 +6,9 @@
  # This source file is subject to the MIT license that is bundled
  # with this source code in the file LICENSE.
  #
- # Public, no-login stock availability page. Model / grade / quantity only -
- # never prices. Self-contained (inline CSS/JS) so it renders anywhere.
+ # Public, no-login stock availability page. Same grouped layout as the internal
+ # stock list (model header + indented grades) but with quantity only - never
+ # prices. Self-contained (inline CSS/JS) so it renders anywhere.
  #}
 <!DOCTYPE html>
 <html lang="en">
@@ -37,17 +38,18 @@
         .search:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
         .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 14px; text-align: left; font-size: 14px; }
+        th, td { padding: 11px 14px; text-align: left; font-size: 14px; }
         thead th {
             background: #f8fafc; color: #64748b; font-size: 11px; text-transform: uppercase;
-            letter-spacing: .5px; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0;
+            letter-spacing: .5px; border-bottom: 2px solid #e2e8f0;
         }
+        th.qty, td.qty { text-align: right; font-variant-numeric: tabular-nums; }
         tbody tr { border-bottom: 1px solid #f1f5f9; }
         tbody tr:last-child { border-bottom: none; }
-        .model { font-weight: 600; color: #0f172a; }
-        .grade { color: #475569; }
-        .qty { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-        th.qty { text-align: right; }
+        tr.model-row td { font-weight: 700; color: #0f172a; background: #fcfdff; }
+        tr.grade-row td.name { padding-left: 34px; color: #475569; }
+        tr.grade-row td.name:before { content: "\21B3"; color: #94a3b8; margin-right: 6px; }
+        td.qty { font-weight: 600; }
         .empty { text-align: center; color: #94a3b8; padding: 40px 16px; }
         .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 18px; }
         #no-results { display: none; text-align: center; color: #94a3b8; padding: 30px 16px; }
@@ -75,17 +77,19 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>{{ 'Model'|trans }}</th>
-                            <th>{{ 'Grade'|trans }}</th>
+                            <th>{{ 'Model'|trans }} / {{ 'Grade'|trans }}</th>
                             <th class="qty">{{ 'Available'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody id="stock-body">
                         {% for model in models %}
+                            <tr class="model-row" data-search="{{ (model.name ~ ' ' ~ model.grades|map(g => g.grade)|join(' '))|lower }}">
+                                <td class="name">{{ model.name }}</td>
+                                <td class="qty">{{ model.quantity|number_format }}</td>
+                            </tr>
                             {% for grade in model.grades %}
-                                <tr data-search="{{ (model.name ~ ' ' ~ grade.grade)|lower }}">
-                                    <td class="model">{{ model.name }}</td>
-                                    <td class="grade">{{ grade.grade }}</td>
+                                <tr class="grade-row">
+                                    <td class="name">{{ grade.grade }}</td>
                                     <td class="qty">{{ grade.quantity|number_format }}</td>
                                 </tr>
                             {% endfor %}
@@ -107,11 +111,16 @@
             var noResults = document.getElementById('no-results');
             input.addEventListener('input', function () {
                 var q = input.value.trim().toLowerCase();
+                var currentMatch = true;
                 var shown = 0;
                 rows.forEach(function (row) {
-                    var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
-                    row.style.display = match ? '' : 'none';
-                    if (match) { shown++; }
+                    if (row.classList.contains('model-row')) {
+                        currentMatch = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                        row.style.display = currentMatch ? '' : 'none';
+                        if (currentMatch) { shown++; }
+                    } else {
+                        row.style.display = currentMatch ? '' : 'none';
+                    }
                 });
                 noResults.style.display = shown === 0 ? 'block' : 'none';
             });

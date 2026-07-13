@@ -9,6 +9,7 @@ invoice:
     paid_date: 'Paid Date'
     total_due: 'Total Due'
     balance_due: 'Balance Due'
+    total_paid: 'Total Paid'
     pdf:
         title: 'INVOICE'
         overdue_by: 'OVERDUE BY %days% DAYS'

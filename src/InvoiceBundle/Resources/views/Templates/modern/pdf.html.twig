@@ -6,6 +6,7 @@
 
 {% set currency = invoice.client.currency %}
 {% set hasOutstandingBalance = invoice_has_outstanding_balance(invoice) %}
+{% set isPaid = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
 
 {% block extra_styles %}
     body { font-family: helvetica, Arial, sans-serif; color: #1e293b; }
@@ -17,10 +18,10 @@
         {{ 'invoice.pdf.title'|trans }} · #{{ invoice.invoiceId }}
     </div>
     <div style="font-size: 11pt; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">
-        {% if hasOutstandingBalance %}{{ 'invoice.balance_due'|trans }}{% else %}{{ 'invoice.total_due'|trans }}{% endif %}
+        {% if isPaid %}{{ 'invoice.total_paid'|trans }}{% elseif hasOutstandingBalance %}{{ 'invoice.balance_due'|trans }}{% else %}{{ 'invoice.total_due'|trans }}{% endif %}
     </div>
     <div style="font-size: 36pt; font-weight: bold; color: #0f172a; line-height: 1.0;">
-        {{ (hasOutstandingBalance ? invoice.balance : invoice.total)|formatCurrency(currency) }}
+        {{ (isPaid ? invoice.total : (hasOutstandingBalance ? invoice.balance : invoice.total))|formatCurrency(currency) }}
     </div>
 </div>
 

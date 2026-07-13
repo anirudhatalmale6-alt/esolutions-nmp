@@ -14,6 +14,8 @@ declare(strict_types=1);
 use SolidInvoice\CoreBundle\Action\CreateCompany;
 use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
+use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
 use SolidInvoice\CoreBundle\Action\SelectCompany;
 use SolidInvoice\CoreBundle\Action\ViewBilling;
@@ -33,6 +35,14 @@ return static function (RoutingConfigurator $routingConfigurator): void {
                 'permanent' => true,
             ]
         );
+
+    $routingConfigurator
+        ->add('_stock_list', '/stock')
+        ->controller(ListStock::class);
+
+    $routingConfigurator
+        ->add('_stock_import', '/stock/import')
+        ->controller(ImportStock::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

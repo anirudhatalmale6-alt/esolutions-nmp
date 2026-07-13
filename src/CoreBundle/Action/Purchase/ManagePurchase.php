@@ -102,9 +102,9 @@ final class ManagePurchase extends AbstractController
             return $this->renderForm($purchase, $data);
         }
 
-        $total = BigDecimal::of($data['total_amount'])->toScale(2, RoundingMode::HALF_UP);
+        $total = BigDecimal::of($data['total_amount'])->toScale(2, RoundingMode::HalfUp);
         $paid = $data['amount_paid'] !== '' && is_numeric($data['amount_paid'])
-            ? BigDecimal::of($data['amount_paid'])->toScale(2, RoundingMode::HALF_UP)
+            ? BigDecimal::of($data['amount_paid'])->toScale(2, RoundingMode::HalfUp)
             : BigDecimal::zero();
 
         try {

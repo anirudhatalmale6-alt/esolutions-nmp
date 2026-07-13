@@ -9,6 +9,8 @@
 
 {% set currency = invoice.client.currency %}
 {% set hasOutstandingBalance = invoice.payments|length > 0 and not invoice.balance.zero %}
+{% set isPaid = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
+{% set isOverdue = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue %}
 
 <html>
 <head>
@@ -44,6 +46,30 @@
     line="on"
     footer-style="border-top: 1px solid #e2e8f0; font-size: 8pt; color: #64748b; padding-top: 8px;"
 />
+
+{# ============================================================================
+   STATUS BADGE - Paid / Partially Paid / Overdue / current status
+============================================================================ #}
+{% set sbBg = '#f1f5f9' %}{% set sbFg = '#475569' %}{% set sbBr = '#94a3b8' %}{% set sbLabel = invoice.status.label|upper %}
+{% if isPaid %}
+    {% set sbLabel = 'PAID' %}{% set sbBg = '#f0fdf4' %}{% set sbFg = '#166534' %}{% set sbBr = '#16a34a' %}
+{% elseif hasOutstandingBalance %}
+    {% set sbLabel = 'PARTIALLY PAID' %}{% set sbBg = '#fef3c7' %}{% set sbFg = '#92400e' %}{% set sbBr = '#d97706' %}
+{% elseif isOverdue %}
+    {% set sbLabel = 'OVERDUE' %}{% set sbBg = '#fee2e2' %}{% set sbFg = '#991b1b' %}{% set sbBr = '#dc2626' %}
+{% endif %}
+<table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 16px;">
+    <tr>
+        <td style="border-left: 4px solid {{ sbBr }}; background-color: {{ sbBg }}; padding: 8px 16px; font-size: 11pt; font-weight: bold; letter-spacing: 1px; color: {{ sbFg }};">
+            {{ sbLabel }}
+        </td>
+        {% if hasOutstandingBalance %}
+            <td style="background-color: {{ sbBg }}; padding: 8px 16px; text-align: right; font-size: 9pt; color: {{ sbFg }};">
+                {{ 'invoice.balance'|trans }}: {{ invoice.balance|formatCurrency(currency) }}
+            </td>
+        {% endif %}
+    </tr>
+</table>
 
 {# ============================================================================
    HEADER SECTION - Company Info + Invoice Details
@@ -155,7 +181,9 @@
                 <tr>
                     <td style="background-color: #2e963a; color: #ffffff; padding: 14px 20px; border-radius: 6px; text-align: right;">
                         <div style="font-size: 8pt; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
-                            {% if hasOutstandingBalance %}
+                            {% if isPaid %}
+                                {{ 'invoice.total_paid'|trans }}
+                            {% elseif hasOutstandingBalance %}
                                 {{ 'invoice.balance_due'|trans }}
                             {% else %}
                                 {{ 'invoice.total_due'|trans }}
@@ -346,8 +374,8 @@
             </tr>
         {% endif %}
 
-        {# Partial Payments #}
-        {% if invoice.payments|length > 0 and not invoice.balance.zero %}
+        {# Payments (deposits / part-payments) - shown whether or not a balance remains #}
+        {% if invoice.payments|length > 0 %}
             {% for payment in invoice.payments|filter((v) => v.status == enum('SolidInvoice\\PaymentBundle\\Enum\\PaymentStatus').Captured) %}
                 <tr class="payment-row">
                     <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">

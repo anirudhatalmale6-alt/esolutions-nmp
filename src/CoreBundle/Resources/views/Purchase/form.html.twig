@@ -1,0 +1,78 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% set isEdit = purchase is not null %}
+
+{% block title %}{{ (isEdit ? 'Edit purchase' : 'Add purchase')|trans }}{% endblock title %}
+
+{% block heading %}{{ (isEdit ? 'Edit purchase' : 'Add purchase')|trans }}{% endblock %}
+
+{% block content %}
+    {% if app.request.hasPreviousSession %}
+        {% for message in app.flashes('error') %}
+            <twig:Ui:Alert type="danger" :dismissible="true">{{ message }}</twig:Ui:Alert>
+        {% endfor %}
+    {% endif %}
+
+    {% if suppliers is empty %}
+        <twig:Ui:Alert type="info">
+            {{ 'You need at least one supplier before recording a purchase.'|trans }}
+            <a href="{{ path('_supplier_new') }}">{{ 'Add a supplier'|trans }}</a>.
+        </twig:Ui:Alert>
+    {% else %}
+        <twig:Ui:Card>
+            <form method="post" action="{{ isEdit ? path('_purchase_edit', {id: purchase.id}) : path('_purchase_new') }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="p-supplier" class="form-label">{{ 'Supplier'|trans }} <span class="text-danger">*</span></label>
+                        <select name="supplier_id" id="p-supplier" class="form-select" required>
+                            <option value="">{{ '— Select supplier —'|trans }}</option>
+                            {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}" {{ data.supplier_id == (supplier.id ~ '') ? 'selected' : '' }}>{{ supplier.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="p-date" class="form-label">{{ 'Purchase date'|trans }} <span class="text-danger">*</span></label>
+                        <input type="date" name="purchase_date" id="p-date" class="form-control" value="{{ data.purchase_date }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="p-ref" class="form-label">{{ 'Reference / Bill no'|trans }}</label>
+                        <input type="text" name="reference" id="p-ref" class="form-control" value="{{ data.reference }}" maxlength="128">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="p-total" class="form-label">{{ 'Total amount (AED)'|trans }} <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0" name="total_amount" id="p-total" class="form-control" value="{{ data.total_amount }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="p-paid" class="form-label">{{ 'Amount paid (AED)'|trans }}</label>
+                        <input type="number" step="0.01" min="0" name="amount_paid" id="p-paid" class="form-control" value="{{ data.amount_paid }}">
+                        <div class="form-text">{{ 'Leave at 0 if nothing paid yet. The balance owed is worked out automatically.'|trans }}</div>
+                    </div>
+                    <div class="col-12">
+                        <label for="p-desc" class="form-label">{{ 'What was purchased (optional)'|trans }}</label>
+                        <textarea name="description" id="p-desc" class="form-control" rows="3">{{ data.description }}</textarea>
+                    </div>
+                </div>
+
+                <input type="hidden" name="_token" value="{{ csrf_token('purchase.save') }}">
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
+                        {{ 'Save purchase'|trans }}
+                    </button>
+                    <a href="{{ path('_purchases_list') }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+                </div>
+            </form>
+        </twig:Ui:Card>
+    {% endif %}
+{% endblock content %}

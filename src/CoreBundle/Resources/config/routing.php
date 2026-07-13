@@ -17,6 +17,9 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Purchase\DeletePurchase;
+use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
+use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Supplier\DeleteSupplier;
 use SolidInvoice\CoreBundle\Action\Supplier\ListSuppliers;
 use SolidInvoice\CoreBundle\Action\Supplier\ManageSupplier;
@@ -67,6 +70,22 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_supplier_delete', '/suppliers/{id}/delete')
         ->controller(DeleteSupplier::class);
+
+    $routingConfigurator
+        ->add('_purchases_list', '/purchases')
+        ->controller(ListPurchases::class);
+
+    $routingConfigurator
+        ->add('_purchase_new', '/purchases/new')
+        ->controller(ManagePurchase::class);
+
+    $routingConfigurator
+        ->add('_purchase_edit', '/purchases/{id}/edit')
+        ->controller(ManagePurchase::class);
+
+    $routingConfigurator
+        ->add('_purchase_delete', '/purchases/{id}/delete')
+        ->controller(DeletePurchase::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

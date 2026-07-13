@@ -1,0 +1,128 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ 'Purchases'|trans }}{% endblock title %}
+
+{% block heading %}{{ 'Purchases'|trans }}{% endblock %}
+
+{% block content %}
+    {% if app.request.hasPreviousSession %}
+        {% for message in app.flashes('success') %}
+            <twig:Ui:Alert type="success" :dismissible="true">{{ message }}</twig:Ui:Alert>
+        {% endfor %}
+        {% for message in app.flashes('error') %}
+            <twig:Ui:Alert type="danger" :dismissible="true">{{ message }}</twig:Ui:Alert>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Total purchased'|trans }}</div>
+                <div class="h3 mb-0">AED {{ totalPurchased|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Total paid'|trans }}</div>
+                <div class="h3 mb-0 text-success">AED {{ totalPaid|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Outstanding (you owe)'|trans }}</div>
+                <div class="h3 mb-0 text-danger">AED {{ totalOutstanding|number_format(2) }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="text-muted">{{ purchases|length }} {{ 'purchases'|trans }}</div>
+        <a href="{{ path('_purchase_new') }}" class="btn btn-primary">
+            {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
+            {{ 'Add purchase'|trans }}
+        </a>
+    </div>
+
+    <twig:Ui:Card>
+        {% if purchases is empty %}
+            <div class="text-center py-5 text-muted">
+                {{ ux_icon('tabler:shopping-cart-off', {width: 40, height: 40}) }}
+                <p class="mt-3 mb-1">{{ 'No purchases recorded yet.'|trans }}</p>
+                <a href="{{ path('_purchase_new') }}" class="btn btn-sm btn-primary mt-2">{{ 'Record your first purchase'|trans }}</a>
+            </div>
+        {% else %}
+            <div class="mb-3">
+                <input type="text" id="purchase-search" class="form-control" placeholder="{{ 'Search supplier or reference...'|trans }}" autocomplete="off">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter" id="purchase-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Date'|trans }}</th>
+                            <th>{{ 'Supplier'|trans }}</th>
+                            <th>{{ 'Reference'|trans }}</th>
+                            <th class="text-end">{{ 'Total'|trans }}</th>
+                            <th class="text-end">{{ 'Paid'|trans }}</th>
+                            <th class="text-end">{{ 'Balance'|trans }}</th>
+                            <th>{{ 'Status'|trans }}</th>
+                            <th class="text-end">{{ 'Actions'|trans }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchase-body">
+                        {% for purchase in purchases %}
+                            {% set badge = {'paid': 'bg-success-lt', 'partial': 'bg-warning-lt', 'unpaid': 'bg-secondary-lt'}[purchase.status] %}
+                            <tr data-search="{{ ((purchase.supplier ? purchase.supplier.name : '') ~ ' ' ~ purchase.reference)|lower }}">
+                                <td class="text-nowrap">{{ purchase.purchaseDate ? purchase.purchaseDate|date('d M Y') : '—' }}</td>
+                                <td class="fw-semibold">{{ purchase.supplier ? purchase.supplier.name : '—' }}</td>
+                                <td>{{ purchase.reference ?: '—' }}</td>
+                                <td class="text-end">AED {{ purchase.totalAmount|number_format(2) }}</td>
+                                <td class="text-end text-success">AED {{ purchase.amountPaid|number_format(2) }}</td>
+                                <td class="text-end fw-semibold">AED {{ purchase.balance|number_format(2) }}</td>
+                                <td><span class="badge {{ badge }}">{{ purchase.status|capitalize|trans }}</span></td>
+                                <td class="text-end text-nowrap">
+                                    <a href="{{ path('_purchase_edit', {id: purchase.id}) }}" class="btn btn-sm btn-outline-primary">
+                                        {{ ux_icon('tabler:edit', {width: 15, height: 15}) }}
+                                    </a>
+                                    <form method="post" action="{{ path('_purchase_delete', {id: purchase.id}) }}" class="d-inline" onsubmit="return confirm('{{ 'Delete this purchase?'|trans }}');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('purchase.delete') }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            {{ ux_icon('tabler:trash', {width: 15, height: 15}) }}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="purchase-no-results" class="text-center text-muted py-4" style="display: none;">{{ 'No matching purchases found.'|trans }}</div>
+            <script>
+                (function () {
+                    var input = document.getElementById('purchase-search');
+                    var rows = document.querySelectorAll('#purchase-body tr');
+                    var noResults = document.getElementById('purchase-no-results');
+                    if (!input) { return; }
+                    input.addEventListener('input', function () {
+                        var q = input.value.trim().toLowerCase();
+                        var shown = 0;
+                        rows.forEach(function (row) {
+                            var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                            row.style.display = match ? '' : 'none';
+                            if (match) { shown++; }
+                        });
+                        noResults.style.display = shown === 0 ? 'block' : 'none';
+                    });
+                })();
+            </script>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock content %}

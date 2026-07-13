@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action\Stock;
 
-use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
@@ -29,7 +28,6 @@ final readonly class PublicStock
     public function __construct(
         private CompanyRepository $companyRepository,
         private StockModelRepository $stockModelRepository,
-        private CompanySelector $companySelector,
     ) {
     }
 
@@ -39,19 +37,23 @@ final readonly class PublicStock
     #[Template('@SolidInvoiceCore/Stock/public.html.twig')]
     public function __invoke(): array
     {
-        $company = $this->companyRepository->findOneBy([]);
+        // This is an anonymous request, so the company Doctrine filter adds no
+        // constraint and this returns the stock as imported. The owning company
+        // is taken from the stock itself, so the page shows the right business
+        // regardless of how many companies exist on the install.
+        $models = $this->stockModelRepository->findAllOrdered();
+
+        $company = $models !== []
+            ? $models[0]->getCompany()
+            : $this->companyRepository->findOneBy([]);
 
         if (! $company instanceof Company) {
             throw new NotFoundHttpException();
         }
 
-        // Align the request to this company (mirrors the public billing view)
-        // so any company-scoped query resolves to the right tenant.
-        $this->companySelector->switchCompany($company->getId());
-
         return [
             'company' => $company,
-            'models' => $this->stockModelRepository->findForCompany($company),
+            'models' => $models,
         ];
     }
 }

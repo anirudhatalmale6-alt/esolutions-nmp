@@ -8,8 +8,11 @@
  #}
 
 {% set currency = invoice.client.currency %}
-{% set hasOutstandingBalance = invoice.payments|length > 0 and not invoice.balance.zero %}
-{% set isPaid = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
+{# Reliable paid/balance figures from captured payments (the stored balance
+   field is 0 for pending invoices, so we never rely on it here). #}
+{% set pay = invoice_payment_status(invoice) %}
+{% set hasOutstandingBalance = pay.isPartiallyPaid %}
+{% set isPaid = pay.isPaid %}
 {% set isOverdue = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue %}
 
 <html>
@@ -65,7 +68,7 @@
         </td>
         {% if hasOutstandingBalance %}
             <td style="background-color: {{ sbBg }}; padding: 8px 16px; text-align: right; font-size: 9pt; color: {{ sbFg }};">
-                {{ 'invoice.balance'|trans }}: {{ invoice.balance|formatCurrency(currency) }}
+                {{ 'invoice.balance'|trans }}: {{ pay.balance|formatCurrency(currency) }}
             </td>
         {% endif %}
     </tr>
@@ -191,7 +194,7 @@
                         </div>
                         <div style="font-size: 18pt; font-weight: bold;">
                             {% if hasOutstandingBalance %}
-                                {{ invoice.balance|formatCurrency(currency) }}
+                                {{ pay.balance|formatCurrency(currency) }}
                             {% else %}
                                 {{ invoice.total|formatCurrency(currency) }}
                             {% endif %}
@@ -400,7 +403,7 @@
                     {{ 'invoice.balance'|trans }}
                 </td>
                 <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #92400e;">
-                    {{ invoice.balance|formatCurrency(currency) }}
+                    {{ pay.balance|formatCurrency(currency) }}
                 </td>
             </tr>
         {% else %}

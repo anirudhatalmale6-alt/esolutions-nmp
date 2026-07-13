@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace SolidInvoice\InvoiceBundle\Twig\Extension;
 
+use Brick\Math\BigInteger;
+use Brick\Math\BigNumber;
 use Override;
 use SolidInvoice\ClientBundle\Entity\Contact;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
@@ -38,6 +40,34 @@ final class InvoiceTemplateExtension extends AbstractExtension
             new TwigFunction('invoice_has_outstanding_balance', $this->hasOutstandingBalance(...)),
             new TwigFunction('invoice_captured_payments', $this->capturedPayments(...)),
             new TwigFunction('invoice_primary_contact', $this->primaryContact(...)),
+            new TwigFunction('invoice_payment_status', $this->paymentStatus(...)),
+        ];
+    }
+
+    /**
+     * Reliable paid / balance figures computed from captured payments, in the
+     * same minor-unit scale as the invoice total. This does NOT rely on the
+     * stored balance field, which stays 0 until an invoice is activated and so
+     * cannot be trusted for pending invoices that already have a deposit.
+     *
+     * @return array{paid: BigInteger, balance: BigNumber, isPaid: bool, isPartiallyPaid: bool}
+     */
+    public function paymentStatus(Invoice $invoice): array
+    {
+        $total = $invoice->getTotal();
+        $paid = BigInteger::zero();
+
+        foreach ($this->capturedPayments($invoice) as $payment) {
+            $paid = $paid->plus($payment->getTotalAmount());
+        }
+
+        $balance = $total->minus($paid);
+
+        return [
+            'paid' => $paid,
+            'balance' => $balance,
+            'isPaid' => $total->isPositive() && $balance->isNegativeOrZero(),
+            'isPartiallyPaid' => $paid->isPositive() && $balance->isPositive(),
         ];
     }
 

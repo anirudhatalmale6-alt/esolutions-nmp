@@ -46,9 +46,8 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->controller(ImportStock::class);
 
     $routingConfigurator
-        ->add('_stock_public', '/stock/public/{token}')
-        ->controller(PublicStock::class)
-        ->requirements(['token' => '[A-Za-z0-9]{26}']);
+        ->add('_stock_public', '/stock/view')
+        ->controller(PublicStock::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

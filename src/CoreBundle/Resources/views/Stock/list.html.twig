@@ -83,7 +83,10 @@
                 <a href="{{ path('_stock_import') }}" class="btn btn-sm btn-primary mt-2">{{ 'Import your Tally stock file'|trans }}</a>
             </div>
         {% else %}
-            <table class="table table-vcenter">
+            <div class="mb-3">
+                <input type="text" id="stock-search" class="form-control" placeholder="{{ 'Search model or grade...'|trans }}" autocomplete="off">
+            </div>
+            <table class="table table-vcenter" id="stock-table">
                 <thead>
                     <tr>
                         <th>{{ 'Model'|trans }}</th>
@@ -92,16 +95,16 @@
                         <th class="text-end">{{ 'Value'|trans }}</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="stock-body">
                     {% for model in models %}
-                        <tr class="fw-bold">
+                        <tr class="fw-bold stock-model-row" data-search="{{ (model.name ~ ' ' ~ model.grades|map(g => g.grade)|join(' '))|lower }}">
                             <td>{{ model.name }}</td>
                             <td class="text-end">{{ model.quantity|number_format }}</td>
                             <td class="text-end">AED {{ model.rate|number_format(2) }}</td>
                             <td class="text-end">AED {{ model.value|number_format(2) }}</td>
                         </tr>
                         {% for grade in model.grades %}
-                            <tr class="text-muted">
+                            <tr class="text-muted stock-grade-row">
                                 <td class="ps-4">
                                     {{ ux_icon('tabler:corner-down-right', {width: 14, height: 14, class: 'me-1'}) }}
                                     {{ grade.grade }}
@@ -114,6 +117,30 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div id="stock-no-results" class="text-center text-muted py-4" style="display: none;">{{ 'No matching stock found.'|trans }}</div>
+            <script>
+                (function () {
+                    var input = document.getElementById('stock-search');
+                    var rows = document.querySelectorAll('#stock-body tr');
+                    var noResults = document.getElementById('stock-no-results');
+                    if (!input) { return; }
+                    input.addEventListener('input', function () {
+                        var q = input.value.trim().toLowerCase();
+                        var currentMatch = true;
+                        var shown = 0;
+                        rows.forEach(function (row) {
+                            if (row.classList.contains('stock-model-row')) {
+                                currentMatch = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                                row.style.display = currentMatch ? '' : 'none';
+                                if (currentMatch) { shown++; }
+                            } else {
+                                row.style.display = currentMatch ? '' : 'none';
+                            }
+                        });
+                        noResults.style.display = shown === 0 ? 'block' : 'none';
+                    });
+                })();
+            </script>
         {% endif %}
     </twig:Ui:Card>
 {% endblock content %}

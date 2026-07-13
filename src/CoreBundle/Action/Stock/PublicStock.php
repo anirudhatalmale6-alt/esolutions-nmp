@@ -19,7 +19,6 @@ use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Uid\Ulid;
 
 /**
  * Public, no-login stock availability page shared with customers. Shows model,
@@ -38,13 +37,9 @@ final readonly class PublicStock
      * @return array{company: Company, models: list<\SolidInvoice\CoreBundle\Entity\StockModel>}
      */
     #[Template('@SolidInvoiceCore/Stock/public.html.twig')]
-    public function __invoke(string $token): array
+    public function __invoke(): array
     {
-        if (! Ulid::isValid($token)) {
-            throw new NotFoundHttpException();
-        }
-
-        $company = $this->companyRepository->find(Ulid::fromString($token));
+        $company = $this->companyRepository->findOneBy([]);
 
         if (! $company instanceof Company) {
             throw new NotFoundHttpException();

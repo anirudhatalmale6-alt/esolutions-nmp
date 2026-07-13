@@ -20,9 +20,6 @@ use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
 use SolidInvoice\CoreBundle\Action\Purchase\DeletePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
 use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
-use SolidInvoice\CoreBundle\Action\Supplier\DeleteSupplier;
-use SolidInvoice\CoreBundle\Action\Supplier\ListSuppliers;
-use SolidInvoice\CoreBundle\Action\Supplier\ManageSupplier;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
 use SolidInvoice\CoreBundle\Action\SelectCompany;
 use SolidInvoice\CoreBundle\Action\ViewBilling;
@@ -54,22 +51,6 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_public', '/nmp-inventory')
         ->controller(PublicStock::class);
-
-    $routingConfigurator
-        ->add('_suppliers_list', '/suppliers')
-        ->controller(ListSuppliers::class);
-
-    $routingConfigurator
-        ->add('_supplier_new', '/suppliers/new')
-        ->controller(ManageSupplier::class);
-
-    $routingConfigurator
-        ->add('_supplier_edit', '/suppliers/{id}/edit')
-        ->controller(ManageSupplier::class);
-
-    $routingConfigurator
-        ->add('_supplier_delete', '/suppliers/{id}/delete')
-        ->controller(DeleteSupplier::class);
 
     $routingConfigurator
         ->add('_purchases_list', '/purchases')

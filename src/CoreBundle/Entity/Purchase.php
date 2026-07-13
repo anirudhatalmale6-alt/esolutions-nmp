@@ -17,6 +17,7 @@ use Brick\Math\BigDecimal;
 use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
 use SolidInvoice\CoreBundle\Traits\Entity\CompanyAware;
 use SolidInvoice\CoreBundle\Traits\Entity\TimeStampable;
@@ -43,9 +44,9 @@ class Purchase
     #[ORM\CustomIdGenerator(class: UlidGenerator::class)]
     private ?Ulid $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Supplier::class)]
-    #[ORM\JoinColumn(name: 'supplier_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-    private ?Supplier $supplier = null;
+    #[ORM\ManyToOne(targetEntity: Client::class)]
+    #[ORM\JoinColumn(name: 'client_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    private ?Client $client = null;
 
     #[ORM\Column(name: 'reference', type: Types::STRING, length: 128, nullable: true)]
     private ?string $reference = null;
@@ -67,14 +68,14 @@ class Purchase
         return $this->id;
     }
 
-    public function getSupplier(): ?Supplier
+    public function getClient(): ?Client
     {
-        return $this->supplier;
+        return $this->client;
     }
 
-    public function setSupplier(?Supplier $supplier): self
+    public function setClient(?Client $client): self
     {
-        $this->supplier = $supplier;
+        $this->client = $client;
 
         return $this;
     }

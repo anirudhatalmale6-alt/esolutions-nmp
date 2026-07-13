@@ -36,8 +36,8 @@ class PurchaseRepository extends EntityRepository
     public function findAllOrdered(): array
     {
         return $this->createQueryBuilder('p')
-            ->leftJoin('p.supplier', 's')
-            ->addSelect('s')
+            ->leftJoin('p.client', 'c')
+            ->addSelect('c')
             ->orderBy('p.purchaseDate', 'DESC')
             ->addOrderBy('p.created', 'DESC')
             ->getQuery()

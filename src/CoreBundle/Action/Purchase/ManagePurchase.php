@@ -16,13 +16,13 @@ namespace SolidInvoice\CoreBundle\Action\Purchase;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use DateTimeImmutable;
+use SolidInvoice\ClientBundle\Entity\Client;
+use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\Purchase;
-use SolidInvoice\CoreBundle\Entity\Supplier;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
-use SolidInvoice\CoreBundle\Repository\SupplierRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,14 +33,15 @@ use function is_numeric;
 use function trim;
 
 /**
- * Creates a new purchase (supplier bill) or edits an existing one.
+ * Creates a new purchase (supplier bill) or edits an existing one. The supplier
+ * is chosen from the existing client list (most suppliers are also clients).
  */
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final class ManagePurchase extends AbstractController
 {
     public function __construct(
         private readonly PurchaseRepository $purchaseRepository,
-        private readonly SupplierRepository $supplierRepository,
+        private readonly ClientRepository $clientRepository,
         private readonly CompanySelector $companySelector,
         private readonly CompanyRepository $companyRepository,
     ) {
@@ -78,7 +79,7 @@ final class ManagePurchase extends AbstractController
         }
 
         $data = [
-            'supplier_id' => trim((string) $request->request->get('supplier_id')),
+            'client_id' => trim((string) $request->request->get('client_id')),
             'reference' => $this->nullify($request->request->get('reference')),
             'purchase_date' => trim((string) $request->request->get('purchase_date')),
             'description' => $this->nullify($request->request->get('description')),
@@ -86,11 +87,11 @@ final class ManagePurchase extends AbstractController
             'amount_paid' => trim((string) $request->request->get('amount_paid')),
         ];
 
-        $supplier = $data['supplier_id'] !== '' && Ulid::isValid($data['supplier_id'])
-            ? $this->supplierRepository->find(Ulid::fromString($data['supplier_id']))
+        $client = $data['client_id'] !== '' && Ulid::isValid($data['client_id'])
+            ? $this->clientRepository->find(Ulid::fromString($data['client_id']))
             : null;
 
-        if (! $supplier instanceof Supplier) {
+        if (! $client instanceof Client) {
             $this->addFlash('error', 'Please choose a supplier.');
 
             return $this->renderForm($purchase, $data);
@@ -131,7 +132,7 @@ final class ManagePurchase extends AbstractController
             $purchase->setCompany($company);
         }
 
-        $purchase->setSupplier($supplier)
+        $purchase->setClient($client)
             ->setReference($data['reference'])
             ->setPurchaseDate($purchaseDate)
             ->setDescription($data['description'])
@@ -153,7 +154,7 @@ final class ManagePurchase extends AbstractController
         return $this->render('@SolidInvoiceCore/Purchase/form.html.twig', [
             'purchase' => $purchase,
             'data' => $data,
-            'suppliers' => $this->supplierRepository->findAllOrdered(),
+            'clients' => $this->clientRepository->findBy([], ['name' => 'ASC']),
         ]);
     }
 
@@ -164,7 +165,7 @@ final class ManagePurchase extends AbstractController
     {
         if (! $purchase instanceof Purchase) {
             return [
-                'supplier_id' => '',
+                'client_id' => '',
                 'reference' => null,
                 'purchase_date' => (new DateTimeImmutable('today'))->format('Y-m-d'),
                 'description' => null,
@@ -174,7 +175,7 @@ final class ManagePurchase extends AbstractController
         }
 
         return [
-            'supplier_id' => $purchase->getSupplier() !== null ? (string) $purchase->getSupplier()->getId() : '',
+            'client_id' => $purchase->getClient() !== null ? (string) $purchase->getClient()->getId() : '',
             'reference' => $purchase->getReference(),
             'purchase_date' => $purchase->getPurchaseDate()?->format('Y-m-d') ?? '',
             'description' => $purchase->getDescription(),

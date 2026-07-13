@@ -68,9 +68,9 @@
                     <tbody id="purchase-body">
                         {% for purchase in purchases %}
                             {% set badge = {'paid': 'bg-success-lt', 'partial': 'bg-warning-lt', 'unpaid': 'bg-secondary-lt'}[purchase.status] %}
-                            <tr data-search="{{ ((purchase.supplier ? purchase.supplier.name : '') ~ ' ' ~ purchase.reference)|lower }}">
+                            <tr data-search="{{ ((purchase.client ? purchase.client.name : '') ~ ' ' ~ purchase.reference)|lower }}">
                                 <td class="text-nowrap">{{ purchase.purchaseDate ? purchase.purchaseDate|date('d M Y') : '—' }}</td>
-                                <td class="fw-semibold">{{ purchase.supplier ? purchase.supplier.name : '—' }}</td>
+                                <td class="fw-semibold">{{ purchase.client ? purchase.client.name : '—' }}</td>
                                 <td>{{ purchase.reference ?: '—' }}</td>
                                 <td class="text-end">AED {{ purchase.totalAmount|number_format(2) }}</td>
                                 <td class="text-end text-success">AED {{ purchase.amountPaid|number_format(2) }}</td>

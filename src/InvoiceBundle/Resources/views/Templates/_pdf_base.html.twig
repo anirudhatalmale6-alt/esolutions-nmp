@@ -10,6 +10,7 @@
  # the standard pdf.css import. Templates extend this and override
  # `body` and (optionally) `extra_styles` and `body_attrs`.
  #}
+{% import '@SolidInvoiceInvoice/Templates/_macros.html.twig' as inv %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -44,6 +45,8 @@
     line="on"
     footer-style="border-top: 1px solid #e2e8f0; font-size: 8pt; color: #64748b; padding-top: 8px;"
 />
+
+{{ inv.status_badge(invoice) }}
 
 {% block body %}{% endblock %}
 </body>

@@ -74,6 +74,44 @@
 {% endmacro %}
 
 {#
+ # status_badge
+ #
+ # A clear, readable status banner rendered at the top of every PDF template.
+ # Shows PAID / PARTIALLY PAID / OVERDUE / (status label) with a matching colour,
+ # and the outstanding balance on the right when money is still due.
+ #}
+{% macro status_badge(invoice) %}
+    {% set hasOutstanding = invoice_has_outstanding_balance(invoice) %}
+    {% set captured = invoice_captured_payments(invoice) %}
+    {% set isPaid = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
+    {% set isOverdue = invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue %}
+    {% set isPartial = hasOutstanding and captured|length > 0 %}
+
+    {% if isPaid %}
+        {% set label = 'PAID' %}{% set bg = '#f0fdf4' %}{% set fg = '#166534' %}{% set br = '#16a34a' %}
+    {% elseif isPartial %}
+        {% set label = 'PARTIALLY PAID' %}{% set bg = '#fef3c7' %}{% set fg = '#92400e' %}{% set br = '#d97706' %}
+    {% elseif isOverdue %}
+        {% set label = 'OVERDUE' %}{% set bg = '#fee2e2' %}{% set fg = '#991b1b' %}{% set br = '#dc2626' %}
+    {% else %}
+        {% set label = invoice.status.label|upper %}{% set bg = '#f1f5f9' %}{% set fg = '#475569' %}{% set br = '#94a3b8' %}
+    {% endif %}
+
+    <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 16px;">
+        <tr>
+            <td style="border-left: 4px solid {{ br }}; background-color: {{ bg }}; padding: 8px 16px; font-size: 11pt; font-weight: bold; letter-spacing: 1px; color: {{ fg }};">
+                {{ label }}
+            </td>
+            {% if hasOutstanding %}
+                <td style="background-color: {{ bg }}; padding: 8px 16px; text-align: right; font-size: 9pt; color: {{ fg }};">
+                    {{ 'invoice.balance'|trans }}: {{ invoice.balance|formatCurrency(invoice.client.currency) }}
+                </td>
+            {% endif %}
+        </tr>
+    </table>
+{% endmacro %}
+
+{#
  # totals_block
  #
  # palette keys: subtotalLabel, taxLabel, discountLabel, totalLabel, totalBg, totalColor,
@@ -155,18 +193,16 @@
                 </td>
             </tr>
         {% endif %}
-        {% if hasOutstandingBalance %}
-            {% for payment in invoice_captured_payments(invoice) %}
-                <tr>
-                    <td style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: {{ p.labelColor }};">
-                        {{ 'invoice.payment.label'|trans }}: {{ payment.method.name }}
-                    </td>
-                    <td style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: {{ p.mono }}; color: {{ p.paymentColor }};">
-                        -{{ payment.totalAmount|formatCurrency(currency) }}
-                    </td>
-                </tr>
-            {% endfor %}
-        {% endif %}
+        {% for payment in invoice_captured_payments(invoice) %}
+            <tr>
+                <td style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: {{ p.labelColor }};">
+                    {{ 'invoice.payment.label'|trans }}: {{ payment.method.name }}
+                </td>
+                <td style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: {{ p.mono }}; color: {{ p.paymentColor }};">
+                    -{{ payment.totalAmount|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endfor %}
         <tr><td colspan="2" style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;"></td></tr>
         {% if hasOutstandingBalance %}
             <tr style="background-color: {{ p.balanceBg }};">

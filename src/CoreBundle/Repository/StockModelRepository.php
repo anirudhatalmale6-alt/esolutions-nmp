@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Repository;
 
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\StockGrade;
@@ -78,22 +79,31 @@ class StockModelRepository extends EntityRepository
      */
     public function deleteForCompany(Company $company): int
     {
-        $entityManager = $this->getEntityManager();
+        $companyId = $company->getId()?->toBinary();
 
-        // 1. Remove the child grade rows for every model of this company.
-        $entityManager->createQuery(
-            'DELETE ' . StockGrade::class . ' g '
-            . 'WHERE IDENTITY(g.stockModel) IN ('
-            . 'SELECT m2.id FROM ' . StockModel::class . ' m2 WHERE m2.company = :company)'
-        )
-            ->setParameter('company', $company)
-            ->execute();
+        if ($companyId === null) {
+            return 0;
+        }
 
-        // 2. Remove the models themselves and report how many were cleared.
-        return (int) $entityManager->createQuery(
-            'DELETE ' . StockModel::class . ' m WHERE m.company = :company'
-        )
-            ->setParameter('company', $company)
-            ->execute();
+        // Delete straight through the DBAL connection on the real tables, by the
+        // binary company_id. This deliberately bypasses the ORM/DQL bulk-delete
+        // path (which was leaving the previous import in place) and the Doctrine
+        // company SQL-filter, so a re-upload reliably wipes the old stock first.
+        $connection = $this->getEntityManager()->getConnection();
+
+        // 1. Child grades first (models of this company).
+        $connection->executeStatement(
+            'DELETE FROM ' . StockGrade::TABLE_NAME
+            . ' WHERE stock_model_id IN (SELECT id FROM ' . StockModel::TABLE_NAME . ' WHERE company_id = ?)',
+            [$companyId],
+            [ParameterType::BINARY]
+        );
+
+        // 2. The models themselves - return how many rows were cleared.
+        return (int) $connection->executeStatement(
+            'DELETE FROM ' . StockModel::TABLE_NAME . ' WHERE company_id = ?',
+            [$companyId],
+            [ParameterType::BINARY]
+        );
     }
 }

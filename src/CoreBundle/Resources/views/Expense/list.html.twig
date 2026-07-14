@@ -9,7 +9,7 @@
 
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
-{% block title %}{{ ux_icon('tabler:wallet', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Payouts (Expenses)'|trans }}{% endblock title %}
+{% block title %}{{ ux_icon('tabler:wallet', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Expenses'|trans }}{% endblock title %}
 
 {% block heading %}
     <a href="{{ path('_expense_new') }}" class="btn btn-primary">

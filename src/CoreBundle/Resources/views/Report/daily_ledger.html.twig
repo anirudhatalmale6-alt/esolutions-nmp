@@ -1,0 +1,189 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:report-money', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Daily Ledger'|trans }}{% endblock title %}
+
+{% block heading %}
+    <button type="button" class="btn btn-primary no-print" onclick="window.print();">
+        {{ ux_icon('tabler:printer', {width: 18, height: 18}) }}
+        {{ 'Print / Save as PDF'|trans }}
+    </button>
+{% endblock %}
+
+{% block content %}
+    <style>
+        @media print {
+            .no-print, .navbar, .sidebar, aside, footer, .page-header .btn { display: none !important; }
+            .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+            body { background: #fff !important; }
+        }
+        .ledger-net-positive { color: #2fb344; }
+        .ledger-net-negative { color: #d63939; }
+    </style>
+
+    {# ---------------- Date picker ---------------- #}
+    <div class="card mb-3 no-print">
+        <div class="card-body">
+            <form method="get" action="{{ path('_daily_ledger') }}" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="ledger-date" class="form-label">{{ 'Show the day'|trans }}</label>
+                    <input type="date" name="date" id="ledger-date" class="form-control" value="{{ date|date('Y-m-d') }}" onchange="this.form.submit()">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-primary">{{ 'Show'|trans }}</button>
+                </div>
+                {% if date|date('Y-m-d') != today %}
+                    <div class="col-auto">
+                        <a href="{{ path('_daily_ledger') }}" class="btn btn-link">{{ 'Back to today'|trans }}</a>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <h2 class="h4 mb-3">{{ 'Ledger for'|trans }} {{ date|date('l, d M Y') }}</h2>
+
+    {# ---------------- Summary cards ---------------- #}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Money in (received)'|trans }}</div>
+                <div class="h3 mb-0 text-success">AED {{ moneyIn|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Money out (paid)'|trans }}</div>
+                <div class="h3 mb-0 text-danger">AED {{ moneyOut|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Net for the day'|trans }}</div>
+                <div class="h3 mb-0 {{ net starts with '-' ? 'ledger-net-negative' : 'ledger-net-positive' }}">AED {{ net|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Invoiced today'|trans }}</div>
+                <div class="h3 mb-0">AED {{ invoicesTotal|number_format(2) }}</div>
+                <div class="small text-muted">{{ invoices|length }} {{ 'invoice(s)'|trans }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        {# ---------------- Money in: payments received ---------------- #}
+        <div class="col-lg-6">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3 text-success">{{ ux_icon('tabler:arrow-down-left', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Payments received'|trans }}</h3>
+                {% if payments is empty %}
+                    <p class="text-muted mb-0">{{ 'No payments received on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Customer'|trans }}</th><th>{{ 'Invoice'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for p in payments %}
+                                    <tr>
+                                        <td>{{ p.client }}</td>
+                                        <td class="text-muted">{{ p.invoiceId ?: '—' }}</td>
+                                        <td class="text-end text-success">AED {{ p.amount|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total in'|trans }}</td><td class="text-end text-success">AED {{ moneyIn|number_format(2) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+
+        {# ---------------- Money out: supplier payments ---------------- #}
+        <div class="col-lg-6">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3 text-danger">{{ ux_icon('tabler:building-store', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Supplier payments'|trans }}</h3>
+                {% if suppliers is empty %}
+                    <p class="text-muted mb-0">{{ 'No supplier payments on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Supplier'|trans }}</th><th>{{ 'Reference'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for s in suppliers %}
+                                    <tr>
+                                        <td>{{ s.supplier }}</td>
+                                        <td class="text-muted">{{ s.reference ?: '—' }}</td>
+                                        <td class="text-end text-danger">AED {{ s.amount|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total to suppliers'|trans }}</td><td class="text-end text-danger">AED {{ supplierOut|number_format(2) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+
+        {# ---------------- Money out: expenses ---------------- #}
+        <div class="col-lg-6">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3 text-danger">{{ ux_icon('tabler:wallet', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Expenses'|trans }}</h3>
+                {% if expenses is empty %}
+                    <p class="text-muted mb-0">{{ 'No expenses on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Category'|trans }}</th><th>{{ 'Paid to'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for e in expenses %}
+                                    <tr>
+                                        <td>{{ e.category }}</td>
+                                        <td class="text-muted">{{ e.payee ?: '—' }}</td>
+                                        <td class="text-end text-danger">AED {{ e.amount|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total expenses'|trans }}</td><td class="text-end text-danger">AED {{ expensesOut|number_format(2) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+
+        {# ---------------- Invoices raised today ---------------- #}
+        <div class="col-lg-6">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3">{{ ux_icon('tabler:file-invoice', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Invoices raised today'|trans }}</h3>
+                {% if invoices is empty %}
+                    <p class="text-muted mb-0">{{ 'No invoices raised on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th>{{ 'Status'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for inv in invoices %}
+                                    <tr>
+                                        <td>{{ inv.invoiceId ?: '—' }}</td>
+                                        <td>{{ inv.client }}</td>
+                                        <td><span class="badge bg-secondary-lt">{{ inv.status|capitalize }}</span></td>
+                                        <td class="text-end">AED {{ inv.total|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold"><td colspan="3" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+    </div>
+{% endblock content %}

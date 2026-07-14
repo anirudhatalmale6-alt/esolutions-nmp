@@ -16,16 +16,24 @@ namespace SolidInvoice\CoreBundle\Menu;
 use Knp\Menu\ItemInterface;
 use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
-final class ExpenseMenu
+final class ReportMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 43)]
+    #[MenuBuilder(name: 'sidebar', priority: 42)]
     public function sidebar(ItemInterface $menu): void
     {
-        $menu->addChild('expenses', [
-            'route' => '_expenses_list',
-            'label' => 'Expenses',
+        $menu->addChild('daily_ledger', [
+            'route' => '_daily_ledger',
+            'label' => 'Daily Ledger',
             'extras' => [
-                'icon' => 'wallet',
+                'icon' => 'report-money',
+            ],
+        ]);
+
+        $menu->addChild('sales_analysis', [
+            'route' => '_sales_analysis',
+            'label' => 'Sales by Model',
+            'extras' => [
+                'icon' => 'chart-histogram',
             ],
         ]);
     }

@@ -24,6 +24,8 @@ use SolidInvoice\CoreBundle\Action\Purchase\DeletePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
 use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
+use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
+use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
 use SolidInvoice\CoreBundle\Action\SelectCompany;
 use SolidInvoice\CoreBundle\Action\ViewBilling;
@@ -91,6 +93,14 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_expense_delete', '/expenses/{id}/delete')
         ->controller(DeleteExpense::class);
+
+    $routingConfigurator
+        ->add('_sales_analysis', '/sales')
+        ->controller(SalesAnalysis::class);
+
+    $routingConfigurator
+        ->add('_daily_ledger', '/daily-ledger')
+        ->controller(DailyLedger::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

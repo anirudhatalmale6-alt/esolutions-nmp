@@ -48,6 +48,8 @@ final class ManageExpense extends AbstractController
         'Salaries',
         'Electricity / DEWA',
         'Water',
+        'Food & Beverages',
+        'Loans',
         'Internet / Phone',
         'Transport',
         'Bank charges',

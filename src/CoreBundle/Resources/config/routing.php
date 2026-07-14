@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 use SolidInvoice\CoreBundle\Action\CreateCompany;
 use SolidInvoice\CoreBundle\Action\DeleteCompany;
+use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
+use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
+use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
 use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
@@ -72,6 +75,22 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_purchase_view', '/purchases/{id}')
         ->controller(ViewPurchase::class);
+
+    $routingConfigurator
+        ->add('_expenses_list', '/expenses')
+        ->controller(ListExpenses::class);
+
+    $routingConfigurator
+        ->add('_expense_new', '/expenses/new')
+        ->controller(ManageExpense::class);
+
+    $routingConfigurator
+        ->add('_expense_edit', '/expenses/{id}/edit')
+        ->controller(ManageExpense::class);
+
+    $routingConfigurator
+        ->add('_expense_delete', '/expenses/{id}/delete')
+        ->controller(DeleteExpense::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

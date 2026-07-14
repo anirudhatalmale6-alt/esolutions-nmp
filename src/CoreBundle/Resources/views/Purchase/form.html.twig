@@ -10,8 +10,9 @@
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
 {% set isEdit = purchase is not null %}
+{% set rows = data.items|default([]) %}
 
-{% block title %}{{ ux_icon('tabler:shopping-cart', {width: 24, height: 24, class: 'me-2'}) }}{{ (isEdit ? 'Edit purchase' : 'Add purchase')|trans }}{% endblock title %}
+{% block title %}{{ ux_icon('tabler:shopping-cart', {width: 24, height: 24, class: 'me-2'}) }}{{ (isEdit ? 'Edit Purchase Order' : 'New Purchase Order')|trans }}{% endblock title %}
 
 {% block heading %}
     <a href="{{ path('_purchases_list') }}" class="btn btn-outline-secondary">
@@ -28,8 +29,15 @@
         </twig:Ui:Alert>
     {% else %}
         <twig:Ui:Card>
-            <form method="post" action="{{ isEdit ? path('_purchase_edit', {id: purchase.id}) : path('_purchase_new') }}">
-                <div class="row g-3">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h2 class="h4 mb-0 text-uppercase">{{ 'Purchase Order'|trans }}</h2>
+                {% if isEdit and data.reference %}
+                    <span class="text-muted">{{ data.reference }}</span>
+                {% endif %}
+            </div>
+
+            <form method="post" id="purchase-form" action="{{ isEdit ? path('_purchase_edit', {id: purchase.id}) : path('_purchase_new') }}">
+                <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label for="p-supplier" class="form-label">{{ 'Supplier'|trans }} <span class="text-danger">*</span></label>
                         <select name="client_id" id="p-supplier" class="form-select client-select"
@@ -49,18 +57,71 @@
                         <label for="p-ref" class="form-label">{{ 'Reference / Bill no'|trans }}</label>
                         <input type="text" name="reference" id="p-ref" class="form-control" value="{{ data.reference }}" maxlength="128">
                     </div>
-                    <div class="col-md-6">
-                        <label for="p-total" class="form-label">{{ 'Total amount (AED)'|trans }} <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" min="0" name="total_amount" id="p-total" class="form-control" value="{{ data.total_amount }}" required>
-                    </div>
+                </div>
+
+                {# ---------------- Line items ---------------- #}
+                <div class="table-responsive">
+                    <table class="table align-middle" id="purchase-items">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%;">{{ 'Item / Product'|trans }}</th>
+                                <th style="width: 12%;" class="text-end">{{ 'Qty'|trans }}</th>
+                                <th style="width: 18%;" class="text-end">{{ 'Unit price (AED)'|trans }}</th>
+                                <th style="width: 18%;" class="text-end">{{ 'Line total'|trans }}</th>
+                                <th style="width: 2%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-body">
+                            {% if rows is empty %}
+                                {% set rows = [{description: '', qty: '1', price: ''}] %}
+                            {% endif %}
+                            {% for row in rows %}
+                                <tr class="purchase-item-row">
+                                    <td>
+                                        <input type="text" name="item_description[]" class="form-control item-desc" value="{{ row.description }}" placeholder="{{ 'e.g. iPhone 15 128GB'|trans }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="{{ row.qty }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0" name="item_price[]" class="form-control text-end item-price" value="{{ row.price }}">
+                                    </td>
+                                    <td class="text-end item-line-total">0.00</td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-row" title="{{ 'Remove'|trans }}">
+                                            {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="add-row">
+                                        {{ ux_icon('tabler:plus', {width: 16, height: 16}) }}
+                                        {{ 'Add item'|trans }}
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">{{ 'Total'|trans }}</td>
+                                <td class="text-end fw-bold"><span id="grand-total">0.00</span> AED</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="row g-3 mt-2">
                     <div class="col-md-6">
                         <label for="p-paid" class="form-label">{{ 'Amount paid (AED)'|trans }}</label>
                         <input type="number" step="0.01" min="0" name="amount_paid" id="p-paid" class="form-control" value="{{ data.amount_paid }}">
                         <div class="form-text">{{ 'Leave at 0 if nothing paid yet. The balance owed is worked out automatically.'|trans }}</div>
                     </div>
-                    <div class="col-12">
-                        <label for="p-desc" class="form-label">{{ 'What was purchased (optional)'|trans }}</label>
-                        <textarea name="description" id="p-desc" class="form-control" rows="3">{{ data.description }}</textarea>
+                    <div class="col-md-6">
+                        <label for="p-desc" class="form-label">{{ 'Notes (optional)'|trans }}</label>
+                        <textarea name="description" id="p-desc" class="form-control" rows="2">{{ data.description }}</textarea>
                     </div>
                 </div>
 
@@ -69,11 +130,96 @@
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
-                        {{ 'Save purchase'|trans }}
+                        {{ 'Save purchase order'|trans }}
                     </button>
                     <a href="{{ path('_purchases_list') }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
                 </div>
             </form>
         </twig:Ui:Card>
+
+        {# Blank row template used when adding new lines #}
+        <template id="row-template">
+            <tr class="purchase-item-row">
+                <td>
+                    <input type="text" name="item_description[]" class="form-control item-desc" placeholder="{{ 'e.g. iPhone 15 128GB'|trans }}">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="1">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" name="item_price[]" class="form-control text-end item-price">
+                </td>
+                <td class="text-end item-line-total">0.00</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-row" title="{{ 'Remove'|trans }}">
+                        {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                    </button>
+                </td>
+            </tr>
+        </template>
+
+        <script>
+            (function () {
+                var form = document.getElementById('purchase-form');
+                if (!form) { return; }
+
+                var body = document.getElementById('items-body');
+                var addBtn = document.getElementById('add-row');
+                var template = document.getElementById('row-template');
+                var grandTotalEl = document.getElementById('grand-total');
+
+                function money(n) {
+                    if (isNaN(n) || !isFinite(n)) { n = 0; }
+                    return n.toFixed(2);
+                }
+
+                function recalc() {
+                    var rows = body.querySelectorAll('.purchase-item-row');
+                    var grand = 0;
+                    rows.forEach(function (row) {
+                        var qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                        var price = parseFloat(row.querySelector('.item-price').value) || 0;
+                        var line = qty * price;
+                        grand += line;
+                        row.querySelector('.item-line-total').textContent = money(line);
+                    });
+                    grandTotalEl.textContent = money(grand);
+                }
+
+                function wireRow(row) {
+                    row.querySelectorAll('.item-qty, .item-price').forEach(function (input) {
+                        input.addEventListener('input', recalc);
+                    });
+                    var removeBtn = row.querySelector('.remove-row');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', function () {
+                            // Keep at least one row on screen.
+                            if (body.querySelectorAll('.purchase-item-row').length > 1) {
+                                row.remove();
+                            } else {
+                                row.querySelector('.item-desc').value = '';
+                                row.querySelector('.item-qty').value = '1';
+                                row.querySelector('.item-price').value = '';
+                            }
+                            recalc();
+                        });
+                    }
+                }
+
+                body.querySelectorAll('.purchase-item-row').forEach(wireRow);
+
+                if (addBtn) {
+                    addBtn.addEventListener('click', function () {
+                        var clone = template.content.firstElementChild.cloneNode(true);
+                        body.appendChild(clone);
+                        wireRow(clone);
+                        clone.querySelector('.item-desc').focus();
+                        recalc();
+                    });
+                }
+
+                recalc();
+            })();
+        </script>
     {% endif %}
 {% endblock content %}

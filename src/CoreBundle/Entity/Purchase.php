@@ -14,7 +14,10 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Entity;
 
 use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use DateTimeInterface;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use SolidInvoice\ClientBundle\Entity\Client;
@@ -62,6 +65,17 @@ class Purchase
 
     #[ORM\Column(name: 'amount_paid', type: Types::DECIMAL, precision: 15, scale: 2)]
     private string $amountPaid = '0';
+
+    /**
+     * @var Collection<int, PurchaseItem>
+     */
+    #[ORM\OneToMany(mappedBy: 'purchase', targetEntity: PurchaseItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $items;
+
+    public function __construct()
+    {
+        $this->items = new ArrayCollection();
+    }
 
     public function getId(): ?Ulid
     {
@@ -136,6 +150,58 @@ class Purchase
     public function setAmountPaid(string $amountPaid): self
     {
         $this->amountPaid = $amountPaid;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PurchaseItem>
+     */
+    public function getItems(): Collection
+    {
+        return $this->items;
+    }
+
+    public function addItem(PurchaseItem $item): self
+    {
+        if (! $this->items->contains($item)) {
+            $this->items->add($item);
+            $item->setPurchase($this);
+        }
+
+        return $this;
+    }
+
+    public function removeItem(PurchaseItem $item): self
+    {
+        if ($this->items->removeElement($item) && $item->getPurchase() === $this) {
+            $item->setPurchase(null);
+        }
+
+        return $this;
+    }
+
+    public function clearItems(): self
+    {
+        foreach ($this->items->toArray() as $item) {
+            $this->removeItem($item);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Recalculate each line and set the purchase total to the sum of the lines.
+     */
+    public function recalculateTotalFromItems(): self
+    {
+        $total = BigDecimal::zero();
+
+        foreach ($this->items as $item) {
+            $total = $total->plus(BigDecimal::of($item->recalculateTotal()));
+        }
+
+        $this->totalAmount = (string) $total->toScale(2, RoundingMode::HalfUp);
 
         return $this;
     }

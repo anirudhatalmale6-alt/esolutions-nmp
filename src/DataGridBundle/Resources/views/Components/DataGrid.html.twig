@@ -2,6 +2,31 @@
 {# @var grid \SolidInvoice\DataGridBundle\GridInterface #}
 
 <div {{ attributes.defaults({class: 'datagrid'}) }}>
+    {# Pin the row-actions column to the right edge so View/Edit stay visible on
+       wide grids instead of being pushed off-screen behind a horizontal scroll
+       (client feedback). Scoped to .datagrid so it only affects these tables. #}
+    <style>
+        .datagrid .datagrid-table-wrapper { position: relative; }
+        .datagrid .datagrid-table th.col-actions,
+        .datagrid .datagrid-table td.col-actions {
+            position: sticky;
+            right: 0;
+            background-color: var(--tblr-bg-surface, #ffffff);
+            z-index: 2;
+        }
+        .datagrid .datagrid-table th.col-actions::before,
+        .datagrid .datagrid-table td.col-actions::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 6px;
+            transform: translateX(-100%);
+            background: linear-gradient(to left, rgba(0, 0, 0, .12), transparent);
+            pointer-events: none;
+        }
+    </style>
     {% include "@SolidInvoiceCore/flash.html.twig" %}
 
     {# Main Card Container #}

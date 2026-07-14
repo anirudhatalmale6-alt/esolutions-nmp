@@ -39,6 +39,8 @@ abstract class Column
 
     private bool $searchable = true;
 
+    private ?string $searchField = null;
+
     private ?string $link = null;
 
     private ?string $linkRoute = null;
@@ -78,6 +80,23 @@ abstract class Column
         $this->filter = $filter;
 
         return $this;
+    }
+
+    /**
+     * Search a different field than the one displayed (e.g. search the related
+     * "client.name" while the column itself renders the client entity). Dotted
+     * paths are joined automatically by SearchFilter. Defaults to the display field.
+     */
+    public function searchField(string $searchField): static
+    {
+        $this->searchField = $searchField;
+
+        return $this;
+    }
+
+    public function getSearchField(): string
+    {
+        return $this->searchField ?? $this->getField();
     }
 
     public function searchable(bool $searchable): static

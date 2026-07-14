@@ -49,7 +49,7 @@ final class GridQueryService
         }
 
         $searchFields = array_filter($grid->columns(), static fn (Column $column): bool => $column->isSearchable());
-        $searchFields = array_map(static fn (Column $column): string => $column->getField(), $searchFields);
+        $searchFields = array_map(static fn (Column $column): string => $column->getSearchField(), $searchFields);
         new SearchFilter($searchFields)->filter($builder, $search);
 
         foreach ($grid->filters() as $column => $filter) {

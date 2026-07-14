@@ -61,7 +61,7 @@ abstract class BaseInvoiceGrid extends Grid
                 ->format('d F Y')
                 ->filter(new DateRangeFilter('invoiceDate')),
             StringColumn::new('client')
-                ->searchable(false)
+                ->searchField('client.name')
                 ->linkToRoute('_clients_view', ['id' => 'client.id']),
             MoneyColumn::new('balance')
                 ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),

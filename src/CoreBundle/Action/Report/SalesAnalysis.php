@@ -15,11 +15,14 @@ namespace SolidInvoice\CoreBundle\Action\Report;
 
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
-use Doctrine\ORM\EntityManagerInterface;
-use SolidInvoice\InvoiceBundle\Entity\Line;
+use DateTimeImmutable;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Throwable;
 use function trim;
 
 /**
@@ -28,14 +31,17 @@ use function trim;
  * how many units were sold, the price range and average selling price, and - when
  * a model is selected - the full sale history and the top buyers for it.
  *
- * Amounts on invoice lines are stored in MINOR units (fils/cents), so every money
+ * Runs through raw DBAL SQL on the real tables (rather than DQL aggregates over
+ * the single-table-inheritance Line entity), scoping to the active company by its
+ * binary id. Line amounts are stored in MINOR units (fils/cents), so every money
  * value is divided by 100 for display.
  */
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final readonly class SalesAnalysis
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
+        private Connection $connection,
+        private CompanySelector $companySelector,
     ) {
     }
 
@@ -45,21 +51,28 @@ final readonly class SalesAnalysis
     #[Template('@SolidInvoiceCore/Report/sales_analysis.html.twig')]
     public function __invoke(Request $request): array
     {
+        $companyId = $this->companySelector->getCompany();
+        $binaryCompanyId = $companyId?->toBinary();
+
         $model = trim((string) $request->query->get('model', ''));
+
+        if ($binaryCompanyId === null) {
+            return ['model' => $model !== '' ? $model : null, 'detail' => $model !== '', 'products' => [], 'buyers' => [], 'history' => []];
+        }
 
         if ($model !== '') {
             return [
                 'model' => $model,
                 'detail' => true,
-                'buyers' => $this->topBuyers($model),
-                'history' => $this->saleHistory($model),
+                'buyers' => $this->topBuyers($binaryCompanyId, $model),
+                'history' => $this->saleHistory($binaryCompanyId, $model),
             ];
         }
 
         return [
             'model' => null,
             'detail' => false,
-            'products' => $this->productSummary(),
+            'products' => $this->productSummary($binaryCompanyId),
         ];
     }
 
@@ -68,19 +81,23 @@ final readonly class SalesAnalysis
      *
      * @return list<array{model: string, units: string, invoices: int, minPrice: string, maxPrice: string, avgPrice: string, revenue: string}>
      */
-    private function productSummary(): array
+    private function productSummary(string $binaryCompanyId): array
     {
-        $rows = $this->entityManager->createQuery(
-            'SELECT l.description AS model,
-                    SUM(l.qty) AS units,
-                    COUNT(DISTINCT inv.id) AS invoices,
-                    MIN(l.price) AS minPrice,
-                    MAX(l.price) AS maxPrice,
-                    SUM(l.total) AS revenue
-             FROM ' . Line::class . ' l
-             JOIN l.invoice inv
-             GROUP BY l.description'
-        )->getScalarResult();
+        $rows = $this->connection->executeQuery(
+            'SELECT il.description AS model,
+                    SUM(il.qty) AS units,
+                    COUNT(DISTINCT il.invoice_id) AS invoices,
+                    MIN(il.price_amount) AS minPrice,
+                    MAX(il.price_amount) AS maxPrice,
+                    SUM(il.total_amount) AS revenue
+             FROM invoice_lines il
+             INNER JOIN invoices i ON i.id = il.invoice_id
+             WHERE il.company_id = :companyId
+               AND (i.archived IS NULL OR i.archived = 0)
+             GROUP BY il.description',
+            ['companyId' => $binaryCompanyId],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
 
         $products = [];
 
@@ -99,8 +116,6 @@ final readonly class SalesAnalysis
             ];
         }
 
-        // Sort by revenue descending (kept in PHP so we do not rely on ordering
-        // by a DQL aggregate alias).
         usort($products, static fn (array $a, array $b): int => BigDecimal::of($b['revenue'])->compareTo(BigDecimal::of($a['revenue'])));
 
         return $products;
@@ -111,20 +126,24 @@ final readonly class SalesAnalysis
      *
      * @return list<array{client: string, units: string, minPrice: string, maxPrice: string, revenue: string}>
      */
-    private function topBuyers(string $model): array
+    private function topBuyers(string $binaryCompanyId, string $model): array
     {
-        $rows = $this->entityManager->createQuery(
+        $rows = $this->connection->executeQuery(
             'SELECT c.name AS client,
-                    SUM(l.qty) AS units,
-                    MIN(l.price) AS minPrice,
-                    MAX(l.price) AS maxPrice,
-                    SUM(l.total) AS revenue
-             FROM ' . Line::class . ' l
-             JOIN l.invoice inv
-             JOIN inv.client c
-             WHERE l.description = :model
-             GROUP BY c.id, c.name'
-        )->setParameter('model', $model)->getScalarResult();
+                    SUM(il.qty) AS units,
+                    MIN(il.price_amount) AS minPrice,
+                    MAX(il.price_amount) AS maxPrice,
+                    SUM(il.total_amount) AS revenue
+             FROM invoice_lines il
+             INNER JOIN invoices i ON i.id = il.invoice_id
+             INNER JOIN clients c ON c.id = i.client_id
+             WHERE il.company_id = :companyId
+               AND il.description = :model
+               AND (i.archived IS NULL OR i.archived = 0)
+             GROUP BY c.id, c.name',
+            ['companyId' => $binaryCompanyId, 'model' => $model],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
 
         $buyers = [];
 
@@ -146,33 +165,35 @@ final readonly class SalesAnalysis
     /**
      * Every individual sale line of a given model, newest first.
      *
-     * @return list<array{invoiceId: string, invoiceUlid: string, date: ?\DateTimeInterface, client: string, qty: string, price: string, total: string}>
+     * @return list<array{invoiceId: string, date: ?DateTimeImmutable, client: string, qty: string, price: string, total: string}>
      */
-    private function saleHistory(string $model): array
+    private function saleHistory(string $binaryCompanyId, string $model): array
     {
-        $rows = $this->entityManager->createQuery(
-            'SELECT inv.invoiceId AS invoiceId,
-                    inv.id AS invoiceUlid,
-                    inv.invoiceDate AS date,
+        $rows = $this->connection->executeQuery(
+            'SELECT i.invoice_id AS invoiceId,
+                    i.invoice_date AS saleDate,
                     c.name AS client,
-                    l.qty AS qty,
-                    l.price AS price,
-                    l.total AS total
-             FROM ' . Line::class . ' l
-             JOIN l.invoice inv
-             JOIN inv.client c
-             WHERE l.description = :model
-             ORDER BY inv.invoiceDate DESC, inv.created DESC'
-        )->setParameter('model', $model)->getResult();
+                    il.qty AS qty,
+                    il.price_amount AS price,
+                    il.total_amount AS total
+             FROM invoice_lines il
+             INNER JOIN invoices i ON i.id = il.invoice_id
+             INNER JOIN clients c ON c.id = i.client_id
+             WHERE il.company_id = :companyId
+               AND il.description = :model
+               AND (i.archived IS NULL OR i.archived = 0)
+             ORDER BY i.invoice_date DESC',
+            ['companyId' => $binaryCompanyId, 'model' => $model],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
 
         $history = [];
 
         foreach ($rows as $row) {
             $history[] = [
-                'invoiceId' => (string) $row['invoiceId'],
-                'invoiceUlid' => (string) $row['invoiceUlid'],
-                'date' => $row['date'] ?? null,
-                'client' => (string) $row['client'],
+                'invoiceId' => (string) ($row['invoiceId'] ?? ''),
+                'date' => $this->toDate((string) ($row['saleDate'] ?? '')),
+                'client' => (string) ($row['client'] ?? ''),
                 'qty' => $this->trimQty((string) ($row['qty'] ?? '0')),
                 'price' => $this->toMajor((string) ($row['price'] ?? '0')),
                 'total' => $this->toMajor((string) ($row['total'] ?? '0')),
@@ -180,6 +201,19 @@ final readonly class SalesAnalysis
         }
 
         return $history;
+    }
+
+    private function toDate(string $value): ?DateTimeImmutable
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -217,8 +251,6 @@ final readonly class SalesAnalysis
             return '0';
         }
 
-        $decimal = BigDecimal::of($qty)->stripTrailingZeros();
-
-        return (string) $decimal;
+        return (string) BigDecimal::of($qty)->stripTrailingZeros();
     }
 }

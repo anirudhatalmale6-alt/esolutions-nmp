@@ -20,14 +20,41 @@
 
 {% block content %}
     <style>
-        @media print {
-            .no-print, .navbar, .sidebar, aside, footer, .page-header .btn { display: none !important; }
-            .card { border: 1px solid #ddd !important; box-shadow: none !important; }
-            body { background: #fff !important; }
-        }
+        .ledger-banner { background: linear-gradient(135deg, #206bc4 0%, #4299e1 100%); color: #fff; border: 0; }
+        .ledger-banner .text-muted { color: rgba(255,255,255,.85) !important; }
         .ledger-net-positive { color: #2fb344; }
         .ledger-net-negative { color: #d63939; }
+
+        @media print {
+            @page { size: A4 portrait; margin: 8mm; }
+            .no-print, .navbar, .sidebar, aside, footer, .page-header .btn, .app-header, .navbar-vertical { display: none !important; }
+            body { background: #fff !important; font-size: 10px !important; }
+            .ledger-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .card { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: .4rem !important; break-inside: avoid; }
+            .card-body { padding: .4rem .6rem !important; }
+            h2, .h2, .h3 { font-size: 1rem !important; margin-bottom: .3rem !important; }
+            .h4, .h5, h3 { font-size: .9rem !important; margin-bottom: .3rem !important; }
+            table { font-size: 9px !important; }
+            .table td, .table th { padding: .12rem .3rem !important; }
+            .row.g-3 { --bs-gutter-y: .4rem !important; --bs-gutter-x: .4rem !important; }
+            .col-lg-6 { width: 50% !important; float: left; }
+            .col-md-3 { width: 25% !important; float: left; }
+        }
     </style>
+
+    {# ---------------- Pro banner header ---------------- #}
+    <div class="card mb-3 ledger-banner">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="h2 mb-1">{{ company_name() }}</div>
+                <div class="text-muted text-uppercase" style="letter-spacing: .08em;">{{ 'Daily Ledger'|trans }}</div>
+            </div>
+            <div class="text-end">
+                <div class="h3 mb-0">{{ date|date('d M Y') }}</div>
+                <div class="text-muted">{{ date|date('l') }}</div>
+            </div>
+        </div>
+    </div>
 
     {# ---------------- Date picker ---------------- #}
     <div class="card mb-3 no-print">
@@ -49,10 +76,8 @@
         </div>
     </div>
 
-    <h2 class="h4 mb-3">{{ 'Ledger for'|trans }} {{ date|date('l, d M Y') }}</h2>
-
     {# ---------------- Summary cards ---------------- #}
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-3">
         <div class="col-md-3 col-6">
             <div class="card"><div class="card-body">
                 <div class="text-muted small text-uppercase">{{ 'Money in (received)'|trans }}</div>
@@ -116,16 +141,17 @@
                 {% else %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
-                            <thead><tr><th>{{ 'Supplier'|trans }}</th><th>{{ 'Reference'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                            <thead><tr><th>{{ 'Supplier'|trans }}</th><th>{{ 'Reference'|trans }}</th><th class="text-end">{{ 'Paid'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
                             <tbody>
                                 {% for s in suppliers %}
                                     <tr>
                                         <td>{{ s.supplier }}</td>
                                         <td class="text-muted">{{ s.reference ?: '—' }}</td>
                                         <td class="text-end text-danger">AED {{ s.amount|number_format(2) }}</td>
+                                        <td class="text-end">AED {{ s.balance|number_format(2) }}</td>
                                     </tr>
                                 {% endfor %}
-                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total to suppliers'|trans }}</td><td class="text-end text-danger">AED {{ supplierOut|number_format(2) }}</td></tr>
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total to suppliers'|trans }}</td><td class="text-end text-danger">AED {{ supplierOut|number_format(2) }}</td><td></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -168,17 +194,17 @@
                 {% else %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
-                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th>{{ 'Status'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th></tr></thead>
+                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
                             <tbody>
                                 {% for inv in invoices %}
                                     <tr>
                                         <td>{{ inv.invoiceId ?: '—' }}</td>
                                         <td>{{ inv.client }}</td>
-                                        <td><span class="badge bg-secondary-lt">{{ inv.status|capitalize }}</span></td>
                                         <td class="text-end">AED {{ inv.total|number_format(2) }}</td>
+                                        <td class="text-end {{ inv.balance == '0.00' ? 'text-success' : '' }}">AED {{ inv.balance|number_format(2) }}</td>
                                     </tr>
                                 {% endfor %}
-                                <tr class="fw-bold"><td colspan="3" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td></tr>
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td><td></td></tr>
                             </tbody>
                         </table>
                     </div>

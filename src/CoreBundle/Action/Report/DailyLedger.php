@@ -159,7 +159,7 @@ final readonly class DailyLedger
     private function supplierPayments(DateTimeImmutable $start, DateTimeImmutable $end): array
     {
         $rows = $this->entityManager->createQuery(
-            'SELECT c.name AS supplier, pu.reference AS reference, pu.amountPaid AS amount
+            'SELECT c.name AS supplier, pu.reference AS reference, pu.amountPaid AS amount, pu.totalAmount AS total
              FROM SolidInvoice\CoreBundle\Entity\Purchase pu
              JOIN pu.client c
              WHERE pu.purchaseDate BETWEEN :start AND :end AND pu.amountPaid > 0
@@ -172,10 +172,19 @@ final readonly class DailyLedger
         $suppliers = [];
 
         foreach ($rows as $row) {
+            $paid = BigDecimal::of((string) ($row['amount'] ?? '0'));
+            $total = BigDecimal::of((string) ($row['total'] ?? '0'));
+            $balance = $total->minus($paid);
+
+            if ($balance->isNegative()) {
+                $balance = BigDecimal::zero();
+            }
+
             $suppliers[] = [
                 'supplier' => (string) ($row['supplier'] ?? '—'),
                 'reference' => (string) ($row['reference'] ?? ''),
-                'amount' => (string) BigDecimal::of((string) ($row['amount'] ?? '0'))->toScale(2),
+                'amount' => (string) $paid->toScale(2),
+                'balance' => (string) $balance->toScale(2),
             ];
         }
 
@@ -190,7 +199,7 @@ final readonly class DailyLedger
     private function invoicesRaised(DateTimeImmutable $start, DateTimeImmutable $end): array
     {
         $rows = $this->entityManager->createQuery(
-            'SELECT inv.invoiceId AS invoiceId, inv.total AS total, inv.status AS status, c.name AS client
+            'SELECT inv.invoiceId AS invoiceId, inv.total AS total, inv.balance AS balance, inv.status AS status, c.name AS client
              FROM ' . Invoice::class . ' inv
              JOIN inv.client c
              WHERE inv.invoiceDate BETWEEN :start AND :end
@@ -209,6 +218,7 @@ final readonly class DailyLedger
                 'invoiceId' => (string) ($row['invoiceId'] ?? ''),
                 'client' => (string) ($row['client'] ?? '—'),
                 'total' => $this->toMajor((string) ($row['total'] ?? '0')),
+                'balance' => $this->toMajor((string) ($row['balance'] ?? '0')),
                 'status' => $status instanceof BackedEnum ? (string) $status->value : (string) ($status ?? ''),
             ];
         }

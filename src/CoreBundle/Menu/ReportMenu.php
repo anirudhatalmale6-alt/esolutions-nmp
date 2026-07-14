@@ -21,7 +21,14 @@ final class ReportMenu
     #[MenuBuilder(name: 'sidebar', priority: 42)]
     public function sidebar(ItemInterface $menu): void
     {
-        $menu->addChild('daily_ledger', [
+        $section = $menu->addChild('reports', [
+            'label' => 'Reports',
+            'extras' => [
+                'icon' => 'report-analytics',
+            ],
+        ]);
+
+        $section->addChild('daily_ledger', [
             'route' => '_daily_ledger',
             'label' => 'Daily Ledger',
             'extras' => [
@@ -29,7 +36,7 @@ final class ReportMenu
             ],
         ]);
 
-        $menu->addChild('sales_analysis', [
+        $section->addChild('sales_analysis', [
             'route' => '_sales_analysis',
             'label' => 'Sales by Model',
             'extras' => [

@@ -32,13 +32,14 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label for="p-supplier" class="form-label">{{ 'Supplier'|trans }} <span class="text-danger">*</span></label>
-                        <select name="client_id" id="p-supplier" class="form-select" required>
+                        <select name="client_id" id="p-supplier" class="form-select client-select"
+                                data-controller="symfony--ux-autocomplete--autocomplete" required>
                             <option value="">{{ '— Select supplier —'|trans }}</option>
                             {% for client in clients %}
                                 <option value="{{ client.id }}" {{ data.client_id == (client.id ~ '') ? 'selected' : '' }}>{{ client.name }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">{{ 'Chosen from your clients list.'|trans }}</div>
+                        <div class="form-text">{{ 'Start typing to search your clients list.'|trans }}</div>
                     </div>
                     <div class="col-md-3">
                         <label for="p-date" class="form-label">{{ 'Purchase date'|trans }} <span class="text-danger">*</span></label>

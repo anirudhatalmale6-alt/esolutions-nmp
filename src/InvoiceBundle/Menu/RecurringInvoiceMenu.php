@@ -29,7 +29,11 @@ final readonly class RecurringInvoiceMenu
     ) {
     }
 
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_RECURRING_INVOICE->value)]
+    // Recurring invoices hidden from the sidebar at the client's request (NMP does
+    // not use them). Dropping the #[MenuBuilder] attribute removes the menu entry
+    // via auto-discovery; the routes/entity/controllers stay intact so nothing
+    // breaks and it can be re-enabled by restoring the attribute below.
+    // #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_RECURRING_INVOICE->value)]
     public function sidebar(ItemInterface $menu): void
     {
         $extras = ['icon' => Icon::RECURRING_INVOICE];

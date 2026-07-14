@@ -77,7 +77,10 @@
                                 <td class="text-end fw-semibold">AED {{ purchase.balance|number_format(2) }}</td>
                                 <td><span class="badge {{ badge }}">{{ purchase.status|capitalize|trans }}</span></td>
                                 <td class="text-end text-nowrap">
-                                    <a href="{{ path('_purchase_edit', {id: purchase.id}) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ path('_purchase_view', {id: purchase.id}) }}" class="btn btn-sm btn-outline-secondary" title="{{ 'View / Print'|trans }}">
+                                        {{ ux_icon('tabler:eye', {width: 15, height: 15}) }}
+                                    </a>
+                                    <a href="{{ path('_purchase_edit', {id: purchase.id}) }}" class="btn btn-sm btn-outline-primary" title="{{ 'Edit'|trans }}">
                                         {{ ux_icon('tabler:edit', {width: 15, height: 15}) }}
                                     </a>
                                     <form method="post" action="{{ path('_purchase_delete', {id: purchase.id}) }}" class="d-inline" onsubmit="return confirm('{{ 'Delete this purchase?'|trans }}');">

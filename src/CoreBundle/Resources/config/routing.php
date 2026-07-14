@@ -20,6 +20,7 @@ use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
 use SolidInvoice\CoreBundle\Action\Purchase\DeletePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
 use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
+use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
 use SolidInvoice\CoreBundle\Action\SelectCompany;
 use SolidInvoice\CoreBundle\Action\ViewBilling;
@@ -67,6 +68,10 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_purchase_delete', '/purchases/{id}/delete')
         ->controller(DeletePurchase::class);
+
+    $routingConfigurator
+        ->add('_purchase_view', '/purchases/{id}')
+        ->controller(ViewPurchase::class);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

@@ -10,12 +10,23 @@
 #   - .env / .env.local             (your DB connection details)
 #   - config/env/  + config/secrets (the encrypted config vault)
 #   - var/  (logs, uploaded logo)   - vendor/ (libraries)
-# cp never deletes, so nothing on the live site is removed - only updated.
 SRC=/home/salononl/esolutions-nmp
 DEST=/home/salononl/esolutions.website
 
-# Code bundles / templates / front controller / DB migrations
-cp -Rf "$SRC/src/."        "$DEST/src/"
+# Application source code (src/) is 100% owned by the repo - no runtime files
+# live in there - so we MIRROR it with rsync --delete. This removes files that
+# were deleted in the repo, not just adds new ones. (A plain cp leaves deleted
+# classes behind on the live site; a stale auto-discovered menu/service can then
+# 500 the app - which is exactly what happened once. rsync --delete prevents it.)
+if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "$SRC/src/" "$DEST/src/"
+else
+    # Fallback if rsync is unavailable: wipe then copy so deletions still apply.
+    rm -rf "$DEST/src" && mkdir -p "$DEST/src" && cp -Rf "$SRC/src/." "$DEST/src/"
+fi
+
+# templates / front controller / DB migrations: additive copy is fine (these are
+# not auto-discovered, so a leftover file is inert). Migrations are never removed.
 cp -Rf "$SRC/templates/."  "$DEST/templates/"
 cp -Rf "$SRC/public/."     "$DEST/public/"
 cp -Rf "$SRC/migrations/." "$DEST/migrations/"

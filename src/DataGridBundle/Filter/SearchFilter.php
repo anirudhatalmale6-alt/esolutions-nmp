@@ -43,7 +43,21 @@ final readonly class SearchFilter implements FilterInterface
                 if (str_contains($field, '.')) {
                     [$alias, $field] = explode('.', $field);
 
-                    $queryBuilder->join(ORMSource::ALIAS . '.' . $alias, $alias);
+                    // Only add the relation join once, and use a LEFT join so rows
+                    // without the related record (e.g. an invoice with no client)
+                    // are not silently dropped from the results. Adding the same
+                    // alias twice makes Doctrine throw, which surfaced as a 500 when
+                    // searching the invoice grid by client name.
+                    $joinAliases = [];
+                    foreach ($queryBuilder->getDQLPart('join') as $joins) {
+                        foreach ($joins as $join) {
+                            $joinAliases[] = $join->getAlias();
+                        }
+                    }
+
+                    if (! in_array($alias, $joinAliases, true)) {
+                        $queryBuilder->leftJoin(ORMSource::ALIAS . '.' . $alias, $alias);
+                    }
                 }
 
                 return sprintf('%s.%s LIKE :q', $alias, $field);

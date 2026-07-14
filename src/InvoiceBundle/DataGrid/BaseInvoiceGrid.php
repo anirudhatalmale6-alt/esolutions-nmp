@@ -54,44 +54,27 @@ abstract class BaseInvoiceGrid extends Grid
     #[Override]
     public function columns(): array
     {
+        // Column order and set match how the client reads the list day to day:
+        // Invoice #, Date, Client, Status, Total, Discount, Paid, Balance.
+        // Only the text-ish columns are searchable (invoice number, client name,
+        // status); LIKE-searching money/date columns is meaningless and was part
+        // of what broke the search box.
         return [
             StringColumn::new('invoiceId')
                 ->label('Invoice #'),
             RelativeDateColumn::new('invoiceDate')
+                ->searchable(false)
                 ->format('d F Y')
                 ->filter(new DateRangeFilter('invoiceDate')),
             StringColumn::new('client')
                 ->searchField('client.name')
                 ->linkToRoute('_clients_view', ['id' => 'client.id']),
-            MoneyColumn::new('balance')
-                ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
-            RelativeDateColumn::new('due')
-                ->label('Due Date')
-                ->format('d F Y')
-                ->filter(new DateRangeFilter('due')),
-            RelativeDateColumn::new('paidDate')
-                ->format('d F Y')
-                ->filter(new DateRangeFilter('paidDate')),
             StringColumn::new('status')
                 ->twigFunction('invoice_label')
                 ->filter(ChoiceFilter::new('status', array_column(array_map(static fn (InvoiceStatus $s) => [$s->value, $s->getLabel()], InvoiceStatus::cases()), 1, 0))->multiple()),
             MoneyColumn::new('total')
-                ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
-            MoneyColumn::new('tax')
-                ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
-            MoneyColumn::new('payableAmount')
-                ->label('Payable')
                 ->searchable(false)
-                ->formatValue(function (BigNumber $value, Invoice $invoice): Money {
-                    $client = $invoice->getClient();
-                    // Render the explicit payable figure only when withholding is in
-                    // play; otherwise mirror the grand total so the column stays
-                    // meaningful for invoices without TDS-style deductions.
-                    $withholding = $invoice->getWithholdingAmount();
-                    $amount = $withholding->isPositive() ? $value : $invoice->getTotal();
-
-                    return new Money((string) $amount, $client?->getCurrency());
-                }),
+                ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
             MoneyColumn::new('discount.value')
                 ->label('Discount')
                 ->searchable(false)
@@ -100,6 +83,23 @@ abstract class BaseInvoiceGrid extends Grid
 
                     return new Money((string) $discountAmount->toScale(0, RoundingMode::HalfUp), $invoice->getClient()?->getCurrency());
                 }),
+            MoneyColumn::new('paidAmount')
+                ->label('Paid')
+                ->searchable(false)
+                ->sortable(false)
+                ->formatValue(function (mixed $value, Invoice $invoice): Money {
+                    // "paidAmount" is a virtual column (no such property), so the
+                    // renderer hands us the entity; compute Paid = grand total minus
+                    // outstanding balance. Balance is kept in sync with captured
+                    // payments, so this stays correct for full, partial and
+                    // corrected payments alike.
+                    $paid = $invoice->getTotal()->toBigDecimal()->minus($invoice->getBalance()->toBigDecimal());
+
+                    return new Money((string) $paid, $invoice->getClient()?->getCurrency());
+                }),
+            MoneyColumn::new('balance')
+                ->searchable(false)
+                ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
         ];
     }
 

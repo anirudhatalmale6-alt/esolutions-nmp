@@ -31,7 +31,14 @@ done
 # Top-level config php files (bundles.php, services.php, ...) - never the vault
 cp -f "$SRC/config/"*.php "$DEST/config/" 2>/dev/null
 
-# Rebuild the compiled cache so template/route changes take effect
+# Rebuild the compiled cache so template/route changes take effect.
+# We clear AND warm it here via CLI (the live folder has vendor/), so the
+# first web request never has to build a cold cache - that half-built state
+# was what caused a brief 500 after a past deploy.
 rm -rf "$DEST/var/cache/prod"
+if [ -f "$DEST/bin/console" ]; then
+    ( cd "$DEST" && php bin/console cache:clear --env=prod --no-debug ) \
+        || echo "WARNING: cache rebuild reported an issue - if the site shows 500, run: cd $DEST && php bin/console cache:clear --env=prod"
+fi
 
 echo "UPDATE DONE - eSolutions is now running the latest code (database untouched)."

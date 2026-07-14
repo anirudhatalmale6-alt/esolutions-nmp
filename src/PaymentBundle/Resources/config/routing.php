@@ -11,6 +11,7 @@ declare(strict_types=1);
  * with this source code in the file LICENSE.
  */
 
+use SolidInvoice\PaymentBundle\Action\DeletePayment;
 use SolidInvoice\PaymentBundle\Action\Done;
 use SolidInvoice\PaymentBundle\Action\Index;
 use SolidInvoice\PaymentBundle\Action\Prepare;
@@ -21,6 +22,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_payments_index', '/')
         ->controller(Index::class);
+
+    $routingConfigurator
+        ->add('_payments_delete', '/delete/{id}')
+        ->controller(DeletePayment::class)
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_payment_settings_index', '/methods')

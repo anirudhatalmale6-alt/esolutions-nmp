@@ -542,6 +542,16 @@
                                         {% if payment.message is not empty %}
                                             <div class="payment-message">{{ payment.message }}</div>
                                         {% endif %}
+                                        <div class="payment-card-actions mt-2">
+                                            <form method="post" action="{{ path('_payments_delete', {id: payment.id}) }}"
+                                                  onsubmit="return confirm('{{ 'Remove this payment? The invoice balance will be recalculated, then you can record the correct amount.'|trans }}');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('payment.delete') }}">
+                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                                    {{ ux_icon('tabler:trash', {width: 14, height: 14}) }}
+                                                    {{ 'Remove / correct'|trans }}
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             {% endfor %}

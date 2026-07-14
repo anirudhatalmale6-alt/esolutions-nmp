@@ -43,7 +43,7 @@ final class StockImporter
     }
 
     /**
-     * @return array{models: int, grades: int, quantity: int, value: string}
+     * @return array{models: int, grades: int, quantity: int, value: string, replaced: int}
      */
     public function import(string $filePath, Company $company): array
     {
@@ -55,8 +55,10 @@ final class StockImporter
         $data = $this->extractRows($rows);
         $grouped = $this->groupIntoModels($data);
 
-        // Replace the previous import for this company (grades cascade-delete).
-        $this->stockModelRepository->deleteForCompany($company);
+        // Replace the previous import for this company so a re-upload does not
+        // stack duplicates. Deletes grades then models, and tells us how many
+        // old models were cleared.
+        $replaced = $this->stockModelRepository->deleteForCompany($company);
 
         $gradeCount = 0;
         $totalQuantity = 0;
@@ -93,6 +95,7 @@ final class StockImporter
             'grades' => $gradeCount,
             'quantity' => $totalQuantity,
             'value' => (string) $totalValue->toScale(2),
+            'replaced' => $replaced,
         ];
     }
 

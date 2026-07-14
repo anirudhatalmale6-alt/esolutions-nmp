@@ -15,6 +15,7 @@ namespace SolidInvoice\CoreBundle\Repository;
 
 use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 
@@ -64,16 +65,35 @@ class StockModelRepository extends EntityRepository
     }
 
     /**
-     * Remove every stock model (and, via the ON DELETE CASCADE foreign key,
-     * its grades) belonging to the given company. Used before a re-import.
+     * Remove every stock model, and its grades, belonging to the given company.
+     * Used before a re-import so uploading a fresh list REPLACES the previous
+     * one instead of stacking duplicates on top of it.
+     *
+     * The grades are deleted first (explicitly) so the model delete can never
+     * trip a foreign-key constraint - this does not rely on the database FK
+     * having been created with ON DELETE CASCADE, which is not guaranteed on a
+     * schema that was built up with doctrine:schema:update.
+     *
+     * @return int the number of stock models that were removed
      */
-    public function deleteForCompany(Company $company): void
+    public function deleteForCompany(Company $company): int
     {
-        $this->createQueryBuilder('m')
-            ->delete()
-            ->where('m.company = :company')
+        $entityManager = $this->getEntityManager();
+
+        // 1. Remove the child grade rows for every model of this company.
+        $entityManager->createQuery(
+            'DELETE ' . StockGrade::class . ' g '
+            . 'WHERE IDENTITY(g.stockModel) IN ('
+            . 'SELECT m2.id FROM ' . StockModel::class . ' m2 WHERE m2.company = :company)'
+        )
             ->setParameter('company', $company)
-            ->getQuery()
+            ->execute();
+
+        // 2. Remove the models themselves and report how many were cleared.
+        return (int) $entityManager->createQuery(
+            'DELETE ' . StockModel::class . ' m WHERE m.company = :company'
+        )
+            ->setParameter('company', $company)
             ->execute();
     }
 }

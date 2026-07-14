@@ -97,7 +97,8 @@ final class ImportStock extends AbstractController
         }
 
         $this->addFlash('success', sprintf(
-            'Stock updated: %d models, %d grades, %d units imported.',
+            'Stock updated: cleared %d previous item(s), then imported %d models, %d grades, %d units.',
+            $summary['replaced'],
             $summary['models'],
             $summary['grades'],
             $summary['quantity'],

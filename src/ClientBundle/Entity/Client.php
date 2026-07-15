@@ -111,6 +111,11 @@ class Client implements Stringable
     #[Serialize\Groups(['client_api:read', 'searchable'])]
     private ?ClientStatus $status = ClientStatus::Active;
 
+    #[ORM\Column(name: 'whatsapp', type: Types::STRING, length: 35, nullable: true)]
+    #[Assert\Length(max: 35)]
+    #[Serialize\Groups(['client_api:read', 'client_api:write', 'searchable'])]
+    private ?string $whatsapp = null;
+
     #[ORM\Column(name: 'currency', type: Types::STRING, length: 3, nullable: true)]
     #[Serialize\Groups(['client_api:read', 'client_api:write', 'searchable'])]
     #[ApiProperty(
@@ -273,6 +278,18 @@ class Client implements Stringable
     public function setWebsite(string $website): self
     {
         $this->website = $website;
+
+        return $this;
+    }
+
+    public function getWhatsapp(): ?string
+    {
+        return $this->whatsapp;
+    }
+
+    public function setWhatsapp(?string $whatsapp): self
+    {
+        $this->whatsapp = $whatsapp;
 
         return $this;
     }

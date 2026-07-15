@@ -25,6 +25,7 @@ use SolidInvoice\SettingsBundle\SystemConfig;
 use SolidInvoice\TaxBundle\Form\Type\TaxIdentifierType;
 use SolidWorx\Platform\PlatformBundle\Feature\FeatureGate;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
@@ -48,6 +49,12 @@ class ClientType extends AbstractType
     {
         $builder->add('name', null, ['sanitize_html' => true, 'allow_single_quotes' => true]);
         $builder->add('website', UrlType::class, ['required' => false]);
+        $builder->add('whatsapp', TextType::class, [
+            'required' => false,
+            'label' => 'WhatsApp / Mobile number',
+            'help' => 'Include the country code, e.g. +971 50 123 4567. Used for the one-tap WhatsApp share on invoices and quotes.',
+            'attr' => ['placeholder' => '+971 50 123 4567'],
+        ]);
 
         if ($this->featureGate->isEnabled(Feature::MultiCurrency->value)) {
             $builder->add(

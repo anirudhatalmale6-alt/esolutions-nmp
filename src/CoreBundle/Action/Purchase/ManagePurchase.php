@@ -72,7 +72,20 @@ final class ManagePurchase extends AbstractController
             return $this->save($request, $purchase);
         }
 
-        return $this->renderForm($purchase, $this->dataFromPurchase($purchase));
+        $data = $this->dataFromPurchase($purchase);
+
+        // When creating a fresh purchase, allow the supplier to be pre-selected
+        // via ?client=<id> (used by the "Create Purchase Order" action on the
+        // client page) so the form opens with that supplier already chosen.
+        if ($purchase === null) {
+            $client = trim((string) $request->query->get('client', ''));
+
+            if ($client !== '' && Ulid::isValid($client)) {
+                $data['client_id'] = $client;
+            }
+        }
+
+        return $this->renderForm($purchase, $data);
     }
 
     private function save(Request $request, ?Purchase $purchase): Response

@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Repository;
 
 use Doctrine\Persistence\ManagerRegistry;
+use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\CoreBundle\Entity\Purchase;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 
@@ -38,6 +39,22 @@ class PurchaseRepository extends EntityRepository
         return $this->createQueryBuilder('p')
             ->leftJoin('p.client', 'c')
             ->addSelect('c')
+            ->orderBy('p.purchaseDate', 'DESC')
+            ->addOrderBy('p.created', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * All purchases for a single client (supplier), newest first.
+     *
+     * @return list<Purchase>
+     */
+    public function findForClient(Client $client): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.client = :client')
+            ->setParameter('client', $client)
             ->orderBy('p.purchaseDate', 'DESC')
             ->addOrderBy('p.created', 'DESC')
             ->getQuery()

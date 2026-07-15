@@ -173,6 +173,13 @@
                         <span class="badge bg-secondary-lt">{{ client.invoices|length }}</span>
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="purchases-tab" data-bs-toggle="tab" data-bs-target="#purchases" type="button" role="tab" aria-controls="purchases" aria-selected="false">
+                        {{ ux_icon('tabler:shopping-cart', {width: 16, height: 16}) }}
+                        <span>{{ 'Purchase Orders'|trans }}</span>
+                        <span class="badge bg-secondary-lt">{{ purchases|length }}</span>
+                    </button>
+                </li>
                 {% if payments|length > 0 %}
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab" aria-controls="payments" aria-selected="false">
@@ -202,6 +209,59 @@
                 {# Invoices Tab #}
                 <div class="tab-pane fade" id="invoices" role="tabpanel" aria-labelledby="invoices-tab">
                     {% include "@SolidInvoiceClient/invoice_list.html.twig" %}
+                </div>
+
+                {# Purchase Orders Tab #}
+                <div class="tab-pane fade" id="purchases" role="tabpanel" aria-labelledby="purchases-tab">
+                    <div class="d-flex justify-content-end mb-3">
+                        <a href="{{ path('_purchase_new', {'client': client.id}) }}" class="btn btn-sm btn-primary">
+                            {{ ux_icon('tabler:plus', {width: 16, height: 16}) }}
+                            {{ 'New Purchase Order'|trans }}
+                        </a>
+                    </div>
+                    {% if purchases is empty %}
+                        <div class="text-center py-5 text-muted">
+                            {{ ux_icon('tabler:shopping-cart-off', {width: 40, height: 40}) }}
+                            <p class="mt-3 mb-0">{{ 'No purchase orders for this client yet.'|trans }}</p>
+                        </div>
+                    {% else %}
+                        <div class="table-responsive">
+                            <table class="table table-vcenter">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'Date'|trans }}</th>
+                                        <th>{{ 'Reference'|trans }}</th>
+                                        <th class="text-end">{{ 'Total'|trans }}</th>
+                                        <th class="text-end">{{ 'Paid'|trans }}</th>
+                                        <th class="text-end">{{ 'Balance'|trans }}</th>
+                                        <th>{{ 'Status'|trans }}</th>
+                                        <th class="text-end">{{ 'Actions'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for purchase in purchases %}
+                                        {% set badge = {'paid': 'bg-success-lt', 'partial': 'bg-warning-lt', 'unpaid': 'bg-secondary-lt'}[purchase.status] %}
+                                        <tr>
+                                            <td class="text-nowrap">{{ purchase.purchaseDate ? purchase.purchaseDate|date('d M Y') : '—' }}</td>
+                                            <td>{{ purchase.reference ?: '—' }}</td>
+                                            <td class="text-end">AED {{ purchase.totalAmount|number_format(2) }}</td>
+                                            <td class="text-end text-success">AED {{ purchase.amountPaid|number_format(2) }}</td>
+                                            <td class="text-end fw-semibold">AED {{ purchase.balance|number_format(2) }}</td>
+                                            <td><span class="badge {{ badge }}">{{ purchase.status|capitalize|trans }}</span></td>
+                                            <td class="text-end text-nowrap">
+                                                <a href="{{ path('_purchase_view', {id: purchase.id}) }}" class="btn btn-sm btn-outline-secondary" title="{{ 'View / Print'|trans }}">
+                                                    {{ ux_icon('tabler:eye', {width: 16, height: 16}) }}
+                                                </a>
+                                                <a href="{{ path('_purchase_edit', {id: purchase.id}) }}" class="btn btn-sm btn-outline-primary" title="{{ 'Edit'|trans }}">
+                                                    {{ ux_icon('tabler:pencil', {width: 16, height: 16}) }}
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
                 </div>
 
                 {# Payments Tab #}

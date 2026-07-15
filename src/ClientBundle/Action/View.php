@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\ClientBundle\Action;
 
 use SolidInvoice\ClientBundle\Entity\Client;
+use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use SolidInvoice\PaymentBundle\Repository\PaymentRepository;
@@ -24,11 +25,12 @@ final readonly class View
     public function __construct(
         private PaymentRepository $paymentRepository,
         private InvoiceRepository $invoiceRepository,
+        private PurchaseRepository $purchaseRepository,
     ) {
     }
 
     /**
-     * @return array{client: Client, payments: array<string, mixed>, total_invoices_pending: int, total_invoices_paid: int, total_income: mixed, total_outstanding: int}
+     * @return array{client: Client, payments: array<string, mixed>, purchases: array<int, mixed>, total_invoices_pending: int, total_invoices_paid: int, total_income: mixed, total_outstanding: int}
      */
     #[Template('@SolidInvoiceClient/Default/view.html.twig')]
     public function __invoke(Client $client): array
@@ -36,6 +38,7 @@ final readonly class View
         return [
             'client' => $client,
             'payments' => $this->paymentRepository->getPaymentsForClient($client),
+            'purchases' => $this->purchaseRepository->findForClient($client),
             'total_invoices_pending' => $this->invoiceRepository->getCountByStatus(InvoiceStatus::Pending, $client),
             'total_invoices_paid' => $this->invoiceRepository->getCountByStatus(InvoiceStatus::Paid, $client),
             'total_income' => $this->paymentRepository->getTotalIncomeForClient($client),

@@ -43,5 +43,13 @@ final class ReportMenu
                 'icon' => 'chart-histogram',
             ],
         ]);
+
+        $section->addChild('sales_by_client', [
+            'route' => '_sales_by_client',
+            'label' => 'Sales by Client',
+            'extras' => [
+                'icon' => 'users-group',
+            ],
+        ]);
     }
 }

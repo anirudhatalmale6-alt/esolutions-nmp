@@ -26,7 +26,7 @@ return static function (MonologConfig $config): void {
     $config
         ->handler('nested')
         ->type('stream')
-        ->path('php://stderr')
+        ->path('%kernel.logs_dir%/prod.log')
         ->level('debug')
         ->formatter('monolog.formatter.json')
     ;

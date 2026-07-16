@@ -12,10 +12,29 @@
 {% block title %}{{ ux_icon('tabler:report-money', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Daily Ledger'|trans }}{% endblock title %}
 
 {% block heading %}
-    <button type="button" class="btn btn-primary no-print" onclick="window.print();">
+    <button type="button" class="btn btn-primary no-print" onclick="printLedger();">
         {{ ux_icon('tabler:printer', {width: 18, height: 18}) }}
         {{ 'Print / Save as PDF'|trans }}
     </button>
+    <script>
+        // Browsers use document.title as the default "Save as PDF" filename.
+        // Swap in a dated ledger name for the print, then restore it afterwards
+        // so the browser tab title is unchanged.
+        (function () {
+            var ledgerFileName = {{ ('nmp-daily-ledger-' ~ date|date('d-m-y'))|json_encode|raw }};
+            var originalTitle = document.title;
+
+            window.printLedger = function () {
+                document.title = ledgerFileName;
+                window.print();
+            };
+
+            // Restore after the print dialog closes (covers cancel too).
+            window.addEventListener('afterprint', function () {
+                document.title = originalTitle;
+            });
+        })();
+    </script>
 {% endblock %}
 
 {% block content %}

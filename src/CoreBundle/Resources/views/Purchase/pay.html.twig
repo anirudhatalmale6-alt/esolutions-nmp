@@ -1,0 +1,84 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:cash', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Pay Supplier'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_purchase_view', {id: purchase.id}) }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to purchase'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <div class="d-flex flex-wrap gap-4 mb-4">
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Supplier'|trans }}</div>
+                <div class="fw-semibold">{{ purchase.client ? purchase.client.name : '—' }}</div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Total'|trans }}</div>
+                <div class="fw-semibold">AED {{ purchase.totalAmount|number_format(2) }}</div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Paid so far'|trans }}</div>
+                <div class="fw-semibold text-success">AED {{ purchase.amountPaid|number_format(2) }}</div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Balance owed'|trans }}</div>
+                <div class="fw-semibold text-danger">AED {{ purchase.balance|number_format(2) }}</div>
+            </div>
+        </div>
+
+        <form method="post" action="{{ path('_purchase_pay', {id: purchase.id}) }}">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="pay-date" class="form-label">{{ 'Payment date'|trans }} <span class="text-danger">*</span></label>
+                    <input type="date" name="payment_date" id="pay-date" class="form-control" value="{{ data.payment_date }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="pay-amount" class="form-label">{{ 'Amount (AED)'|trans }} <span class="text-danger">*</span></label>
+                    <input type="number" step="0.01" min="0" name="amount" id="pay-amount" class="form-control" value="{{ data.amount }}" required>
+                    <div class="form-text">{{ 'Defaults to the balance owed. Change it for a part payment.'|trans }}</div>
+                </div>
+            </div>
+
+            <input type="hidden" name="_token" value="{{ csrf_token('purchase.pay') }}">
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:cash', {width: 18, height: 18}) }}
+                    {{ 'Record payment'|trans }}
+                </button>
+                <a href="{{ path('_purchase_view', {id: purchase.id}) }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+            </div>
+        </form>
+
+        {% if purchase.payments|length > 0 %}
+            <hr class="my-4">
+            <div class="fw-semibold mb-2">{{ 'Payments so far'|trans }}</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-vcenter">
+                    <thead><tr><th>{{ 'Date'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                    <tbody>
+                        {% for payment in purchase.payments %}
+                            <tr>
+                                <td>{{ payment.paymentDate ? payment.paymentDate|date('d M Y') : '—' }}</td>
+                                <td class="text-end text-success">AED {{ payment.amount|number_format(2) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock content %}

@@ -23,7 +23,7 @@ final class CreditNoteMenu
     {
         $menu->addChild('credit_notes', [
             'route' => '_credit_notes_list',
-            'label' => 'Refunds / Credit Notes',
+            'label' => 'Refund / Credit',
             'extras' => [
                 'icon' => 'receipt-refund',
             ],

@@ -251,6 +251,16 @@ final readonly class SalesAnalysis
             return '0';
         }
 
-        return (string) BigDecimal::of($qty)->stripTrailingZeros();
+        // Normalise to a plain decimal string and drop any trailing zeros so
+        // "5.00" shows as "5" and "5.50" as "5.5". Done with string ops rather
+        // than BigDecimal::stripTrailingZeros(), which is absent in the
+        // brick/math version installed here.
+        $qty = (string) $qty;
+
+        if (str_contains($qty, '.')) {
+            $qty = rtrim(rtrim($qty, '0'), '.');
+        }
+
+        return $qty === '' || $qty === '-0' ? '0' : $qty;
     }
 }

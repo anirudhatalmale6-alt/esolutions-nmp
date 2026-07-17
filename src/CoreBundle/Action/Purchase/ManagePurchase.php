@@ -22,6 +22,7 @@ use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\Purchase;
 use SolidInvoice\CoreBundle\Entity\PurchaseItem;
+use SolidInvoice\CoreBundle\Entity\PurchasePayment;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -103,6 +104,7 @@ final class ManagePurchase extends AbstractController
             'description' => $this->nullify($request->request->get('description')),
             'amount_paid' => trim((string) $request->request->get('amount_paid')),
             'items' => $this->parseItems($request),
+            'payments' => $this->parsePayments($request),
         ];
 
         $client = $data['client_id'] !== '' && Ulid::isValid($data['client_id'])
@@ -152,8 +154,7 @@ final class ManagePurchase extends AbstractController
         $purchase->setClient($client)
             ->setReference($data['reference'])
             ->setPurchaseDate($purchaseDate)
-            ->setDescription($data['description'])
-            ->setAmountPaid((string) $paid);
+            ->setDescription($data['description']);
 
         // Rebuild the line items from scratch on every save (orphanRemoval drops
         // the old rows), then let the purchase total itself from the lines.
@@ -169,6 +170,32 @@ final class ManagePurchase extends AbstractController
         }
 
         $purchase->recalculateTotalFromItems();
+
+        // Rebuild the dated payments. If none were entered but a plain amount was
+        // (e.g. an older form), treat it as a single payment on the purchase date
+        // so nothing is lost. The amount paid is then the sum of the payments.
+        $payments = $data['payments'];
+
+        if ($payments === [] && $paid->isPositive()) {
+            $payments = [['date' => $purchaseDate->format('Y-m-d'), 'amount' => (string) $paid]];
+        }
+
+        $purchase->clearPayments();
+
+        foreach ($payments as $row) {
+            try {
+                $paymentDate = $row['date'] !== '' ? new DateTimeImmutable($row['date']) : $purchaseDate;
+            } catch (Throwable) {
+                $paymentDate = $purchaseDate;
+            }
+
+            $payment = new PurchasePayment();
+            $payment->setPaymentDate($paymentDate)
+                ->setAmount($row['amount']);
+            $purchase->addPayment($payment);
+        }
+
+        $purchase->recalculateAmountPaidFromPayments();
 
         $this->purchaseRepository->save($purchase);
 
@@ -221,6 +248,51 @@ final class ManagePurchase extends AbstractController
     }
 
     /**
+     * Read the parallel payment_date[] / payment_amount[] arrays into a clean list
+     * of dated payments, skipping blank rows and any row without a positive amount.
+     *
+     * @return list<array{date: string, amount: string}>
+     */
+    private function parsePayments(Request $request): array
+    {
+        $dates = $request->request->all('payment_date');
+        $amounts = $request->request->all('payment_amount');
+
+        if (! is_array($amounts)) {
+            return [];
+        }
+
+        $rows = [];
+        $count = count($amounts);
+
+        for ($i = 0; $i < $count; $i++) {
+            $date = trim((string) (is_array($dates) ? ($dates[$i] ?? '') : ''));
+            $amountRaw = trim((string) ($amounts[$i] ?? ''));
+
+            if ($date === '' && $amountRaw === '') {
+                continue;
+            }
+
+            if (! is_numeric($amountRaw)) {
+                continue;
+            }
+
+            $amount = BigDecimal::of($amountRaw)->toScale(2, RoundingMode::HalfUp);
+
+            if ($amount->isNegativeOrZero()) {
+                continue;
+            }
+
+            $rows[] = [
+                'date' => $date,
+                'amount' => (string) $amount,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     private function renderForm(?Purchase $purchase, array $data): Response
@@ -245,6 +317,7 @@ final class ManagePurchase extends AbstractController
                 'description' => null,
                 'amount_paid' => '0',
                 'items' => [],
+                'payments' => [],
             ];
         }
 
@@ -258,13 +331,35 @@ final class ManagePurchase extends AbstractController
             ];
         }
 
+        $purchaseDate = $purchase->getPurchaseDate()?->format('Y-m-d') ?? '';
+
+        $payments = [];
+
+        foreach ($purchase->getPayments() as $payment) {
+            $payments[] = [
+                'date' => $payment->getPaymentDate()?->format('Y-m-d') ?? $purchaseDate,
+                'amount' => $payment->getAmount(),
+            ];
+        }
+
+        // Older purchases recorded a single "amount paid" with no dated payments.
+        // Seed one payment row from it (dated the purchase date) so opening the
+        // form preserves it and the user can split it across the real dates.
+        if ($payments === [] && is_numeric($purchase->getAmountPaid()) && BigDecimal::of($purchase->getAmountPaid())->isPositive()) {
+            $payments[] = [
+                'date' => $purchaseDate,
+                'amount' => $purchase->getAmountPaid(),
+            ];
+        }
+
         return [
             'client_id' => $purchase->getClient() !== null ? (string) $purchase->getClient()->getId() : '',
             'reference' => $purchase->getReference(),
-            'purchase_date' => $purchase->getPurchaseDate()?->format('Y-m-d') ?? '',
+            'purchase_date' => $purchaseDate,
             'description' => $purchase->getDescription(),
             'amount_paid' => $purchase->getAmountPaid(),
             'items' => $items,
+            'payments' => $payments,
         ];
     }
 

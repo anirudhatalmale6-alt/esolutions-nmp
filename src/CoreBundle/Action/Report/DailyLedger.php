@@ -160,28 +160,65 @@ final readonly class DailyLedger
     }
 
     /**
-     * Supplier payments = amount paid on purchase orders dated within the day
-     * (major units). Note: purchases store a single amount-paid figure, so this
-     * follows the purchase-order date.
+     * Supplier payments made within the day (major units).
      *
-     * @return list<array{supplier: string, reference: string, amount: string}>
+     * A purchase is now paid via one or more dated PurchasePayment rows, so each
+     * payment lands on the exact day it was made. For older purchases that were
+     * recorded before dated payments existed (no payment rows, just a single
+     * amount-paid figure), fall back to the old behaviour of attributing the paid
+     * amount to the purchase-order date, so historic days keep showing correctly.
+     *
+     * @return list<array{supplier: string, reference: string, amount: string, balance: string}>
      */
     private function supplierPayments(DateTimeImmutable $start, DateTimeImmutable $end): array
     {
+        $suppliers = [];
+
+        // Dated payments (current model): one entry per payment on its own day.
         $rows = $this->entityManager->createQuery(
+            'SELECT c.name AS supplier, pu.reference AS reference, pp.amount AS amount,
+                    pu.totalAmount AS total, pu.amountPaid AS paid
+             FROM SolidInvoice\CoreBundle\Entity\PurchasePayment pp
+             JOIN pp.purchase pu
+             JOIN pu.client c
+             WHERE pp.paymentDate BETWEEN :start AND :end
+             ORDER BY pp.paymentDate ASC'
+        )
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getResult();
+
+        foreach ($rows as $row) {
+            $total = BigDecimal::of((string) ($row['total'] ?? '0'));
+            $paid = BigDecimal::of((string) ($row['paid'] ?? '0'));
+            $balance = $total->minus($paid);
+
+            if ($balance->isNegative()) {
+                $balance = BigDecimal::zero();
+            }
+
+            $suppliers[] = [
+                'supplier' => (string) ($row['supplier'] ?? '—'),
+                'reference' => (string) ($row['reference'] ?? ''),
+                'amount' => (string) BigDecimal::of((string) ($row['amount'] ?? '0'))->toScale(2),
+                'balance' => (string) $balance->toScale(2),
+            ];
+        }
+
+        // Legacy purchases with no dated payment rows: attribute the paid amount
+        // to the purchase date, exactly as before.
+        $legacy = $this->entityManager->createQuery(
             'SELECT c.name AS supplier, pu.reference AS reference, pu.amountPaid AS amount, pu.totalAmount AS total
              FROM SolidInvoice\CoreBundle\Entity\Purchase pu
              JOIN pu.client c
-             WHERE pu.purchaseDate BETWEEN :start AND :end AND pu.amountPaid > 0
+             WHERE pu.purchaseDate BETWEEN :start AND :end AND pu.amountPaid > 0 AND SIZE(pu.payments) = 0
              ORDER BY pu.created ASC'
         )
             ->setParameter('start', $start)
             ->setParameter('end', $end)
             ->getResult();
 
-        $suppliers = [];
-
-        foreach ($rows as $row) {
+        foreach ($legacy as $row) {
             $paid = BigDecimal::of((string) ($row['amount'] ?? '0'));
             $total = BigDecimal::of((string) ($row['total'] ?? '0'));
             $balance = $total->minus($paid);

@@ -72,9 +72,16 @@ class Purchase
     #[ORM\OneToMany(mappedBy: 'purchase', targetEntity: PurchaseItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $items;
 
+    /**
+     * @var Collection<int, PurchasePayment>
+     */
+    #[ORM\OneToMany(mappedBy: 'purchase', targetEntity: PurchasePayment::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $payments;
+
     public function __construct()
     {
         $this->items = new ArrayCollection();
+        $this->payments = new ArrayCollection();
     }
 
     public function getId(): ?Ulid
@@ -202,6 +209,58 @@ class Purchase
         }
 
         $this->totalAmount = (string) $total->toScale(2, RoundingMode::HalfUp);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PurchasePayment>
+     */
+    public function getPayments(): Collection
+    {
+        return $this->payments;
+    }
+
+    public function addPayment(PurchasePayment $payment): self
+    {
+        if (! $this->payments->contains($payment)) {
+            $this->payments->add($payment);
+            $payment->setPurchase($this);
+        }
+
+        return $this;
+    }
+
+    public function removePayment(PurchasePayment $payment): self
+    {
+        if ($this->payments->removeElement($payment) && $payment->getPurchase() === $this) {
+            $payment->setPurchase(null);
+        }
+
+        return $this;
+    }
+
+    public function clearPayments(): self
+    {
+        foreach ($this->payments->toArray() as $payment) {
+            $this->removePayment($payment);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set the amount paid to the sum of the individual dated payments.
+     */
+    public function recalculateAmountPaidFromPayments(): self
+    {
+        $paid = BigDecimal::zero();
+
+        foreach ($this->payments as $payment) {
+            $paid = $paid->plus(BigDecimal::of($payment->getAmount() === '' ? '0' : $payment->getAmount()));
+        }
+
+        $this->amountPaid = (string) $paid->toScale(2, RoundingMode::HalfUp);
 
         return $this;
     }

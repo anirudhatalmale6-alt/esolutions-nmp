@@ -113,13 +113,66 @@
                     </table>
                 </div>
 
-                <div class="row g-3 mt-2">
-                    <div class="col-md-6">
-                        <label for="p-paid" class="form-label">{{ 'Amount paid (AED)'|trans }}</label>
-                        <input type="number" step="0.01" min="0" name="amount_paid" id="p-paid" class="form-control" value="{{ data.amount_paid }}">
-                        <div class="form-text">{{ 'Leave at 0 if nothing paid yet. The balance owed is worked out automatically.'|trans }}</div>
+                {# ---------------- Payments to supplier (dated) ---------------- #}
+                <div class="mt-4">
+                    <label class="form-label fw-semibold">{{ 'Payments to supplier'|trans }}</label>
+                    <div class="form-text mb-2">{{ 'Add each payment with the date you actually paid it. Leave empty if nothing paid yet. Each payment shows on that day in your Daily Ledger, so paying in parts over several days stays accurate.'|trans }}</div>
+                    <div class="table-responsive">
+                        <table class="table align-middle" id="purchase-payments">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45%;">{{ 'Payment date'|trans }}</th>
+                                    <th style="width: 45%;" class="text-end">{{ 'Amount paid (AED)'|trans }}</th>
+                                    <th style="width: 10%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-body">
+                                {% set prows = data.payments|default([]) %}
+                                {% if prows is empty %}
+                                    {% set prows = [{date: data.purchase_date, amount: ''}] %}
+                                {% endif %}
+                                {% for prow in prows %}
+                                    <tr class="purchase-payment-row">
+                                        <td>
+                                            <input type="date" name="payment_date[]" class="form-control payment-date" value="{{ prow.date }}">
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" min="0" name="payment_amount[]" class="form-control text-end payment-amount" value="{{ prow.amount }}">
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-payment" title="{{ 'Remove'|trans }}">
+                                                {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-payment">
+                                            {{ ux_icon('tabler:plus', {width: 16, height: 16}) }}
+                                            {{ 'Add payment'|trans }}
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end fw-bold">{{ 'Total paid'|trans }}</td>
+                                    <td class="text-end fw-bold"><span id="paid-total">0.00</span> AED</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-end fw-bold">{{ 'Balance owed'|trans }}</td>
+                                    <td class="text-end fw-bold"><span id="balance-owed">0.00</span> AED</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
-                    <div class="col-md-6">
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-12">
                         <label for="p-desc" class="form-label">{{ 'Notes (optional)'|trans }}</label>
                         <textarea name="description" id="p-desc" class="form-control" rows="2">{{ data.description }}</textarea>
                     </div>
@@ -152,6 +205,23 @@
                 <td class="text-end item-line-total">0.00</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-row" title="{{ 'Remove'|trans }}">
+                        {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
+                    </button>
+                </td>
+            </tr>
+        </template>
+
+        {# Blank row template used when adding new payments #}
+        <template id="payment-row-template">
+            <tr class="purchase-payment-row">
+                <td>
+                    <input type="date" name="payment_date[]" class="form-control payment-date" value="{{ data.purchase_date }}">
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" name="payment_amount[]" class="form-control text-end payment-amount">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-payment" title="{{ 'Remove'|trans }}">
                         {{ ux_icon('tabler:trash', {width: 16, height: 16}) }}
                     </button>
                 </td>
@@ -216,6 +286,73 @@
                         clone.querySelector('.item-desc').focus();
                         recalc();
                     });
+                }
+
+                recalc();
+            })();
+        </script>
+
+        <script>
+            (function () {
+                var body = document.getElementById('payments-body');
+                var addBtn = document.getElementById('add-payment');
+                var template = document.getElementById('payment-row-template');
+                var paidTotalEl = document.getElementById('paid-total');
+                var balanceEl = document.getElementById('balance-owed');
+                var itemsTable = document.getElementById('purchase-items');
+                if (!body) { return; }
+
+                function money(n) {
+                    if (isNaN(n) || !isFinite(n)) { n = 0; }
+                    return n.toFixed(2);
+                }
+
+                function grandTotal() {
+                    var el = document.getElementById('grand-total');
+                    return el ? (parseFloat(el.textContent) || 0) : 0;
+                }
+
+                function recalc() {
+                    var paid = 0;
+                    body.querySelectorAll('.payment-amount').forEach(function (input) {
+                        paid += parseFloat(input.value) || 0;
+                    });
+                    paidTotalEl.textContent = money(paid);
+                    var balance = grandTotal() - paid;
+                    if (balance < 0) { balance = 0; }
+                    balanceEl.textContent = money(balance);
+                }
+
+                function wireRow(row) {
+                    var amt = row.querySelector('.payment-amount');
+                    if (amt) { amt.addEventListener('input', recalc); }
+                    var removeBtn = row.querySelector('.remove-payment');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', function () {
+                            if (body.querySelectorAll('.purchase-payment-row').length > 1) {
+                                row.remove();
+                            } else {
+                                row.querySelector('.payment-amount').value = '';
+                            }
+                            recalc();
+                        });
+                    }
+                }
+
+                body.querySelectorAll('.purchase-payment-row').forEach(wireRow);
+
+                if (addBtn) {
+                    addBtn.addEventListener('click', function () {
+                        var clone = template.content.firstElementChild.cloneNode(true);
+                        body.appendChild(clone);
+                        wireRow(clone);
+                        recalc();
+                    });
+                }
+
+                // Keep the balance in step when the line items (grand total) change.
+                if (itemsTable) {
+                    itemsTable.addEventListener('input', recalc);
                 }
 
                 recalc();

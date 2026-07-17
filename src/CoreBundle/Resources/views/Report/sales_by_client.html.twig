@@ -21,41 +21,50 @@
 {% endblock %}
 
 {% block content %}
+    {# Hidden icon holders reused by the client-side sorter so the icons match the site exactly #}
+    <template id="ico-default">{{ ux_icon('tabler:selector', {width: 14, height: 14}) }}</template>
+    <template id="ico-asc">{{ ux_icon('tabler:chevron-up', {width: 14, height: 14}) }}</template>
+    <template id="ico-desc">{{ ux_icon('tabler:chevron-down', {width: 14, height: 14}) }}</template>
+
     {% if not detail %}
         {# ---------------- Summary: one row per client ---------------- #}
         <twig:Ui:Card>
             {% if clients is empty %}
-                <div class="text-center py-5 text-muted">
-                    {{ ux_icon('tabler:users-group', {width: 40, height: 40}) }}
-                    <p class="mt-3 mb-0">{{ 'No sales yet. Once you raise invoices, this page shows how much each client has bought and who your best buyers are.'|trans }}</p>
+                <div class="datagrid-empty">
+                    <div class="datagrid-empty-icon">{{ ux_icon('tabler:users-group', {width: 40, height: 40}) }}</div>
+                    <h3 class="datagrid-empty-title">{{ 'No sales yet'|trans }}</h3>
+                    <p class="datagrid-empty-message">{{ 'Once you raise invoices, this page shows how much each client has bought and who your best buyers are.'|trans }}</p>
                 </div>
             {% else %}
-                <p class="text-muted">{{ 'How much each client has bought, across all your invoices. Click a client to see the models they buy and their full purchase history.'|trans }}</p>
+                <p class="text-secondary">{{ 'How much each client has bought, across all your invoices. Click any column heading to sort, or a client to see the models they buy and their full history.'|trans }}</p>
                 <div class="mb-3">
-                    <input type="text" id="client-search" class="form-control" placeholder="{{ 'Search client name...'|trans }}" autocomplete="off">
+                    <div class="input-icon">
+                        <span class="input-icon-addon">{{ ux_icon('tabler:search', {width: 16, height: 16}) }}</span>
+                        <input type="text" id="client-search" class="form-control" placeholder="{{ 'Search client name...'|trans }}" autocomplete="off">
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-vcenter" id="client-table">
+                <div class="datagrid-table-wrapper">
+                    <table class="datagrid-table js-sortable" id="client-table">
                         <thead>
                             <tr>
-                                <th>{{ 'Client'|trans }}</th>
-                                <th class="text-end">{{ 'Units bought'|trans }}</th>
-                                <th class="text-end">{{ 'Invoices'|trans }}</th>
-                                <th class="text-end">{{ 'Avg invoice'|trans }}</th>
-                                <th class="text-end">{{ 'Total spent'|trans }}</th>
-                                <th>{{ 'Last purchase'|trans }}</th>
+                                <th data-sort-type="text"><a href="#" class="datagrid-sort-link">{{ 'Client'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Units bought'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Invoices'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Avg invoice'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                <th class="text-end" data-sort-type="number" data-default-dir="desc"><a href="#" class="datagrid-sort-link">{{ 'Total spent'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                <th data-sort-type="date"><a href="#" class="datagrid-sort-link">{{ 'Last purchase'|trans }}<span class="datagrid-sort-icon"></span></a></th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody id="client-body">
                             {% for c in clients %}
-                                <tr data-search="{{ c.client|lower }}">
+                                <tr data-row data-search="{{ c.client|lower }}">
                                     <td class="fw-semibold">{{ c.client }}</td>
-                                    <td class="text-end">{{ c.units }}</td>
-                                    <td class="text-end">{{ c.invoices }}</td>
-                                    <td class="text-end text-muted">AED {{ c.avgInvoice|number_format(2) }}</td>
-                                    <td class="text-end text-success fw-semibold">AED {{ c.revenue|number_format(2) }}</td>
-                                    <td class="text-nowrap text-muted">{{ c.lastPurchase ? c.lastPurchase|date('d M Y') : '—' }}</td>
+                                    <td class="text-end" data-sort="{{ c.units }}">{{ c.units }}</td>
+                                    <td class="text-end" data-sort="{{ c.invoices }}">{{ c.invoices }}</td>
+                                    <td class="text-end text-secondary" data-sort="{{ c.avgInvoice }}">AED {{ c.avgInvoice|number_format(2) }}</td>
+                                    <td class="text-end text-success fw-semibold" data-sort="{{ c.revenue }}">AED {{ c.revenue|number_format(2) }}</td>
+                                    <td class="text-nowrap text-secondary" data-sort="{{ c.lastPurchase ? c.lastPurchase|date('Y-m-d') : '' }}">{{ c.lastPurchase ? c.lastPurchase|date('d M Y') : '—' }}</td>
                                     <td class="text-end">
                                         <a href="{{ path('_sales_by_client', {client: c.clientId}) }}" class="btn btn-sm btn-outline-primary" title="{{ 'Details'|trans }}">
                                             {{ ux_icon('tabler:chart-line', {width: 15, height: 15}) }}
@@ -67,25 +76,9 @@
                         </tbody>
                     </table>
                 </div>
-                <div id="client-no-results" class="text-center text-muted py-4" style="display: none;">{{ 'No matching client found.'|trans }}</div>
-                <script>
-                    (function () {
-                        var input = document.getElementById('client-search');
-                        var rows = document.querySelectorAll('#client-body tr');
-                        var noResults = document.getElementById('client-no-results');
-                        if (!input) { return; }
-                        input.addEventListener('input', function () {
-                            var q = input.value.trim().toLowerCase();
-                            var shown = 0;
-                            rows.forEach(function (row) {
-                                var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
-                                row.style.display = match ? '' : 'none';
-                                if (match) { shown++; }
-                            });
-                            noResults.style.display = shown === 0 ? 'block' : 'none';
-                        });
-                    })();
-                </script>
+                <div id="client-no-results" class="datagrid-empty" style="display: none;">
+                    <p class="datagrid-empty-message">{{ 'No matching client found.'|trans }}</p>
+                </div>
             {% endif %}
         </twig:Ui:Card>
     {% else %}
@@ -97,25 +90,25 @@
                 <twig:Ui:Card>
                     <h3 class="h5 mb-3">{{ ux_icon('tabler:device-mobile', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Models bought'|trans }}</h3>
                     {% if models is empty %}
-                        <p class="text-muted mb-0">{{ 'No purchases recorded for this client yet.'|trans }}</p>
+                        <p class="text-secondary mb-0">{{ 'No purchases recorded for this client yet.'|trans }}</p>
                     {% else %}
-                        <div class="table-responsive">
-                            <table class="table table-vcenter">
+                        <div class="datagrid-table-wrapper">
+                            <table class="datagrid-table js-sortable">
                                 <thead>
                                     <tr>
-                                        <th>{{ 'Model'|trans }}</th>
-                                        <th class="text-end">{{ 'Units'|trans }}</th>
-                                        <th class="text-end">{{ 'Avg price'|trans }}</th>
-                                        <th class="text-end">{{ 'Total'|trans }}</th>
+                                        <th data-sort-type="text"><a href="#" class="datagrid-sort-link">{{ 'Model'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Units'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Avg price'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number" data-default-dir="desc"><a href="#" class="datagrid-sort-link">{{ 'Total'|trans }}<span class="datagrid-sort-icon"></span></a></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for m in models %}
-                                        <tr>
+                                        <tr data-row>
                                             <td class="fw-semibold">{{ m.model }}</td>
-                                            <td class="text-end">{{ m.units }}</td>
-                                            <td class="text-end text-muted">AED {{ m.avgPrice|number_format(2) }}</td>
-                                            <td class="text-end text-success">AED {{ m.revenue|number_format(2) }}</td>
+                                            <td class="text-end" data-sort="{{ m.units }}">{{ m.units }}</td>
+                                            <td class="text-end text-secondary" data-sort="{{ m.avgPrice }}">AED {{ m.avgPrice|number_format(2) }}</td>
+                                            <td class="text-end text-success" data-sort="{{ m.revenue }}">AED {{ m.revenue|number_format(2) }}</td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -129,29 +122,29 @@
                 <twig:Ui:Card>
                     <h3 class="h5 mb-3">{{ ux_icon('tabler:list-details', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Every purchase'|trans }}</h3>
                     {% if history is empty %}
-                        <p class="text-muted mb-0">{{ 'No purchases recorded for this client yet.'|trans }}</p>
+                        <p class="text-secondary mb-0">{{ 'No purchases recorded for this client yet.'|trans }}</p>
                     {% else %}
-                        <div class="table-responsive">
-                            <table class="table table-vcenter">
+                        <div class="datagrid-table-wrapper">
+                            <table class="datagrid-table js-sortable">
                                 <thead>
                                     <tr>
-                                        <th>{{ 'Date'|trans }}</th>
-                                        <th>{{ 'Invoice'|trans }}</th>
-                                        <th>{{ 'Model'|trans }}</th>
-                                        <th class="text-end">{{ 'Qty'|trans }}</th>
-                                        <th class="text-end">{{ 'Unit price'|trans }}</th>
-                                        <th class="text-end">{{ 'Line total'|trans }}</th>
+                                        <th data-sort-type="date" data-default-dir="desc"><a href="#" class="datagrid-sort-link">{{ 'Date'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th data-sort-type="text"><a href="#" class="datagrid-sort-link">{{ 'Invoice'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th data-sort-type="text"><a href="#" class="datagrid-sort-link">{{ 'Model'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Qty'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Unit price'|trans }}<span class="datagrid-sort-icon"></span></a></th>
+                                        <th class="text-end" data-sort-type="number"><a href="#" class="datagrid-sort-link">{{ 'Line total'|trans }}<span class="datagrid-sort-icon"></span></a></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for sale in history %}
-                                        <tr>
-                                            <td class="text-nowrap">{{ sale.date ? sale.date|date('d M Y') : '—' }}</td>
+                                        <tr data-row>
+                                            <td class="text-nowrap" data-sort="{{ sale.date ? sale.date|date('Y-m-d') : '' }}">{{ sale.date ? sale.date|date('d M Y') : '—' }}</td>
                                             <td>{{ sale.invoiceId ?: '—' }}</td>
                                             <td>{{ sale.model }}</td>
-                                            <td class="text-end">{{ sale.qty }}</td>
-                                            <td class="text-end fw-semibold">AED {{ sale.price|number_format(2) }}</td>
-                                            <td class="text-end text-success">AED {{ sale.total|number_format(2) }}</td>
+                                            <td class="text-end" data-sort="{{ sale.qty }}">{{ sale.qty }}</td>
+                                            <td class="text-end fw-semibold" data-sort="{{ sale.price }}">AED {{ sale.price|number_format(2) }}</td>
+                                            <td class="text-end text-success" data-sort="{{ sale.total }}">AED {{ sale.total|number_format(2) }}</td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -162,4 +155,91 @@
             </div>
         </div>
     {% endif %}
+
+    <script>
+        (function () {
+            function ico(name) {
+                var el = document.getElementById('ico-' + name);
+                return el ? el.innerHTML : '';
+            }
+
+            function cellValue(cell, type) {
+                if (!cell) { return type === 'number' ? -Infinity : ''; }
+                var v = cell.getAttribute('data-sort');
+                if (v === null) { v = cell.textContent.trim(); }
+                if (type === 'number') {
+                    var n = parseFloat(v);
+                    return isNaN(n) ? -Infinity : n;
+                }
+                return v.toLowerCase();
+            }
+
+            function sortBy(table, th) {
+                var tbody = table.tBodies[0];
+                var type = th.getAttribute('data-sort-type') || 'text';
+                var colIndex = th.cellIndex;
+                var asc = th.getAttribute('data-sort-dir') !== 'asc';
+
+                Array.prototype.forEach.call(table.querySelectorAll('th[data-sort-type]'), function (h) {
+                    h.removeAttribute('data-sort-dir');
+                    var icn = h.querySelector('.datagrid-sort-icon');
+                    var lnk = h.querySelector('.datagrid-sort-link');
+                    if (icn) { icn.innerHTML = ico('default'); }
+                    if (lnk) { lnk.classList.remove('sorted'); }
+                });
+
+                th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+                var icon = th.querySelector('.datagrid-sort-icon');
+                var link = th.querySelector('.datagrid-sort-link');
+                if (icon) { icon.innerHTML = ico(asc ? 'asc' : 'desc'); }
+                if (link) { link.classList.add('sorted'); }
+
+                var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-row]'));
+                rows.sort(function (a, b) {
+                    var av = cellValue(a.cells[colIndex], type);
+                    var bv = cellValue(b.cells[colIndex], type);
+                    if (av < bv) { return asc ? -1 : 1; }
+                    if (av > bv) { return asc ? 1 : -1; }
+                    return 0;
+                });
+                rows.forEach(function (r) { tbody.appendChild(r); });
+            }
+
+            Array.prototype.forEach.call(document.querySelectorAll('table.js-sortable'), function (table) {
+                Array.prototype.forEach.call(table.querySelectorAll('th[data-sort-type]'), function (th) {
+                    var icn = th.querySelector('.datagrid-sort-icon');
+                    var def = th.getAttribute('data-default-dir');
+                    if (icn) { icn.innerHTML = ico(def ? def : 'default'); }
+                    if (def) {
+                        th.setAttribute('data-sort-dir', def);
+                        var lnk = th.querySelector('.datagrid-sort-link');
+                        if (lnk) { lnk.classList.add('sorted'); }
+                    }
+                    var link = th.querySelector('.datagrid-sort-link');
+                    if (link) {
+                        link.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            sortBy(table, th);
+                        });
+                    }
+                });
+            });
+
+            var input = document.getElementById('client-search');
+            if (input) {
+                var body = document.getElementById('client-body');
+                var noResults = document.getElementById('client-no-results');
+                input.addEventListener('input', function () {
+                    var q = input.value.trim().toLowerCase();
+                    var shown = 0;
+                    Array.prototype.forEach.call(body.querySelectorAll('tr[data-row]'), function (row) {
+                        var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                        row.style.display = match ? '' : 'none';
+                        if (match) { shown++; }
+                    });
+                    if (noResults) { noResults.style.display = shown === 0 ? '' : 'none'; }
+                });
+            }
+        })();
+    </script>
 {% endblock content %}

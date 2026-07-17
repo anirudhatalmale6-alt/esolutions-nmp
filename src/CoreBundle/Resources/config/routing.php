@@ -12,6 +12,9 @@ declare(strict_types=1);
  */
 
 use SolidInvoice\CoreBundle\Action\CreateCompany;
+use SolidInvoice\CoreBundle\Action\CreditNote\DeleteCreditNote;
+use SolidInvoice\CoreBundle\Action\CreditNote\ListCreditNotes;
+use SolidInvoice\CoreBundle\Action\CreditNote\ManageCreditNote;
 use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
@@ -106,6 +109,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_daily_ledger', '/daily-ledger')
         ->controller(DailyLedger::class);
+
+    $routingConfigurator
+        ->add('_credit_notes_list', '/credit-notes')
+        ->controller(ListCreditNotes::class);
+
+    $routingConfigurator
+        ->add('_credit_note_new', '/credit-notes/new/{invoiceId}')
+        ->controller(ManageCreditNote::class);
+
+    $routingConfigurator
+        ->add('_credit_note_delete', '/credit-notes/{id}/delete')
+        ->controller(DeleteCreditNote::class)
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_view_quote_external', '/view/quote/{uuid}.{_format}')

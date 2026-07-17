@@ -138,6 +138,15 @@
                             </a>
                         </li>
 
+                        {% if invoice.status in [enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Active, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Pending, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue] %}
+                            <li>
+                                <a class="dropdown-item" href="{{ path('_credit_note_new', {'invoiceId' : invoice.id}) }}">
+                                    {{ ux_icon('tabler:receipt-refund', {width: 16, height: 16}) }}
+                                    {{ "Refund / Credit Note"|trans }}
+                                </a>
+                            </li>
+                        {% endif %}
+
                         {% if invoice.status in [enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Pending, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue] and invoice.users|length > 0 %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
@@ -610,6 +619,62 @@
                                                 <button type="submit" class="btn btn-sm btn-link text-danger p-0">
                                                     {{ ux_icon('tabler:trash', {width: 14, height: 14}) }}
                                                     {{ 'Remove / correct'|trans }}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {# Refunds / Credit Notes Card (if any) #}
+            {% if creditNotes is defined and creditNotes|length > 0 %}
+                <div class="doc-sidebar-card no-print">
+                    <div class="doc-sidebar-card-header">
+                        <div class="doc-sidebar-card-icon">
+                            {{ ux_icon('tabler:receipt-refund', {width: 18, height: 18}) }}
+                        </div>
+                        <h3 class="doc-sidebar-card-title">{{ 'Refunds / Credit Notes'|trans }}</h3>
+                    </div>
+                    <div class="doc-sidebar-card-body">
+                        <div class="payments-list">
+                            {% for cn in creditNotes %}
+                                <div class="payment-card">
+                                    <div class="payment-card-header">
+                                        <div class="payment-amount">AED {{ cn.amount|number_format(2) }}</div>
+                                        <div class="payment-status">
+                                            {% if cn.storeCredit %}
+                                                <span class="badge bg-info-lt">{{ 'Store credit'|trans }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger-lt">{{ 'Cash out'|trans }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="payment-card-body">
+                                        {% if cn.creditDate is not empty %}
+                                            <div class="payment-date">
+                                                {{ ux_icon('tabler:calendar', {width: 14, height: 14}) }}
+                                                {{ cn.creditDate|date('M d, Y') }}
+                                            </div>
+                                        {% endif %}
+                                        {% if cn.disposition == 'repaired' %}
+                                            <div class="payment-message">{{ 'Repaired — back into stock'|trans }}</div>
+                                        {% elseif cn.disposition == 'ber' %}
+                                            <div class="payment-message">{{ 'BER — beyond economic repair'|trans }}</div>
+                                        {% endif %}
+                                        {% if cn.reason is not empty %}
+                                            <div class="payment-message">{{ cn.reason }}</div>
+                                        {% endif %}
+                                        <div class="payment-card-actions mt-2">
+                                            <form method="post" action="{{ path('_credit_note_delete', {id: cn.id}) }}"
+                                                  onsubmit="return confirm('{{ 'Delete this credit note? If it was store credit, that credit will be taken back off the client.'|trans }}');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('creditnote.delete') }}">
+                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                                    {{ ux_icon('tabler:trash', {width: 14, height: 14}) }}
+                                                    {{ 'Delete'|trans }}
                                                 </button>
                                             </form>
                                         </div>

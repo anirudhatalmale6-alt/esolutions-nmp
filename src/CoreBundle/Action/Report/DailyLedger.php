@@ -18,6 +18,7 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Repository\ExpenseRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\PaymentBundle\Entity\Payment;
@@ -45,6 +46,7 @@ final readonly class DailyLedger
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ExpenseRepository $expenseRepository,
+        private CreditNoteRepository $creditNoteRepository,
     ) {
     }
 
@@ -61,6 +63,7 @@ final readonly class DailyLedger
         $payments = $this->paymentsReceived($start, $end);
         $suppliers = $this->supplierPayments($start, $end);
         $expenses = $this->expenseRepository->findBetween($start, $end);
+        $refunds = $this->creditNoteRepository->findCashBetween($start, $end);
         $invoices = $this->invoicesRaised($start, $end);
 
         $moneyIn = BigDecimal::zero();
@@ -78,12 +81,17 @@ final readonly class DailyLedger
             $expensesOut = $expensesOut->plus(BigDecimal::of($expense->getAmount()));
         }
 
+        $refundsOut = BigDecimal::zero();
+        foreach ($refunds as $refund) {
+            $refundsOut = $refundsOut->plus(BigDecimal::of($refund->getAmount()));
+        }
+
         $invoicesTotal = BigDecimal::zero();
         foreach ($invoices as $invoice) {
             $invoicesTotal = $invoicesTotal->plus(BigDecimal::of($invoice['total']));
         }
 
-        $moneyOut = $supplierOut->plus($expensesOut);
+        $moneyOut = $supplierOut->plus($expensesOut)->plus($refundsOut);
         $net = $moneyIn->minus($moneyOut);
 
         return [
@@ -92,10 +100,12 @@ final readonly class DailyLedger
             'payments' => $payments,
             'suppliers' => $suppliers,
             'expenses' => $expenses,
+            'refunds' => $refunds,
             'invoices' => $invoices,
             'moneyIn' => (string) $moneyIn->toScale(2),
             'supplierOut' => (string) $supplierOut->toScale(2),
             'expensesOut' => (string) $expensesOut->toScale(2),
+            'refundsOut' => (string) $refundsOut->toScale(2),
             'moneyOut' => (string) $moneyOut->toScale(2),
             'invoicesTotal' => (string) $invoicesTotal->toScale(2),
             'net' => (string) $net->toScale(2),

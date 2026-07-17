@@ -15,6 +15,7 @@ namespace SolidInvoice\InvoiceBundle\Action;
 
 use Mpdf\MpdfException;
 use SolidInvoice\CoreBundle\Pdf\Generator;
+use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Response\PdfResponse;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\PaymentBundle\Repository\PaymentRepository;
@@ -34,7 +35,8 @@ final readonly class View
     public function __construct(
         private PaymentRepository $paymentRepository,
         private Generator $pdfGenerator,
-        private Environment $twig
+        private Environment $twig,
+        private CreditNoteRepository $creditNoteRepository
     ) {
     }
 
@@ -55,6 +57,7 @@ final readonly class View
         return [
             'invoice' => $invoice,
             'payments' => $this->paymentRepository->getPaymentsForInvoice($invoice),
+            'creditNotes' => $this->creditNoteRepository->findForInvoice($invoice),
         ];
     }
 }

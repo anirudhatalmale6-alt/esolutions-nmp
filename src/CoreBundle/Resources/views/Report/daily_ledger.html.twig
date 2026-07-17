@@ -204,6 +204,32 @@
             </twig:Ui:Card>
         </div>
 
+        {# ---------------- Money out: refunds (cash credit notes) ---------------- #}
+        <div class="col-lg-6">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3 text-danger">{{ ux_icon('tabler:receipt-refund', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Refunds (cash)'|trans }}</h3>
+                {% if refunds is empty %}
+                    <p class="text-muted mb-0">{{ 'No cash refunds on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Client'|trans }}</th><th>{{ 'Reason'|trans }}</th><th class="text-end">{{ 'Amount'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for r in refunds %}
+                                    <tr>
+                                        <td>{{ r.client ? r.client.name : '—' }}</td>
+                                        <td class="text-muted">{{ r.reason ?: (r.reference ?: '—') }}</td>
+                                        <td class="text-end text-danger">AED {{ r.amount|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total refunds'|trans }}</td><td class="text-end text-danger">AED {{ refundsOut|number_format(2) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+
         {# ---------------- Invoices raised today ---------------- #}
         <div class="col-lg-6">
             <twig:Ui:Card>

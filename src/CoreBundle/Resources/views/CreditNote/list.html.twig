@@ -1,0 +1,115 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:receipt-refund', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Refunds / Credit Notes'|trans }}{% endblock title %}
+
+{% block content %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Cash refunded (money out)'|trans }}</div>
+                <div class="h3 mb-0 text-danger">AED {{ totalCash|number_format(2) }}</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Store credit issued'|trans }}</div>
+                <div class="h3 mb-0 text-info">AED {{ totalCredit|number_format(2) }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <twig:Ui:Card>
+        {% if creditNotes is empty %}
+            <div class="text-center py-5 text-muted">
+                {{ ux_icon('tabler:receipt-off', {width: 40, height: 40}) }}
+                <p class="mt-3 mb-1">{{ 'No refunds or credit notes recorded yet.'|trans }}</p>
+                <p class="small">{{ 'Open a paid invoice and use "Refund / Credit Note" to record a return.'|trans }}</p>
+            </div>
+        {% else %}
+            <div class="mb-3">
+                <input type="text" id="cn-search" class="form-control" placeholder="{{ 'Search invoice, client, reason...'|trans }}" autocomplete="off">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter" id="cn-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Date'|trans }}</th>
+                            <th>{{ 'Invoice'|trans }}</th>
+                            <th>{{ 'Client'|trans }}</th>
+                            <th>{{ 'Refund'|trans }}</th>
+                            <th>{{ 'Condition'|trans }}</th>
+                            <th>{{ 'Reason'|trans }}</th>
+                            <th class="text-end">{{ 'Amount'|trans }}</th>
+                            <th class="text-end">{{ 'Actions'|trans }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cn-body">
+                        {% for cn in creditNotes %}
+                            <tr data-search="{{ (cn.invoice.invoiceId ~ ' ' ~ (cn.client ? cn.client.name : '') ~ ' ' ~ (cn.reason ?: '') ~ ' ' ~ (cn.reference ?: ''))|lower }}">
+                                <td class="text-nowrap">{{ cn.creditDate ? cn.creditDate|date('d M Y') : '—' }}</td>
+                                <td class="text-nowrap">
+                                    <a href="{{ path('_invoices_view', {id: cn.invoice.id}) }}">{{ cn.invoice.invoiceId }}</a>
+                                </td>
+                                <td>{{ cn.client ? cn.client.name : '—' }}</td>
+                                <td>
+                                    {% if cn.storeCredit %}
+                                        <span class="badge bg-info-lt">{{ 'Store credit'|trans }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger-lt">{{ 'Cash out'|trans }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cn.disposition == 'repaired' %}
+                                        <span class="badge bg-green-lt">{{ 'Repaired'|trans }}</span>
+                                    {% elseif cn.disposition == 'ber' %}
+                                        <span class="badge bg-secondary-lt">{{ 'BER'|trans }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted">{{ cn.reason ?: (cn.reference ?: '—') }}</td>
+                                <td class="text-end fw-semibold {{ cn.storeCredit ? 'text-info' : 'text-danger' }}">AED {{ cn.amount|number_format(2) }}</td>
+                                <td class="text-end text-nowrap">
+                                    <form method="post" action="{{ path('_credit_note_delete', {id: cn.id}) }}" class="d-inline" onsubmit="return confirm('{{ 'Delete this credit note? If it was store credit, that credit will be taken back off the client.'|trans }}');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('creditnote.delete') }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Delete'|trans }}">
+                                            {{ ux_icon('tabler:trash', {width: 15, height: 15}) }}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="cn-no-results" class="text-center text-muted py-4" style="display: none;">{{ 'No matching credit notes found.'|trans }}</div>
+            <script>
+                (function () {
+                    var input = document.getElementById('cn-search');
+                    var rows = document.querySelectorAll('#cn-body tr');
+                    var noResults = document.getElementById('cn-no-results');
+                    if (!input) { return; }
+                    input.addEventListener('input', function () {
+                        var q = input.value.trim().toLowerCase();
+                        var shown = 0;
+                        rows.forEach(function (row) {
+                            var match = q === '' || row.getAttribute('data-search').indexOf(q) !== -1;
+                            row.style.display = match ? '' : 'none';
+                            if (match) { shown++; }
+                        });
+                        noResults.style.display = shown === 0 ? 'block' : 'none';
+                    });
+                })();
+            </script>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock content %}

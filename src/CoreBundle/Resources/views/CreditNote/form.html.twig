@@ -1,0 +1,177 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:receipt-refund', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Refund / Credit Note'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_invoices_view', {id: invoice.id}) }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to invoice'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <div class="d-flex flex-wrap gap-4 mb-4">
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Invoice'|trans }}</div>
+                <div class="fw-semibold">{{ invoice.invoiceId }}</div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Client'|trans }}</div>
+                <div class="fw-semibold">{{ invoice.client ? invoice.client.name : '—' }}</div>
+            </div>
+            <div>
+                <div class="text-muted small text-uppercase">{{ 'Invoice total'|trans }}</div>
+                <div class="fw-semibold">AED {{ invoiceTotal|number_format(2) }}</div>
+            </div>
+        </div>
+
+        <form method="post" action="{{ path('_credit_note_new', {invoiceId: invoice.id}) }}">
+            {% if lines is not empty %}
+                <div class="mb-2 fw-semibold">{{ 'What is coming back? (optional helper)'|trans }}</div>
+                <div class="form-text mb-2">{{ 'Tick the phones being returned and set how many - the refund amount fills in for you. You can always type the amount yourself below.'|trans }}</div>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-vcenter">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>{{ 'Model'|trans }}</th>
+                                <th class="text-end">{{ 'Sold qty'|trans }}</th>
+                                <th class="text-end">{{ 'Unit price'|trans }}</th>
+                                <th class="text-center" style="width: 130px;">{{ 'Qty returning'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                                <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input cn-line-check" data-idx="{{ loop.index0 }}">
+                                    </td>
+                                    <td>{{ line.description }}</td>
+                                    <td class="text-end">{{ line.qty }}</td>
+                                    <td class="text-end">AED {{ line.price|number_format(2) }}</td>
+                                    <td class="text-center">
+                                        <input type="number" step="1" min="0" max="{{ line.qty }}" value="{{ line.qty }}"
+                                               class="form-control form-control-sm text-end cn-line-qty"
+                                               data-idx="{{ loop.index0 }}" data-price="{{ line.price }}" disabled>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="cn-date" class="form-label">{{ 'Refund date'|trans }} <span class="text-danger">*</span></label>
+                    <input type="date" name="credit_date" id="cn-date" class="form-control" value="{{ data.credit_date }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="cn-amount" class="form-label">{{ 'Refund amount (AED)'|trans }} <span class="text-danger">*</span></label>
+                    <input type="number" step="0.01" min="0" name="amount" id="cn-amount" class="form-control" value="{{ data.amount }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="cn-ref" class="form-label">{{ 'Reference (optional)'|trans }}</label>
+                    <input type="text" name="reference" id="cn-ref" class="form-control" value="{{ data.reference }}" maxlength="128" placeholder="{{ 'e.g. CN-001'|trans }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">{{ 'How is the refund given?'|trans }} <span class="text-danger">*</span></label>
+                    <div class="form-selectgroup">
+                        <label class="form-selectgroup-item d-block mb-2">
+                            <input type="radio" name="refund_type" value="cash" class="form-selectgroup-input" {{ data.refund_type != 'credit' ? 'checked' : '' }}>
+                            <span class="form-check-label">
+                                {{ ux_icon('tabler:cash', {width: 16, height: 16}) }}
+                                <strong>{{ 'Cash out'|trans }}</strong> — {{ 'money physically returned to the customer (shows as money-out in the Daily Ledger)'|trans }}
+                            </span>
+                        </label>
+                        <label class="form-selectgroup-item d-block">
+                            <input type="radio" name="refund_type" value="credit" class="form-selectgroup-input" {{ data.refund_type == 'credit' ? 'checked' : '' }}>
+                            <span class="form-check-label">
+                                {{ ux_icon('tabler:wallet', {width: 16, height: 16}) }}
+                                <strong>{{ 'Store credit'|trans }}</strong> — {{ 'added to this customer\'s credit balance for a future order'|trans }}
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="cn-disp" class="form-label">{{ 'What happened to the unit? (optional)'|trans }}</label>
+                    <select name="disposition" id="cn-disp" class="form-select">
+                        <option value="" {{ data.disposition == '' ? 'selected' : '' }}>{{ 'Not specified'|trans }}</option>
+                        <option value="repaired" {{ data.disposition == 'repaired' ? 'selected' : '' }}>{{ 'Repaired — back into stock'|trans }}</option>
+                        <option value="ber" {{ data.disposition == 'ber' ? 'selected' : '' }}>{{ 'BER — beyond economic repair'|trans }}</option>
+                    </select>
+                    <div class="form-text">{{ 'Just a record — stock stays governed by your Tally import.'|trans }}</div>
+                </div>
+
+                <div class="col-12">
+                    <label for="cn-reason" class="form-label">{{ 'Reason / note (optional)'|trans }}</label>
+                    <textarea name="reason" id="cn-reason" class="form-control" rows="2" placeholder="{{ 'e.g. faulty screen, customer changed mind...'|trans }}">{{ data.reason }}</textarea>
+                </div>
+            </div>
+
+            <input type="hidden" name="_token" value="{{ csrf_token('creditnote.save') }}">
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
+                    {{ 'Save refund / credit note'|trans }}
+                </button>
+                <a href="{{ path('_invoices_view', {id: invoice.id}) }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+            </div>
+        </form>
+    </twig:Ui:Card>
+
+    <script>
+        (function () {
+            var amountField = document.getElementById('cn-amount');
+            var checks = document.querySelectorAll('.cn-line-check');
+            if (!amountField || checks.length === 0) { return; }
+
+            function qtyInput(idx) {
+                return document.querySelector('.cn-line-qty[data-idx="' + idx + '"]');
+            }
+
+            function recalc() {
+                var total = 0;
+                var anyChecked = false;
+                checks.forEach(function (chk) {
+                    var qi = qtyInput(chk.getAttribute('data-idx'));
+                    if (!qi) { return; }
+                    if (chk.checked) {
+                        anyChecked = true;
+                        var qty = parseFloat(qi.value) || 0;
+                        var price = parseFloat(qi.getAttribute('data-price')) || 0;
+                        total += qty * price;
+                    }
+                });
+                if (anyChecked) {
+                    amountField.value = total.toFixed(2);
+                }
+            }
+
+            checks.forEach(function (chk) {
+                chk.addEventListener('change', function () {
+                    var qi = qtyInput(chk.getAttribute('data-idx'));
+                    if (qi) { qi.disabled = !chk.checked; }
+                    recalc();
+                });
+            });
+
+            document.querySelectorAll('.cn-line-qty').forEach(function (qi) {
+                qi.addEventListener('input', recalc);
+            });
+        })();
+    </script>
+{% endblock content %}

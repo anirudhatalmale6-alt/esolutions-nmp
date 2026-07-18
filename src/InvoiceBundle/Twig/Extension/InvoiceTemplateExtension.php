@@ -17,13 +17,17 @@ use Brick\Math\BigInteger;
 use Brick\Math\BigNumber;
 use Override;
 use SolidInvoice\ClientBundle\Entity\Contact;
+use SolidInvoice\InvoiceBundle\DataGrid\InvoiceStatusView;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\PaymentBundle\Entity\Payment;
 use SolidInvoice\PaymentBundle\Enum\PaymentStatus;
+use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 use function array_filter;
 use function array_values;
+use function in_array;
 
 /**
  * @see \SolidInvoice\InvoiceBundle\Tests\Twig\Extension\InvoiceTemplateExtensionTest
@@ -41,7 +45,53 @@ final class InvoiceTemplateExtension extends AbstractExtension
             new TwigFunction('invoice_captured_payments', $this->capturedPayments(...)),
             new TwigFunction('invoice_primary_contact', $this->primaryContact(...)),
             new TwigFunction('invoice_payment_status', $this->paymentStatus(...)),
+            new TwigFunction(
+                'invoice_status_label',
+                $this->invoiceStatusLabel(...),
+                ['is_safe' => ['html'], 'needs_environment' => true]
+            ),
         ];
+    }
+
+    /**
+     * Status display for an invoice that reflects partial payments. The
+     * InvoiceStatus enum has no "partially paid" state, so an invoice that has
+     * received a deposit still carries "pending"/"active"/"overdue". When captured
+     * payments exist but the balance is not settled, we surface a "Partially Paid"
+     * label; otherwise we fall back to the normal status label and colour.
+     */
+    public function invoiceStatusView(Invoice $invoice): InvoiceStatusView
+    {
+        $status = $invoice->getStatus();
+
+        $overridable = in_array($status, [InvoiceStatus::Pending, InvoiceStatus::Active, InvoiceStatus::Overdue], true);
+
+        if ($overridable && $this->paymentStatus($invoice)['isPartiallyPaid']) {
+            $name = InvoiceStatus::Overdue === $status ? 'Partially Paid (Overdue)' : 'Partially Paid';
+
+            return new InvoiceStatusView($name, 'orange');
+        }
+
+        return new InvoiceStatusView($status->getLabel(), $status->getColor());
+    }
+
+    /**
+     * Renders the coloured status badge for the invoice list. Accepts the
+     * {@see InvoiceStatusView} produced by the grid column's formatValue.
+     */
+    public function invoiceStatusLabel(Environment $environment, ?InvoiceStatusView $view = null, ?string $tooltip = null): string
+    {
+        if (! $view instanceof InvoiceStatusView) {
+            return '';
+        }
+
+        return $environment->render(
+            '@SolidInvoiceCore/Status/label.html.twig',
+            [
+                'entity' => ['name' => $view->name, 'label' => $view->color],
+                'tooltip' => $tooltip,
+            ]
+        );
     }
 
     /**

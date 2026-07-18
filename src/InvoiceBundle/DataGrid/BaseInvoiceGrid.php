@@ -34,12 +34,14 @@ use SolidInvoice\DataGridBundle\Source\ORMSource;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
+use SolidInvoice\InvoiceBundle\Twig\Extension\InvoiceTemplateExtension;
 use SolidInvoice\MoneyBundle\Calculator;
 
 abstract class BaseInvoiceGrid extends Grid
 {
     public function __construct(
         protected readonly Calculator $calculator,
+        protected readonly InvoiceTemplateExtension $invoiceTemplateExtension,
     ) {
     }
 
@@ -70,7 +72,11 @@ abstract class BaseInvoiceGrid extends Grid
                 ->searchField('client.name')
                 ->linkToRoute('_clients_view', ['id' => 'client.id']),
             StringColumn::new('status')
-                ->twigFunction('invoice_label')
+                ->twigFunction('invoice_status_label')
+                // The status enum has no "partially paid" state, so resolve a
+                // payment-aware view (shows "Partially Paid" once a deposit is
+                // captured). The view is Stringable, so CSV export stays clean.
+                ->formatValue(fn (mixed $value, Invoice $invoice): InvoiceStatusView => $this->invoiceTemplateExtension->invoiceStatusView($invoice))
                 ->filter(ChoiceFilter::new('status', array_column(array_map(static fn (InvoiceStatus $s) => [$s->value, $s->getLabel()], InvoiceStatus::cases()), 1, 0))->multiple()),
             MoneyColumn::new('total')
                 ->searchable(false)

@@ -18,7 +18,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class ExpenseMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 43)]
+    #[MenuBuilder(name: 'sidebar', priority: 43, role: 'ROLE_ACCOUNTANT')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('expenses', [

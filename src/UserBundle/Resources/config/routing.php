@@ -15,6 +15,7 @@ use SolidInvoice\UserBundle\Action\AcceptInvitation;
 use SolidInvoice\UserBundle\Action\ApiIndex;
 use SolidInvoice\UserBundle\Action\DeleteUserInvite;
 use SolidInvoice\UserBundle\Action\EditProfile;
+use SolidInvoice\UserBundle\Action\EditUser;
 use SolidInvoice\UserBundle\Action\ForgotPassword\Check;
 use SolidInvoice\UserBundle\Action\ForgotPassword\Request;
 use SolidInvoice\UserBundle\Action\ForgotPassword\Reset;
@@ -41,6 +42,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_users_list', '/users')
         ->controller(Users::class);
+
+    $routingConfigurator
+        ->add('_user_edit', '/users/{id}/edit')
+        ->controller(EditUser::class)
+        ->requirements(['id' => '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}']);
 
     $routingConfigurator
         ->add('_user_invite', '/users/invite')

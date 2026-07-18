@@ -18,7 +18,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class CreditNoteMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 42)]
+    #[MenuBuilder(name: 'sidebar', priority: 42, role: 'ROLE_MANAGER')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('credit_notes', [

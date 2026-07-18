@@ -16,11 +16,13 @@ namespace SolidInvoice\UserBundle\DataGrid;
 use Override;
 use SolidInvoice\DataGridBundle\Attributes\AsDataGrid;
 use SolidInvoice\DataGridBundle\Grid;
+use SolidInvoice\DataGridBundle\GridBuilder\Action\Action;
 use SolidInvoice\DataGridBundle\GridBuilder\Column\Column;
 use SolidInvoice\DataGridBundle\GridBuilder\Column\RelativeDateColumn;
 use SolidInvoice\DataGridBundle\GridBuilder\Column\StatusColumn;
 use SolidInvoice\DataGridBundle\GridBuilder\Column\StringColumn;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Enum\PortalRole;
 
 #[AsDataGrid(name: 'users_list', title: 'Users')]
 final class UserGrid extends Grid
@@ -39,6 +41,11 @@ final class UserGrid extends Grid
         return [
             StringColumn::new('email')
                 ->label('Email Address'),
+            StringColumn::new('roles')
+                ->label('Role')
+                ->sortable(false)
+                ->searchable(false)
+                ->formatValue(static fn (mixed $value, User $user): string => PortalRole::fromRoles($user->getRoles())?->label() ?? 'No role'),
             StringColumn::new('mobile')
                 ->label('Mobile')
                 ->formatValue(fn ($value) => $value ?: '—'),
@@ -54,6 +61,19 @@ final class UserGrid extends Grid
                     'active' => 'success',
                     'disabled' => 'danger',
                 ]),
+        ];
+    }
+
+    /**
+     * @return Action[]
+     */
+    #[Override]
+    public function actions(): array
+    {
+        return [
+            Action::new('_user_edit', ['id' => 'id'])
+                ->label('Set Role')
+                ->icon('user-cog'),
         ];
     }
 }

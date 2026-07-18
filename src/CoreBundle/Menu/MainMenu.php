@@ -29,7 +29,7 @@ class MainMenu
     ) {
     }
 
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_SYSTEM->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_SYSTEM->value, role: 'ROLE_ADMIN')]
     public function sidebar(ItemInterface $menu): void
     {
         $section = $menu->addChild(

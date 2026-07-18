@@ -18,7 +18,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class PurchaseMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 44)]
+    #[MenuBuilder(name: 'sidebar', priority: 44, role: 'ROLE_STAFF')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('purchases', [

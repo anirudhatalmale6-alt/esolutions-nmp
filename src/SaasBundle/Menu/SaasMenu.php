@@ -30,7 +30,7 @@ final readonly class SaasMenu
     ) {
     }
 
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_SYSTEM->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_SYSTEM->value, role: 'ROLE_ADMIN')]
     public function sidebar(ItemInterface $menu): void
     {
         $systemMenu = $menu->getChild('menu.top.system');

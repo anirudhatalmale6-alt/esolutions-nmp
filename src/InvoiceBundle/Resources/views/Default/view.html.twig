@@ -514,9 +514,13 @@
                 </div>
                 <div class="doc-sidebar-card-body">
                     <div class="client-info">
-                        <a href="{{ path('_clients_view', {'id': invoice.client.id}) }}" class="client-name">
-                            {{ invoice.client }}
-                        </a>
+                        {% if is_granted('ROLE_MANAGER') %}
+                            <a href="{{ path('_clients_view', {'id': invoice.client.id}) }}" class="client-name">
+                                {{ invoice.client }}
+                            </a>
+                        {% else %}
+                            <span class="client-name">{{ invoice.client }}</span>
+                        {% endif %}
 
                         {% if invoice.users|length > 0 %}
                             <div class="client-contacts">
@@ -613,6 +617,7 @@
                                             <div class="payment-message">{{ payment.message }}</div>
                                         {% endif %}
                                         <div class="payment-card-actions mt-2">
+                                            {% if is_granted('ROLE_ACCOUNTANT') %}
                                             <form method="post" action="{{ path('_payments_delete', {id: payment.id}) }}"
                                                   onsubmit="return confirm('{{ 'Remove this payment? The invoice balance will be recalculated, then you can record the correct amount.'|trans }}');">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('payment.delete') }}">
@@ -621,6 +626,7 @@
                                                     {{ 'Remove / correct'|trans }}
                                                 </button>
                                             </form>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

@@ -20,7 +20,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class InvoiceMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_INVOICE->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_INVOICE->value, role: 'ROLE_STAFF')]
     public function sidebar(ItemInterface $menu): void
     {
         $invoices = $menu->addChild('invoice.menu.main', [

@@ -18,7 +18,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class StockMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 40)]
+    #[MenuBuilder(name: 'sidebar', priority: 40, role: 'ROLE_STAFF')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('stock', [

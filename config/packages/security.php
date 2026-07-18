@@ -27,8 +27,13 @@ return static function (SecurityConfig $config): void {
         ->passwordHasher(PasswordAuthenticatedUserInterface::class)
         ->algorithm('auto');
 
+    // Portal access levels (assigned per user under Users). Higher levels inherit
+    // the access of the lower ones: Admin > Manager > Accountant > Staff > User.
     $config
-        ->roleHierarchy('ROLE_ADMIN', [])
+        ->roleHierarchy('ROLE_ADMIN', ['ROLE_MANAGER'])
+        ->roleHierarchy('ROLE_MANAGER', ['ROLE_STAFF', 'ROLE_ACCOUNTANT'])
+        ->roleHierarchy('ROLE_ACCOUNTANT', ['ROLE_STAFF'])
+        ->roleHierarchy('ROLE_STAFF', ['ROLE_USER'])
         ->roleHierarchy('ROLE_SUPER_ADMIN', ['ROLE_ADMIN', 'ROLE_ALLOWED_TO_SWITCH'])
         ->roleHierarchy('ROLE_CLIENT', ['ROLE_USER'])
         ->roleHierarchy('ROLE_USER', []);
@@ -134,6 +139,34 @@ return static function (SecurityConfig $config): void {
             '/payments/done$' .
             ')')
         ->roles(['PUBLIC_ACCESS']);
+
+    // Role-based access. Evaluated top-to-bottom, first match wins, so these must
+    // stay ABOVE the catch-all "^/" => ROLE_USER rule below. Higher roles inherit
+    // lower ones via the hierarchy, so e.g. an admin passes every rule here.
+    // Admin-only configuration surfaces:
+    $config->accessControl()->path('^/settings')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/users')->roles(['ROLE_ADMIN']);
+    // Only tax-RATE management is admin; /tax/number/validate stays open (used by
+    // client and invoice forms to validate VAT numbers).
+    $config->accessControl()->path('^/tax/rates')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/notifications')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/billing')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/create-company')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/delete-company')->roles(['ROLE_ADMIN']);
+    $config->accessControl()->path('^/payments/methods')->roles(['ROLE_ADMIN']);
+    // Accountant surfaces (managers and admins inherit these):
+    $config->accessControl()->path('^/payments')->roles(['ROLE_ACCOUNTANT']);
+    $config->accessControl()->path('^/daily-ledger')->roles(['ROLE_ACCOUNTANT']);
+    $config->accessControl()->path('^/sales')->roles(['ROLE_ACCOUNTANT']);
+    $config->accessControl()->path('^/expenses')->roles(['ROLE_ACCOUNTANT']);
+    // Manager surfaces:
+    $config->accessControl()->path('^/clients')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/quotes')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/credit-notes')->roles(['ROLE_MANAGER']);
+    // Staff surfaces (accountants, managers and admins inherit these):
+    $config->accessControl()->path('^/invoices')->roles(['ROLE_STAFF']);
+    $config->accessControl()->path('^/purchases')->roles(['ROLE_STAFF']);
+    $config->accessControl()->path('^/stock')->roles(['ROLE_STAFF']);
 
     $config->accessControl()
         ->path('^/')

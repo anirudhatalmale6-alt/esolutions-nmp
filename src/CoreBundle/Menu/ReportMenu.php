@@ -18,7 +18,7 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class ReportMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 42)]
+    #[MenuBuilder(name: 'sidebar', priority: 42, role: 'ROLE_ACCOUNTANT')]
     public function sidebar(ItemInterface $menu): void
     {
         $section = $menu->addChild('reports', [

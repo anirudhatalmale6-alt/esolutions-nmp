@@ -14,13 +14,16 @@
         </twig:block>
 
         <div class="quick-actions-grid">
+            {% if is_granted('ROLE_STAFF') %}
             <a href="{{ path('_invoices_create') }}" class="quick-action-btn quick-action-btn--primary">
                 <span class="quick-action-icon">
                     {{ ux_icon('tabler:file-plus', {width: 24, height: 24}) }}
                 </span>
                 <span class="quick-action-label">{{ 'dashboard.actions.create_invoice'|trans }}</span>
             </a>
+            {% endif %}
 
+            {% if is_granted('ROLE_MANAGER') %}
             <a href="{{ path('_quotes_create') }}" class="quick-action-btn quick-action-btn--secondary">
                 <span class="quick-action-icon">
                     {{ ux_icon('tabler:file-description', {width: 24, height: 24}) }}
@@ -34,13 +37,16 @@
                 </span>
                 <span class="quick-action-label">{{ 'dashboard.actions.add_client'|trans }}</span>
             </a>
+            {% endif %}
 
+            {% if is_granted('ROLE_ACCOUNTANT') %}
             <a href="{{ path('_payments_index') }}" class="quick-action-btn quick-action-btn--success">
                 <span class="quick-action-icon">
                     {{ ux_icon('tabler:cash', {width: 24, height: 24}) }}
                 </span>
                 <span class="quick-action-label">{{ 'dashboard.actions.view_payments'|trans }}</span>
             </a>
+            {% endif %}
         </div>
     </twig:Ui:Card>
 </div>

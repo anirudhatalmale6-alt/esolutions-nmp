@@ -28,7 +28,7 @@ final readonly class PaymentMenu
     ) {
     }
 
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_PAYMENT->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_PAYMENT->value, role: 'ROLE_ACCOUNTANT')]
     public function sidebar(ItemInterface $menu): void
     {
         $extras = ['icon' => 'credit-card'];
@@ -63,6 +63,8 @@ final readonly class PaymentMenu
                 'route' => '_payment_settings_index',
                 'extras' => [
                     'icon' => 'receipt',
+                    // Payment-method configuration is admin-only (see access_control).
+                    'role' => 'ROLE_ADMIN',
                 ],
             ],
         );

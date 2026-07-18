@@ -29,7 +29,7 @@ final readonly class QuoteMenu
     ) {
     }
 
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_QUOTE->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_QUOTE->value, role: 'ROLE_MANAGER')]
     public function sidebar(ItemInterface $menu): void
     {
         $extras = ['icon' => Icon::QUOTE];

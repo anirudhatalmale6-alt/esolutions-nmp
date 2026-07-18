@@ -21,7 +21,7 @@ use SolidWorx\Platform\PlatformBundle\Menu\Options;
 
 final class ClientMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_CLIENT->value)]
+    #[MenuBuilder(name: 'sidebar', priority: MenuPriority::PRIORITY_CLIENT->value, role: 'ROLE_MANAGER')]
     public function sidebar(ItemInterface $menu): void
     {
         $section = $menu->addChild('client.menu.main', Options::create()->icon(Icon::CLIENT)->build());

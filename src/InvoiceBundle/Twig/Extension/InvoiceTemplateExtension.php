@@ -50,7 +50,25 @@ final class InvoiceTemplateExtension extends AbstractExtension
                 $this->invoiceStatusLabel(...),
                 ['is_safe' => ['html'], 'needs_environment' => true]
             ),
+            new TwigFunction(
+                'invoice_status_badge',
+                $this->invoiceStatusBadge(...),
+                ['is_safe' => ['html'], 'needs_environment' => true]
+            ),
         ];
+    }
+
+    /**
+     * Convenience for templates: renders the payment-aware status badge straight
+     * from an invoice (shows "Partially Paid" when a deposit has been captured).
+     */
+    public function invoiceStatusBadge(Environment $environment, ?Invoice $invoice, ?string $tooltip = null): string
+    {
+        if (! $invoice instanceof Invoice) {
+            return '';
+        }
+
+        return $this->invoiceStatusLabel($environment, $this->invoiceStatusView($invoice), $tooltip);
     }
 
     /**

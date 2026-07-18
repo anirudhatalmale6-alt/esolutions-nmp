@@ -24,7 +24,7 @@
             <div class="doc-view-title-group">
                 <h1 class="doc-view-title">{{ "invoice.title"|trans({"%id%" : invoice.invoiceId}) }}</h1>
                 <div class="doc-view-meta">
-                    {{ invoice_label(invoice.status) }}
+                    {{ invoice_status_badge(invoice) }}
                     {% if invoice.due is not empty %}
                         <span class="doc-view-meta-item">
                             {{ ux_icon('tabler:calendar', {width: 14, height: 14}) }}
@@ -547,7 +547,7 @@
                     <div class="doc-summary-grid">
                         <div class="summary-item">
                             <span class="summary-label">{{ 'invoice.status'|trans }}</span>
-                            <span class="summary-value">{{ invoice_label(invoice.status) }}</span>
+                            <span class="summary-value">{{ invoice_status_badge(invoice) }}</span>
                         </div>
                         <div class="summary-item">
                             <span class="summary-label">{{ 'invoice.total'|trans }}</span>

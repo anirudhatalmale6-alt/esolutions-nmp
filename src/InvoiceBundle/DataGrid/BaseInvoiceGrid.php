@@ -36,12 +36,14 @@ use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use SolidInvoice\InvoiceBundle\Twig\Extension\InvoiceTemplateExtension;
 use SolidInvoice\MoneyBundle\Calculator;
+use Symfony\Bundle\SecurityBundle\Security;
 
 abstract class BaseInvoiceGrid extends Grid
 {
     public function __construct(
         protected readonly Calculator $calculator,
         protected readonly InvoiceTemplateExtension $invoiceTemplateExtension,
+        protected readonly Security $security,
     ) {
     }
 
@@ -115,10 +117,16 @@ abstract class BaseInvoiceGrid extends Grid
     #[Override]
     public function actions(): array
     {
-        return [
+        $actions = [
             ViewAction::new('_invoices_view', ['id' => 'id']),
-            EditAction::new('_invoices_edit', ['id' => 'id']),
         ];
+
+        // Editing is a write action — Managers and up only (Staff is view-only).
+        if ($this->security->isGranted('ROLE_MANAGER')) {
+            $actions[] = EditAction::new('_invoices_edit', ['id' => 'id']);
+        }
+
+        return $actions;
     }
 
     #[Override]

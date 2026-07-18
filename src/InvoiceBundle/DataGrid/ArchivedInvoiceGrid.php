@@ -33,6 +33,10 @@ final class ArchivedInvoiceGrid extends BaseInvoiceGrid
     #[Override]
     public function batchActions(): iterable
     {
+        if (! $this->security->isGranted('ROLE_MANAGER')) {
+            return;
+        }
+
         yield from parent::batchActions();
 
         yield BatchAction::new('Activate')

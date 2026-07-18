@@ -14,16 +14,18 @@
 {% endblock title %}
 
 {% block heading %}
-    {% if recurring %}
-        <a class="btn btn-primary" href="{{ path("_invoices_create_recurring") }}">
-            {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
-            {{ "invoice.action.create_recurring"|trans }}
-        </a>
-    {% else %}
-        <a class="btn btn-primary" href="{{ path("_invoices_create") }}">
-            {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
-            {{ "invoice.action.create"|trans }}
-        </a>
+    {% if is_granted('ROLE_MANAGER') %}
+        {% if recurring %}
+            <a class="btn btn-primary" href="{{ path("_invoices_create_recurring") }}">
+                {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
+                {{ "invoice.action.create_recurring"|trans }}
+            </a>
+        {% else %}
+            <a class="btn btn-primary" href="{{ path("_invoices_create") }}">
+                {{ ux_icon('tabler:plus', {width: 18, height: 18}) }}
+                {{ "invoice.action.create"|trans }}
+            </a>
+        {% endif %}
     {% endif %}
 {% endblock %}
 

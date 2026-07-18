@@ -30,6 +30,10 @@ final class InvoiceGrid extends BaseInvoiceGrid
     #[Override]
     public function batchActions(): iterable
     {
+        if (! $this->security->isGranted('ROLE_MANAGER')) {
+            return;
+        }
+
         yield BatchAction::new('Archive')
             ->icon('archive')
             ->color('warning')
@@ -59,7 +63,7 @@ final class InvoiceGrid extends BaseInvoiceGrid
 
     public function getCreateRoute(): ?string
     {
-        return '_invoices_create';
+        return $this->security->isGranted('ROLE_MANAGER') ? '_invoices_create' : null;
     }
 
     #[Override]

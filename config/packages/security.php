@@ -163,9 +163,17 @@ return static function (SecurityConfig $config): void {
     $config->accessControl()->path('^/clients')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/quotes')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/credit-notes')->roles(['ROLE_MANAGER']);
-    // Staff surfaces (accountants, managers and admins inherit these):
+    // Invoices / purchases / stock: VIEWING is Staff, but creating, editing,
+    // deleting and bulk stock import are Manager+ (staff is view-only). Payments
+    // on purchases stay Accountant+. More specific write rules must come before
+    // the general read rule for each resource.
+    $config->accessControl()->path('^/invoices/(create|edit|clone|action|recurring/create|recurring/edit|recurring-action)')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/invoices')->roles(['ROLE_STAFF']);
+    $config->accessControl()->path('^/purchases/new')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/purchases/[^/]+/(edit|delete)')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/purchases/[^/]+/pay')->roles(['ROLE_ACCOUNTANT']);
     $config->accessControl()->path('^/purchases')->roles(['ROLE_STAFF']);
+    $config->accessControl()->path('^/stock/import')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/stock')->roles(['ROLE_STAFF']);
 
     $config->accessControl()

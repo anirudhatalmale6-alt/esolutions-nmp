@@ -19,11 +19,13 @@
             {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
             {{ 'Back'|trans }}
         </a>
+        {% if is_granted('ROLE_MANAGER') %}
         <a href="{{ path('_purchase_edit', {id: purchase.id}) }}" class="btn btn-outline-primary">
             {{ ux_icon('tabler:edit', {width: 18, height: 18}) }}
             {{ 'Edit'|trans }}
         </a>
-        {% if purchase.balance > 0 %}
+        {% endif %}
+        {% if purchase.balance > 0 and is_granted('ROLE_ACCOUNTANT') %}
             <a href="{{ path('_purchase_pay', {id: purchase.id}) }}" class="btn btn-success">
                 {{ ux_icon('tabler:cash', {width: 18, height: 18}) }}
                 {{ 'Pay'|trans }}

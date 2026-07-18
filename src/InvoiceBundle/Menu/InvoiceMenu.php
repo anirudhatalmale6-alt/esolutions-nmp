@@ -45,6 +45,8 @@ final class InvoiceMenu
                 'route' => '_invoices_create',
                 'extras' => [
                     'icon' => Icon::INVOICE_ADD,
+                    // Creating invoices is Manager+ (Staff is view-only).
+                    'role' => 'ROLE_MANAGER',
                 ],
             ],
         );

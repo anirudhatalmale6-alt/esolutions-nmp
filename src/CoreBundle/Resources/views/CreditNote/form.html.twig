@@ -37,33 +37,29 @@
 
         <form method="post" action="{{ path('_credit_note_new', {invoiceId: invoice.id}) }}">
             {% if lines is not empty %}
-                <div class="mb-2 fw-semibold">{{ 'What is coming back? (optional helper)'|trans }}</div>
-                <div class="form-text mb-2">{{ 'Tick the phones being returned and set how many - the refund amount fills in for you. You can always type the amount yourself below.'|trans }}</div>
+                <div class="mb-2 fw-semibold">{{ 'What is coming back?'|trans }}</div>
+                <div class="form-text mb-2">{{ 'Enter how many of each model are being returned - the refund amount fills in for you. Leave a line at 0 if none of it is coming back.'|trans }}</div>
                 <div class="table-responsive mb-4">
                     <table class="table table-sm table-vcenter">
                         <thead>
                             <tr>
-                                <th style="width: 40px;"></th>
                                 <th>{{ 'Model'|trans }}</th>
                                 <th class="text-end">{{ 'Sold qty'|trans }}</th>
                                 <th class="text-end">{{ 'Unit price'|trans }}</th>
-                                <th class="text-center" style="width: 130px;">{{ 'Qty returning'|trans }}</th>
+                                <th class="text-center" style="width: 140px;">{{ 'Qty returning'|trans }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for line in lines %}
                                 <tr>
-                                    <td class="text-center">
-                                        <input type="checkbox" class="form-check-input cn-line-check" data-idx="{{ loop.index0 }}">
-                                    </td>
                                     <td>{{ line.description }}</td>
                                     <td class="text-end">{{ line.qty }}</td>
                                     <td class="text-end">AED {{ line.price|number_format(2) }}</td>
                                     <td class="text-center">
-                                        <input type="number" step="1" min="0" max="{{ line.qty }}" value="{{ line.qty }}"
+                                        <input type="number" step="1" min="0" max="{{ line.qty }}" value="0"
                                                name="returned[{{ line.id }}]"
                                                class="form-control form-control-sm text-end cn-line-qty"
-                                               data-idx="{{ loop.index0 }}" data-price="{{ line.price }}" disabled>
+                                               data-price="{{ line.price }}">
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -137,40 +133,28 @@
     <script>
         (function () {
             var amountField = document.getElementById('cn-amount');
-            var checks = document.querySelectorAll('.cn-line-check');
-            if (!amountField || checks.length === 0) { return; }
-
-            function qtyInput(idx) {
-                return document.querySelector('.cn-line-qty[data-idx="' + idx + '"]');
-            }
+            var qtys = document.querySelectorAll('.cn-line-qty');
+            if (!amountField || qtys.length === 0) { return; }
 
             function recalc() {
                 var total = 0;
-                var anyChecked = false;
-                checks.forEach(function (chk) {
-                    var qi = qtyInput(chk.getAttribute('data-idx'));
-                    if (!qi) { return; }
-                    if (chk.checked) {
-                        anyChecked = true;
-                        var qty = parseFloat(qi.value) || 0;
+                var anyReturning = false;
+                qtys.forEach(function (qi) {
+                    var qty = parseFloat(qi.value) || 0;
+                    if (qty > 0) {
+                        anyReturning = true;
                         var price = parseFloat(qi.getAttribute('data-price')) || 0;
                         total += qty * price;
                     }
                 });
-                if (anyChecked) {
+                // Only auto-fill the amount while something is being returned, so a
+                // manually typed amount isn't wiped once all lines go back to 0.
+                if (anyReturning) {
                     amountField.value = total.toFixed(2);
                 }
             }
 
-            checks.forEach(function (chk) {
-                chk.addEventListener('change', function () {
-                    var qi = qtyInput(chk.getAttribute('data-idx'));
-                    if (qi) { qi.disabled = !chk.checked; }
-                    recalc();
-                });
-            });
-
-            document.querySelectorAll('.cn-line-qty').forEach(function (qi) {
+            qtys.forEach(function (qi) {
                 qi.addEventListener('input', recalc);
             });
         })();

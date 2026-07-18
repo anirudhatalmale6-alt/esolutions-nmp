@@ -97,6 +97,17 @@ class CreditNote
     #[ORM\Column(name: 'reason', type: Types::TEXT, nullable: true)]
     private ?string $reason = null;
 
+    /**
+     * How many units of each invoice line came back, as a map of
+     * invoice_line id (string) => qty returned (float). Record only - it drives
+     * the "X returned / net qty" display on the invoice; it never rewrites the
+     * original invoice line. Null / empty for refunds where no line was picked.
+     *
+     * @var array<string, float>|null
+     */
+    #[ORM\Column(name: 'returned_lines', type: Types::JSON, nullable: true)]
+    private ?array $returnedLines = null;
+
     public function getId(): ?Ulid
     {
         return $this->id;
@@ -201,5 +212,37 @@ class CreditNote
         $this->reason = $reason;
 
         return $this;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    public function getReturnedLines(): array
+    {
+        return $this->returnedLines ?? [];
+    }
+
+    /**
+     * @param array<string, float>|null $returnedLines
+     */
+    public function setReturnedLines(?array $returnedLines): self
+    {
+        $this->returnedLines = ($returnedLines === null || $returnedLines === []) ? null : $returnedLines;
+
+        return $this;
+    }
+
+    /**
+     * Total number of units this refund brought back across all lines.
+     */
+    public function getReturnedQtyTotal(): float
+    {
+        $total = 0.0;
+
+        foreach ($this->getReturnedLines() as $qty) {
+            $total += (float) $qty;
+        }
+
+        return $total;
     }
 }

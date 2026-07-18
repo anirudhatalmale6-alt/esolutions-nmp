@@ -54,10 +54,22 @@ final readonly class View
             return new PdfResponse($this->pdfGenerator->generate($this->twig->render('@SolidInvoiceInvoice/Pdf/invoice.html.twig', ['invoice' => $invoice])), sprintf('invoice_%s.pdf', $invoice->getInvoiceId()));
         }
 
+        $creditNotes = $this->creditNoteRepository->findForInvoice($invoice);
+
+        // Total units returned per invoice line, summed across every credit note,
+        // so each line can show "net qty (X returned)" without touching the line.
+        $returnedByLine = [];
+        foreach ($creditNotes as $creditNote) {
+            foreach ($creditNote->getReturnedLines() as $lineId => $qty) {
+                $returnedByLine[$lineId] = ($returnedByLine[$lineId] ?? 0.0) + (float) $qty;
+            }
+        }
+
         return [
             'invoice' => $invoice,
             'payments' => $this->paymentRepository->getPaymentsForInvoice($invoice),
-            'creditNotes' => $this->creditNoteRepository->findForInvoice($invoice),
+            'creditNotes' => $creditNotes,
+            'returnedByLine' => $returnedByLine,
         ];
     }
 }

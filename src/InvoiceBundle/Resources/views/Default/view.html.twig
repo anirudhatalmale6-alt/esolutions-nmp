@@ -394,7 +394,15 @@
                                 <tr>
                                     <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}</td>
                                     <td class="column-price" data-label="{{ 'invoice.item.heading.price'|trans }}">{{ item.price|formatCurrency(currency) }}</td>
-                                    <td class="column-qty" data-label="{{ 'invoice.item.heading.qty'|trans }}">{{ item.qty }}</td>
+                                    <td class="column-qty" data-label="{{ 'invoice.item.heading.qty'|trans }}">
+                                        {% set _ret = (returnedByLine is defined and returnedByLine[item.id ~ ''] is defined) ? returnedByLine[item.id ~ ''] : 0 %}
+                                        {% if _ret > 0 %}
+                                            {{ item.qty - _ret }}
+                                            <span style="color: #d63939; font-size: 0.85em; white-space: nowrap;">({{ _ret }} {{ 'returned'|trans }})</span>
+                                        {% else %}
+                                            {{ item.qty }}
+                                        {% endif %}
+                                    </td>
                                     {% if invoice.tax.positive %}
                                         <td class="column-tax" data-label="{{ 'invoice.item.heading.tax'|trans }}">
                                             {% for lineTax in item.taxes %}{{ lineTax.nameSnapshot }} ({{ lineTax.rateSnapshot }}%){% if not loop.last %}, {% endif %}{% endfor %}
@@ -668,6 +676,12 @@
                                             <div class="payment-date">
                                                 {{ ux_icon('tabler:calendar', {width: 14, height: 14}) }}
                                                 {{ cn.creditDate|date('M d, Y') }}
+                                            </div>
+                                        {% endif %}
+                                        {% if cn.returnedQtyTotal > 0 %}
+                                            <div class="payment-message" style="color: #d63939;">
+                                                {{ ux_icon('tabler:arrow-back-up', {width: 14, height: 14}) }}
+                                                {{ cn.returnedQtyTotal }} {{ 'unit(s) returned'|trans }}
                                             </div>
                                         {% endif %}
                                         {% if cn.disposition == 'repaired' %}

@@ -61,6 +61,7 @@
                                     <td class="text-end">AED {{ line.price|number_format(2) }}</td>
                                     <td class="text-center">
                                         <input type="number" step="1" min="0" max="{{ line.qty }}" value="{{ line.qty }}"
+                                               name="returned[{{ line.id }}]"
                                                class="form-control form-control-sm text-end cn-line-qty"
                                                data-idx="{{ loop.index0 }}" data-price="{{ line.price }}" disabled>
                                     </td>

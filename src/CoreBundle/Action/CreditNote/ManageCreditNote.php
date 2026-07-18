@@ -130,7 +130,8 @@ final class ManageCreditNote extends AbstractController
             ->setRefundType($data['refund_type'])
             ->setDisposition($data['disposition'] !== '' ? $data['disposition'] : null)
             ->setReference($data['reference'])
-            ->setReason($data['reason']);
+            ->setReason($data['reason'])
+            ->setReturnedLines($this->returnedLinesFromRequest($request, $invoice));
 
         $this->creditNoteRepository->save($creditNote);
 
@@ -176,17 +177,18 @@ final class ManageCreditNote extends AbstractController
     }
 
     /**
-     * The invoice's line items (description, qty, unit price, line total), all in
-     * major units. Read via raw DBAL - same robust approach as the sales reports.
-     * Used purely to help the user pick what is coming back; the saved amount is
-     * whatever ends up in the amount field.
+     * The invoice's line items (id, description, qty, unit price, line total), all
+     * in major units. Read via raw DBAL - same robust approach as the sales
+     * reports. Used to help the user pick what is coming back; the id lets us record
+     * exactly how many of each line was returned.
      *
-     * @return list<array{description: string, qty: string, price: string, total: string}>
+     * @return list<array{id: string, description: string, qty: string, price: string, total: string}>
      */
     private function invoiceLines(Invoice $invoice): array
     {
         $rows = $this->connection->executeQuery(
-            'SELECT il.description AS description,
+            'SELECT il.id AS id,
+                    il.description AS description,
                     il.qty AS qty,
                     il.price_amount AS price,
                     il.total_amount AS total
@@ -207,6 +209,7 @@ final class ManageCreditNote extends AbstractController
             }
 
             $lines[] = [
+                'id' => (string) Ulid::fromBinary((string) $row['id']),
                 'description' => (string) ($row['description'] ?? ''),
                 'qty' => $qty === '' ? '0' : $qty,
                 'price' => $this->toMajor((string) ($row['price'] ?? '0')),
@@ -215,6 +218,49 @@ final class ManageCreditNote extends AbstractController
         }
 
         return $lines;
+    }
+
+    /**
+     * Reads the per-line "qty returning" inputs (name="returned[<lineId>]") from
+     * the POST and turns them into a validated map of invoice_line id => qty. Only
+     * lines that actually belong to this invoice are accepted, and each qty is
+     * clamped to the quantity that was sold on that line, so the returned count can
+     * never exceed what was invoiced.
+     *
+     * @return array<string, float>
+     */
+    private function returnedLinesFromRequest(Request $request, Invoice $invoice): array
+    {
+        $posted = $request->request->all('returned');
+
+        if ($posted === []) {
+            return [];
+        }
+
+        $soldByLine = [];
+        foreach ($this->invoiceLines($invoice) as $line) {
+            $soldByLine[$line['id']] = (float) $line['qty'];
+        }
+
+        $returned = [];
+
+        foreach ($posted as $lineId => $qty) {
+            $lineId = (string) $lineId;
+
+            if (! isset($soldByLine[$lineId]) || ! is_numeric($qty)) {
+                continue;
+            }
+
+            $qty = (float) $qty;
+
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $returned[$lineId] = min($qty, $soldByLine[$lineId]);
+        }
+
+        return $returned;
     }
 
     private function toMajor(string $minor): string

@@ -53,20 +53,14 @@ final class EditUser extends AbstractController
         $currentUser = $this->security->getUser();
         $isSelf = $currentUser instanceof User && (string) $currentUser->getId() === (string) $user->getId();
 
-        if ($isSelf) {
-            $this->addFlash('error', 'You cannot change your own role. Ask another admin to change it for you.');
-
-            return $this->redirectToRoute('_users_list');
-        }
-
         if ($request->isMethod('POST')) {
-            return $this->save($request, $user);
+            return $this->save($request, $user, $isSelf);
         }
 
-        return $this->renderForm($user);
+        return $this->renderForm($user, $isSelf);
     }
 
-    private function save(Request $request, User $user): Response
+    private function save(Request $request, User $user, bool $isSelf): Response
     {
         if (! $this->isCsrfTokenValid('user.role', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Your session expired, please try again.');
@@ -79,7 +73,15 @@ final class EditUser extends AbstractController
         if ($role === null) {
             $this->addFlash('error', 'Please choose a valid role.');
 
-            return $this->renderForm($user);
+            return $this->renderForm($user, $isSelf);
+        }
+
+        // Guard against self-lockout: you can raise your own access (e.g. to Super
+        // User) but never drop yourself below admin.
+        if ($isSelf && ! $role->isAdministrative()) {
+            $this->addFlash('error', 'You cannot lower your own access below Admin. Ask another admin to change it for you.');
+
+            return $this->renderForm($user, $isSelf);
         }
 
         // A single portal role per user; setRoles() clears any previous one and
@@ -93,12 +95,13 @@ final class EditUser extends AbstractController
         return $this->redirectToRoute('_users_list');
     }
 
-    private function renderForm(User $user): Response
+    private function renderForm(User $user, bool $isSelf): Response
     {
         return $this->render('@SolidInvoiceUser/Users/edit_role.html.twig', [
             'user' => $user,
             'currentRole' => PortalRole::fromRoles($user->getRoles()),
             'roles' => PortalRole::cases(),
+            'isSelf' => $isSelf,
         ]);
     }
 }

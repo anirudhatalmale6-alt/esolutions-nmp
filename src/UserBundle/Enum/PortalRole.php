@@ -18,10 +18,12 @@ use function in_array;
 /**
  * The portal access levels an admin can assign to a user. Each maps to a
  * Symfony security role; the role hierarchy in security.php makes higher levels
- * inherit the access of the lower ones (Admin > Manager > Accountant > Staff).
+ * inherit the access of the lower ones
+ * (Super User > Admin > Manager > Accountant > Staff).
  */
 enum PortalRole: string
 {
+    case SuperUser = 'ROLE_SUPER_ADMIN';
     case Admin = 'ROLE_ADMIN';
     case Manager = 'ROLE_MANAGER';
     case Accountant = 'ROLE_ACCOUNTANT';
@@ -30,6 +32,7 @@ enum PortalRole: string
     public function label(): string
     {
         return match ($this) {
+            self::SuperUser => 'Super User',
             self::Admin => 'Admin',
             self::Manager => 'Manager',
             self::Accountant => 'Accountant',
@@ -40,7 +43,8 @@ enum PortalRole: string
     public function description(): string
     {
         return match ($this) {
-            self::Admin => 'Full access, including users, settings and company configuration.',
+            self::SuperUser => 'Platform owner — full control of the whole portal, manages admins and every other user. For whoever runs eSolutions itself.',
+            self::Admin => 'Business admin — full access to run the business, including users and settings.',
             self::Manager => 'All day-to-day work — invoices, quotes, clients, purchases, refunds, payments and reports. No user management or settings.',
             self::Accountant => 'Financials — payments, daily ledger, reports and expenses, plus invoices and purchases to reconcile. No client management or settings.',
             self::Staff => 'Data entry only — create and edit invoices and purchases (and view stock).',
@@ -53,11 +57,21 @@ enum PortalRole: string
     public function color(): string
     {
         return match ($this) {
+            self::SuperUser => 'red',
             self::Admin => 'purple',
             self::Manager => 'blue',
             self::Accountant => 'teal',
             self::Staff => 'secondary',
         };
+    }
+
+    /**
+     * Whether this level keeps full administrative access (used to stop a user
+     * from downgrading themselves out of admin and locking themselves out).
+     */
+    public function isAdministrative(): bool
+    {
+        return $this === self::SuperUser || $this === self::Admin;
     }
 
     /**

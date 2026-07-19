@@ -147,9 +147,11 @@ final readonly class MonthlySales
 
         foreach ($rows as $row) {
             $status = $row['status'] ?? null;
+            $statusRaw = $status instanceof BackedEnum ? (string) $status->value : (string) ($status ?? '');
             $total = $this->toMajor((string) ($row['total'] ?? '0'));
             $balance = $this->toMajor((string) ($row['balance'] ?? '0'));
             $paid = (string) BigDecimal::of($total)->minus(BigDecimal::of($balance))->toScale(2);
+            [$statusLabel, $statusColor] = $this->deriveStatus($paid, $balance, $statusRaw);
 
             $invoices[] = [
                 'invoiceId' => (string) ($row['invoiceId'] ?? ''),
@@ -158,11 +160,41 @@ final readonly class MonthlySales
                 'total' => $total,
                 'paid' => $paid,
                 'balance' => $balance,
-                'status' => $status instanceof BackedEnum ? (string) $status->value : (string) ($status ?? ''),
+                'status' => $statusRaw,
+                'statusLabel' => $statusLabel,
+                'statusColor' => $statusColor,
             ];
         }
 
         return $invoices;
+    }
+
+    /**
+     * Human, colour-coded payment status derived from paid vs balance (the enum
+     * has no "partially paid" case, so we compute it the same way the invoice
+     * list does): fully paid -> green, some paid -> amber, nothing paid ->
+     * red (Overdue if the invoice is past due, otherwise Pending).
+     *
+     * @return array{0: string, 1: string} [label, badge css class]
+     */
+    private function deriveStatus(string $paid, string $balance, string $statusRaw): array
+    {
+        $paidD = BigDecimal::of($paid);
+        $balanceD = BigDecimal::of($balance);
+
+        if ($balanceD->isNegativeOrZero() && $paidD->isPositive()) {
+            return ['Paid', 'bg-success'];
+        }
+
+        if ($paidD->isPositive()) {
+            return ['Partially Paid', 'bg-warning text-dark'];
+        }
+
+        if ($statusRaw === 'overdue') {
+            return ['Overdue', 'bg-danger'];
+        }
+
+        return ['Pending', 'bg-danger'];
     }
 
     /**

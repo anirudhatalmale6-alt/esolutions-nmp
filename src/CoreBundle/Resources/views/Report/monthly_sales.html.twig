@@ -42,12 +42,13 @@
         .sales-day-head { background: #f1f5f9; }
         .sales-invoice-row td { background: #f8fafc; font-weight: 600; border-top: 2px solid #e2e8f0; }
         .sales-line-desc { padding-left: 1.5rem !important; }
+        .sales-status-badge { font-size: .8rem; padding: .3em .55em; letter-spacing: .02em; }
 
         @media print {
             @page { size: A4 portrait; margin: 8mm; }
             .no-print, .navbar, .sidebar, aside, footer, .page-header .btn, .app-header, .navbar-vertical { display: none !important; }
             body { background: #fff !important; font-size: 10px !important; }
-            .sales-banner, .sales-day-head, .sales-invoice-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .sales-banner, .sales-day-head, .sales-invoice-row td, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .card { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: .5rem !important; }
             .card-body { padding: .4rem .6rem !important; }
             h2, .h2, .h3 { font-size: 1rem !important; margin-bottom: .3rem !important; }
@@ -152,11 +153,15 @@
                             <tbody>
                                 {% for sale in day.sales %}
                                     <tr class="sales-invoice-row">
-                                        <td colspan="3">
+                                        <td colspan="2">
+                                            <span class="badge {{ sale.statusColor }} sales-status-badge me-1">{{ sale.statusLabel|trans }}</span>
                                             {{ sale.invoiceId ?: '—' }} &nbsp;&mdash;&nbsp; {{ sale.client }}
-                                            {% if sale.status %}<span class="text-muted small">({{ sale.status|capitalize }})</span>{% endif %}
                                         </td>
-                                        <td class="text-end">AED {{ sale.total|number_format(2) }}</td>
+                                        <td colspan="2" class="text-end text-nowrap">
+                                            {{ 'Total'|trans }} AED {{ sale.total|number_format(2) }}
+                                            &nbsp;|&nbsp; {{ 'Paid'|trans }} <span class="text-success">AED {{ sale.paid|number_format(2) }}</span>
+                                            &nbsp;|&nbsp; {{ 'Balance'|trans }} <span class="{{ sale.balance == '0.00' ? 'text-success' : 'text-danger' }}">AED {{ sale.balance|number_format(2) }}</span>
+                                        </td>
                                     </tr>
                                     {% if sale.lines is empty %}
                                         <tr><td colspan="4" class="sales-line-desc text-muted">{{ 'No item detail on this invoice.'|trans }}</td></tr>

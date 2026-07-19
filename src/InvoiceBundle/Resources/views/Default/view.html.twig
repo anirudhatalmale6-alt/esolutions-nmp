@@ -394,15 +394,7 @@
                                 <tr>
                                     <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}</td>
                                     <td class="column-price" data-label="{{ 'invoice.item.heading.price'|trans }}">{{ item.price|formatCurrency(currency) }}</td>
-                                    <td class="column-qty" data-label="{{ 'invoice.item.heading.qty'|trans }}">
-                                        {% set _ret = (returnedByLine is defined and returnedByLine[item.id ~ ''] is defined) ? returnedByLine[item.id ~ ''] : 0 %}
-                                        {% if _ret > 0 %}
-                                            {{ item.qty - _ret }}
-                                            <span style="color: #d63939; font-size: 0.85em; white-space: nowrap;">({{ _ret }} {{ 'returned'|trans }})</span>
-                                        {% else %}
-                                            {{ item.qty }}
-                                        {% endif %}
-                                    </td>
+                                    <td class="column-qty" data-label="{{ 'invoice.item.heading.qty'|trans }}">{{ item.qty }}</td>
                                     {% if invoice.tax.positive %}
                                         <td class="column-tax" data-label="{{ 'invoice.item.heading.tax'|trans }}">
                                             {% for lineTax in item.taxes %}{{ lineTax.nameSnapshot }} ({{ lineTax.rateSnapshot }}%){% if not loop.last %}, {% endif %}{% endfor %}
@@ -494,7 +486,8 @@
                 <twig:CustomFieldsList :target="enum('SolidInvoice\\CoreBundle\\Enum\\CustomFieldTarget').INVOICE" :recordId="invoice.id" />
 
                 {# Terms & Notes #}
-                {% if invoice.terms is not empty or invoice.notes is not empty %}
+                {% set _hasReturns = returnedByLine is defined and returnedByLine|length > 0 %}
+                {% if invoice.terms is not empty or invoice.notes is not empty or _hasReturns %}
                     <div class="doc-footer">
                         {% if invoice.terms is not empty %}
                             <div class="doc-footer-section">
@@ -507,6 +500,22 @@
                             <div class="doc-footer-section no-print">
                                 <h4 class="doc-footer-title">{{ 'invoice.notes'|trans }}</h4>
                                 <p class="doc-footer-text">{{ invoice.notes|nl2br }}</p>
+                            </div>
+                        {% endif %}
+
+                        {# Returned units - shown for your reference only. Invoice figures stay
+                           at the original amount because payment is collected on the invoice total. #}
+                        {% if _hasReturns %}
+                            <div class="doc-footer-section no-print">
+                                <h4 class="doc-footer-title" style="color: #d63939;">{{ 'Returns'|trans }}</h4>
+                                <p class="doc-footer-text" style="color: #d63939;">
+                                    {% for item in invoice.lines %}
+                                        {% set _ret = returnedByLine[item.id ~ ''] is defined ? returnedByLine[item.id ~ ''] : 0 %}
+                                        {% if _ret > 0 %}
+                                            {{ _ret }} x {{ item.description }} — {{ 'returned'|trans }}<br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </p>
                             </div>
                         {% endif %}
                     </div>

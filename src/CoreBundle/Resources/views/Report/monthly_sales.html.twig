@@ -48,7 +48,18 @@
             @page { size: A4 portrait; margin: 8mm; }
             .no-print, .navbar, .sidebar, aside, footer, .page-header .btn, .app-header, .navbar-vertical { display: none !important; }
             body { background: #fff !important; font-size: 10px !important; }
-            .sales-banner, .sales-day-head, .sales-invoice-row td, .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Don't rely on background colours printing (browsers skip them by
+               default / office printers are often B&W). Use dark text + borders
+               so everything stays readable, and outline the status badges with
+               coloured text instead of coloured fills. */
+            .sales-banner { background: #fff !important; color: #000 !important; border: 0 !important; border-bottom: 2px solid #000 !important; border-radius: 0 !important; }
+            .sales-banner .text-muted { color: #000 !important; }
+            .sales-day-head { background: #fff !important; border-bottom: 1px solid #000 !important; }
+            .sales-invoice-row td { background: #fff !important; border-top: 1px solid #000 !important; }
+            .badge { background: transparent !important; border: 1px solid #333; color: #000 !important; font-weight: 700 !important; }
+            .badge.bg-success { color: #1a7f37 !important; border-color: #1a7f37 !important; }
+            .badge.bg-warning { color: #9a6700 !important; border-color: #9a6700 !important; }
+            .badge.bg-danger { color: #b02a37 !important; border-color: #b02a37 !important; }
             .card { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: .5rem !important; }
             .card-body { padding: .4rem .6rem !important; }
             h2, .h2, .h3 { font-size: 1rem !important; margin-bottom: .3rem !important; }

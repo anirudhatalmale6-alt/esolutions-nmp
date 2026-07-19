@@ -103,6 +103,30 @@ final class DebugReturnedCommand extends Command
             $io->writeln(sprintf('line %s : %s', $idStr, $hit === null ? 'NO MATCH' : 'MATCH -> ' . $hit));
         }
 
+        $io->section('AFTER FIX: raw returned_lines (filter-proof, what the page now uses)');
+        $rawRows = $this->entityManager->getConnection()->executeQuery(
+            'SELECT returned_lines FROM credit_note WHERE invoice_id = :id',
+            ['id' => $invoice->getId()->toBinary()],
+            ['id' => \Doctrine\DBAL\ParameterType::BINARY]
+        )->fetchFirstColumn();
+        $fixed = [];
+        foreach ($rawRows as $json) {
+            if ($json === null || $json === '') {
+                continue;
+            }
+            $decoded = json_decode((string) $json, true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+            foreach ($decoded as $lineId => $qty) {
+                $fixed[(string) $lineId] = ($fixed[(string) $lineId] ?? 0.0) + (float) $qty;
+            }
+        }
+        foreach ($lineIds as $idStr) {
+            $hit = $fixed[$idStr] ?? null;
+            $io->writeln(sprintf('line %s : %s', $idStr, $hit === null ? 'NO MATCH' : 'MATCH -> ' . $hit));
+        }
+
         return Command::SUCCESS;
     }
 }

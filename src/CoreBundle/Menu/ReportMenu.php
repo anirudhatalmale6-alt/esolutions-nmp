@@ -36,6 +36,14 @@ final class ReportMenu
             ],
         ]);
 
+        $section->addChild('monthly_sales', [
+            'route' => '_monthly_sales',
+            'label' => 'Monthly Sales Report',
+            'extras' => [
+                'icon' => 'calendar-stats',
+            ],
+        ]);
+
         $section->addChild('sales_analysis', [
             'route' => '_sales_analysis',
             'label' => 'Sales by Model',

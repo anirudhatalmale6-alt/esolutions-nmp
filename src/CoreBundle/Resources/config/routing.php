@@ -29,6 +29,7 @@ use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\PayPurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
+use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
 use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\Report\SalesByClient;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
@@ -114,6 +115,10 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_daily_ledger', '/daily-ledger')
         ->controller(DailyLedger::class);
+
+    $routingConfigurator
+        ->add('_monthly_sales', '/sales-monthly')
+        ->controller(MonthlySales::class);
 
     $routingConfigurator
         ->add('_credit_notes_list', '/credit-notes')

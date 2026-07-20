@@ -57,9 +57,9 @@
         .prod:hover{transform:translateY(-3px);border-color:#d6deee;box-shadow:0 1px 2px rgba(13,18,32,.05),0 22px 40px -22px rgba(13,18,32,.4)}
         .shot{position:relative;aspect-ratio:4/3.2;display:grid;place-items:center;background:linear-gradient(170deg,#f2f4fa,#e9edf6);overflow:hidden}
         .shot img{width:100%;height:100%;object-fit:cover}
-        .badge-grade{position:absolute;top:12px;left:12px;font-size:11px;font-weight:800;letter-spacing:.03em;padding:4px 9px;border-radius:7px;text-transform:uppercase;z-index:2}
-        .g-a{background:#e5f6ee;color:var(--green)} .g-b{background:#fbf0dc;color:var(--amber)} .g-c{background:#eef1f6;color:var(--slate)} .g-new{background:#e6edff;color:var(--cobalt)}
-        .stock-dot{position:absolute;top:12px;right:12px;font-size:11px;font-weight:700;color:var(--green);display:inline-flex;align-items:center;gap:5px;background:#fff;padding:4px 9px;border-radius:7px;border:1px solid var(--line);z-index:2}
+        .badge-grade{position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;letter-spacing:.02em;padding:4px 8px;border-radius:7px;text-transform:uppercase;z-index:2;white-space:nowrap;box-shadow:0 1px 3px rgba(13,18,32,.12)}
+        .g-a{background:#0f9d63;color:#fff} .g-b{background:#e08a12;color:#fff} .g-c{background:#5b6675;color:#fff} .g-new{background:var(--cobalt);color:#fff}
+        .stock-dot{position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;color:var(--green);display:inline-flex;align-items:center;gap:5px;background:#fff;padding:4px 8px;border-radius:7px;border:1px solid var(--line);z-index:2;white-space:nowrap;box-shadow:0 1px 3px rgba(13,18,32,.08)}
         .stock-dot i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
         .stock-dot.out{color:var(--slate)} .stock-dot.out i{background:var(--slate)}
         .sale-flag{position:absolute;bottom:12px;left:12px;background:var(--cobalt);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:7px;z-index:2}
@@ -158,14 +158,17 @@
         {% for product in products %}
             {% set cond = (product.condition ?: '')|lower %}
             {% set gradeClass = 'g-new' %}
-            {% if 'c' in cond %}{% set gradeClass = 'g-c' %}{% elseif 'b' in cond %}{% set gradeClass = 'g-b' %}{% elseif 'a' in cond %}{% set gradeClass = 'g-a' %}{% endif %}
+            {% set gradeLabel = 'New' %}
+            {% if 'c' in cond %}{% set gradeClass = 'g-c' %}{% set gradeLabel = 'Grade C' %}
+            {% elseif 'b' in cond %}{% set gradeClass = 'g-b' %}{% set gradeLabel = 'Grade B' %}
+            {% elseif 'a' in cond %}{% set gradeClass = 'g-a' %}{% set gradeLabel = 'Grade A' %}{% endif %}
             {% set eff = product.effectivePrice %}
             <article class="prod"
                      data-search="{{ (product.make ~ ' ' ~ product.model ~ ' ' ~ (product.storage ?: '') ~ ' ' ~ (product.condition ?: ''))|lower }}"
                      data-make="{{ product.make|lower }}"
                      data-sale="{{ product.onSale ? '1' : '0' }}">
                 <div class="shot">
-                    {% if product.condition %}<span class="badge-grade {{ gradeClass }}">{{ product.condition }}</span>{% endif %}
+                    {% if product.condition %}<span class="badge-grade {{ gradeClass }}">{{ gradeLabel }}</span>{% endif %}
                     {% if product.inStock %}
                         <span class="stock-dot"><i></i>{{ 'In stock'|trans }}</span>
                     {% else %}

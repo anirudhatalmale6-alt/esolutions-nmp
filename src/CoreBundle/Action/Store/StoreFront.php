@@ -56,16 +56,22 @@ final readonly class StoreFront
     public function __invoke(): array
     {
         // Anonymous request: the company Doctrine filter adds no constraint, so
-        // take the owning company from the products themselves (falling back to
-        // the only company on the install) - same approach as the public stock
-        // page, so the store shows the right business regardless of setup.
-        $company = $this->companyRepository->findOneBy([]);
+        // findAllOrdered() returns the store catalogue as imported. Take the
+        // owning company from the products themselves (falling back to the only
+        // company on the install) - exactly like the public stock page, so the
+        // store shows the right business regardless of how many company rows
+        // exist. NOTE: resolving the company first via findOneBy([]) then
+        // filtering by it is WRONG here - findOneBy([]) can return a different
+        // company than the one that owns the products, giving an empty store.
+        $products = $this->storeProductRepository->findAllOrdered();
+
+        $company = $products !== []
+            ? $products[0]->getCompany()
+            : $this->companyRepository->findOneBy([]);
 
         if (! $company instanceof Company) {
             throw new NotFoundHttpException();
         }
-
-        $products = $this->storeProductRepository->findForCompany($company);
 
         $makes = [];
         foreach ($products as $product) {

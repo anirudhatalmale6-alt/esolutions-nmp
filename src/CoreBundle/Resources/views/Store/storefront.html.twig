@@ -12,7 +12,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ company.name }} — {{ 'Buy phones online'|trans }}</title>
+    <title>{{ brand }} — {{ 'Buy phones online'|trans }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -110,8 +110,8 @@
 <header>
     <div class="bar">
         <a class="brand" href="{{ path('_store_front') }}">
-            <div class="logo">{{ company.name|slice(0,1)|upper }}</div>
-            <div class="name">{{ company.name }}<span>{{ 'Buy phones online'|trans }}</span></div>
+            <div class="logo">{{ brand|slice(0,1)|upper }}</div>
+            <div class="name">{{ brand }}<span>{{ 'Buy phones online'|trans }}</span></div>
         </a>
         <div class="search-wrap">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -211,7 +211,7 @@
 
 <footer>
     <div class="foot-in">
-        <div>© {{ company.name }}</div>
+        <div>© {{ brand }}</div>
         <div>{{ 'Prices in AED · Order on WhatsApp'|trans }}</div>
     </div>
 </footer>
@@ -236,7 +236,7 @@
 <script>
 (function () {
     var WHATSAPP = {{ whatsapp|json_encode|raw }};
-    var COMPANY = {{ company.name|json_encode|raw }};
+    var COMPANY = {{ brand|json_encode|raw }};
     var cart = {}; // sku -> {name, detail, price, img, qty}
 
     var drawer = document.getElementById('drawer');

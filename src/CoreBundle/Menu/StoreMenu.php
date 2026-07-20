@@ -18,12 +18,18 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class StoreMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 39, role: 'ROLE_MANAGER')]
+    // Priority below PRIORITY_SYSTEM (10) so the store sits on its own, at the
+    // very bottom of the sidebar - visually separated from the invoicing tools.
+    #[MenuBuilder(name: 'sidebar', priority: 5, role: 'ROLE_MANAGER')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('store', [
             'route' => '_store_admin',
             'label' => 'Online store',
+            'attributes' => [
+                // Hook for the premium gold styling (see Layout/base.html.twig).
+                'class' => 'store-premium',
+            ],
             'extras' => [
                 'icon' => 'building-store',
             ],

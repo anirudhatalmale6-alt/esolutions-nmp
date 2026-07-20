@@ -36,6 +36,13 @@ final readonly class StoreFront
      */
     private const WHATSAPP_NUMBER = '971585678669';
 
+    /**
+     * Public storefront brand. Deliberately separate from the company record
+     * (which is "NMP MOBILES" for invoicing): the retail store trades under the
+     * licensed name "Mobiles Online", so the customer never sees "NMP" here.
+     */
+    private const STORE_BRAND = 'Mobiles Online';
+
     public function __construct(
         private CompanyRepository $companyRepository,
         private StoreProductRepository $storeProductRepository,
@@ -43,7 +50,7 @@ final readonly class StoreFront
     }
 
     /**
-     * @return array{company: Company, products: list<StoreProduct>, makes: list<string>, whatsapp: string}
+     * @return array{company: Company, brand: string, products: list<StoreProduct>, makes: list<string>, whatsapp: string}
      */
     #[Template('@SolidInvoiceCore/Store/storefront.html.twig')]
     public function __invoke(): array
@@ -70,6 +77,7 @@ final readonly class StoreFront
 
         return [
             'company' => $company,
+            'brand' => self::STORE_BRAND,
             'products' => $products,
             'makes' => $makes,
             'whatsapp' => self::WHATSAPP_NUMBER,

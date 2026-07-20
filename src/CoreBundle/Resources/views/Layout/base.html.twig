@@ -12,6 +12,26 @@
 {% block stylesheets %}
     {{ parent() }}
     {{ encore_entry_link_tags('app') }}
+    {# Premium gold treatment for the "Online store" sidebar item so it reads as
+       a distinct, standout section separate from the invoicing tools. #}
+    <style>
+        .navbar-nav .nav-item.store-premium { margin-top: .35rem; }
+        .navbar-nav .nav-item.store-premium > .nav-link {
+            background: linear-gradient(135deg, #b8860b 0%, #d4a017 45%, #f4c430 100%);
+            color: #1a1205 !important;
+            border-radius: 8px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px -4px rgba(212,160,23,.55);
+        }
+        .navbar-nav .nav-item.store-premium > .nav-link .nav-link-icon,
+        .navbar-nav .nav-item.store-premium > .nav-link .nav-link-title {
+            color: #1a1205 !important;
+        }
+        .navbar-nav .nav-item.store-premium > .nav-link:hover {
+            background: linear-gradient(135deg, #d4a017 0%, #f4c430 55%, #ffd966 100%);
+            box-shadow: 0 6px 16px -4px rgba(212,160,23,.7);
+        }
+    </style>
 {% endblock stylesheets %}
 
 {% block javascripts %}

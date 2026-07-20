@@ -19,13 +19,16 @@ use SolidInvoice\CoreBundle\Company\ResolvedHost;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidWorx\Platform\PlatformBundle\Feature\FeatureGate;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
 use function in_array;
+use function rtrim;
 use function str_starts_with;
+use function strtolower;
 
 /**
  * Resolves the inbound Host header against `SOLIDINVOICE_APPLICATION_URL` and the per-company
@@ -45,6 +48,18 @@ final readonly class HostRoutingListener implements EventSubscriberInterface
         '_switch_company',
         '_create_company',
         '_onboarding',
+    ];
+
+    /**
+     * Public retail domains for the MobilesOnline storefront. These are NOT
+     * tenant/company hosts: they only ever serve the anonymous shop, so they
+     * bypass the multi-tenant host resolution below (which would otherwise 404
+     * them as "unknown"). The homepage on these hosts redirects to the shop.
+     * Compared case-insensitively with any trailing dot stripped.
+     */
+    private const array STORE_DOMAINS = [
+        'mobilesonline.ae',
+        'www.mobilesonline.ae',
     ];
 
     public function __construct(
@@ -71,6 +86,20 @@ final readonly class HostRoutingListener implements EventSubscriberInterface
         $request = $event->getRequest();
 
         if ($this->isInstallerRequest($request)) {
+            return;
+        }
+
+        if ($this->isStoreDomain($request->getHost())) {
+            // Retail shop domain: the bare homepage lands straight on the
+            // storefront; every other path is served by the normal router (the
+            // store is a plain anonymous route, product images are static files
+            // under the shared document root). We return before the tenant
+            // resolution below so the shop host is always treated as allowed
+            // instead of 404-ing as an unknown host.
+            if ($request->getPathInfo() === '/') {
+                $event->setResponse(new RedirectResponse($this->router->generate('_store_front')));
+            }
+
             return;
         }
 
@@ -118,6 +147,11 @@ final readonly class HostRoutingListener implements EventSubscriberInterface
         }
 
         return str_starts_with($request->getPathInfo(), '/install');
+    }
+
+    private function isStoreDomain(string $host): bool
+    {
+        return in_array(rtrim(strtolower($host), '.'), self::STORE_DOMAINS, true);
     }
 
     private function isSelectorRoute(Request $request): bool

@@ -23,6 +23,11 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Store\DeleteStoreProduct;
+use SolidInvoice\CoreBundle\Action\Store\ImportStoreProducts;
+use SolidInvoice\CoreBundle\Action\Store\ListStoreProducts;
+use SolidInvoice\CoreBundle\Action\Store\StoreFront;
+use SolidInvoice\CoreBundle\Action\Store\UploadProductImage;
 use SolidInvoice\CoreBundle\Action\Purchase\DeletePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
 use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
@@ -63,6 +68,29 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_public', '/nmp-inventory')
         ->controller(PublicStock::class);
+
+    // MobilesOnline store (separate catalogue from the internal wholesale stock).
+    $routingConfigurator
+        ->add('_store_front', '/store')
+        ->controller(StoreFront::class);
+
+    $routingConfigurator
+        ->add('_store_admin', '/store-admin')
+        ->controller(ListStoreProducts::class);
+
+    $routingConfigurator
+        ->add('_store_import', '/store-admin/import')
+        ->controller(ImportStoreProducts::class);
+
+    $routingConfigurator
+        ->add('_store_image', '/store-admin/{id}/image')
+        ->controller(UploadProductImage::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_store_delete', '/store-admin/{id}/delete')
+        ->controller(DeleteStoreProduct::class)
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_purchases_list', '/purchases')

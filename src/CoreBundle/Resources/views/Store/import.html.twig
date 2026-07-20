@@ -1,0 +1,47 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:upload', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Upload products'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_store_admin') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to store'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <twig:block name="header">
+            <h3 class="card-title mb-0">{{ 'Upload the product sheet'|trans }}</h3>
+        </twig:block>
+
+        <p class="text-muted">
+            {{ 'Upload the MobilesOnline product Excel (the template you were given). Each phone is matched by its SKU: existing phones are updated in place - prices, stock and text refresh without losing the photo you uploaded - and new SKUs are added. Nothing is deleted, so you can re-upload anytime to change prices or availability.'|trans }}
+        </p>
+
+        <form method="post" action="{{ path('_store_import') }}" enctype="multipart/form-data" class="d-flex align-items-end gap-3 flex-wrap">
+            <div>
+                <label for="product-file" class="form-label">{{ 'Product file (.xlsx / .xls)'|trans }}</label>
+                <input type="file" name="product_file" id="product-file" class="form-control" accept=".xlsx,.xls" required>
+            </div>
+            <input type="hidden" name="_token" value="{{ csrf_token('store.import') }}">
+            <button type="submit" class="btn btn-primary">
+                {{ ux_icon('tabler:upload', {width: 18, height: 18}) }}
+                {{ 'Upload'|trans }}
+            </button>
+        </form>
+    </twig:Ui:Card>
+
+    <div class="mt-3">
+        <a href="{{ path('_store_admin') }}" class="btn btn-link">{{ ux_icon('tabler:arrow-left', {width: 16, height: 16}) }} {{ 'Back to store'|trans }}</a>
+    </div>
+{% endblock content %}

@@ -134,6 +134,7 @@ return static function (SecurityConfig $config): void {
             '/logout$|' .
             '/invite/accept/[a-zA-Z0-9-]{26}$|' .
             '/nmp-inventory$|' .
+            '/store$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .
             '/payment/capture/(?:.*)|' .
             '/payments/done$' .
@@ -175,6 +176,10 @@ return static function (SecurityConfig $config): void {
     $config->accessControl()->path('^/purchases')->roles(['ROLE_STAFF']);
     $config->accessControl()->path('^/stock/import')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/stock')->roles(['ROLE_STAFF']);
+    // Store admin (curating the public storefront) is Manager+. The public
+    // storefront itself (/store) is allowed anonymously via the PUBLIC_ACCESS
+    // list above, which is matched first.
+    $config->accessControl()->path('^/store-admin')->roles(['ROLE_MANAGER']);
 
     $config->accessControl()
         ->path('^/')

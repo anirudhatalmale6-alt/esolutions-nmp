@@ -103,6 +103,24 @@
         footer{border-top:1px solid var(--line);background:#fff;margin-top:20px}
         .foot-in{max-width:1180px;margin:0 auto;padding:22px;display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:13px;flex-wrap:wrap}
         @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.search-wrap{display:none}.hero-card h1{font-size:28px}}
+        /* Phones: drop to a single full-width column so every card gets the whole
+           screen width - the title, spec chips and key-specs line read clearly
+           (same roomy feel as desktop) and the corner badges never crowd each
+           other. Two narrow columns squeezed the detail and clipped the badges. */
+        @media (max-width:560px){
+            .grid{grid-template-columns:1fr;gap:14px;padding:0 16px;margin-top:14px}
+            .shot{aspect-ratio:auto;height:200px}
+            .shot img{height:100%}
+            .info{padding:16px 17px 18px;gap:10px}
+            .info .title{font-size:17px}
+            .spec{font-size:12.5px;padding:4px 9px}
+            .info .text-muted{font-size:13px !important}
+            .price b{font-size:22px}
+            .price .was{font-size:13px}
+            .add{width:46px;height:46px}
+            .hero-card h1{font-size:24px}
+            .sec-head h2{font-size:19px}
+        }
     </style>
 </head>
 <body>

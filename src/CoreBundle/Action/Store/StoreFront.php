@@ -34,7 +34,7 @@ final readonly class StoreFront
      * spaces), e.g. 9715XXXXXXXX. Set to the client's number once confirmed;
      * empty means the order text opens WhatsApp without a preset recipient.
      */
-    private const WHATSAPP_NUMBER = '';
+    private const WHATSAPP_NUMBER = '971585678669';
 
     public function __construct(
         private CompanyRepository $companyRepository,

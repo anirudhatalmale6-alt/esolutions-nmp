@@ -117,11 +117,11 @@
                                 {% endif %}
                             </td>
                             <td class="text-center text-nowrap">
-                                {% if product.featured %}<span class="badge bg-warning text-dark me-1">{{ 'Featured'|trans }}</span>{% endif %}
+                                {% if product.featured %}<span class="badge bg-yellow text-yellow-fg me-1">{{ 'Featured'|trans }}</span>{% endif %}
                                 {% if product.inStock %}
-                                    <span class="badge bg-success">{{ 'In stock'|trans }}</span>
+                                    <span class="badge bg-green text-green-fg">{{ 'In stock'|trans }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ 'Sold out'|trans }}</span>
+                                    <span class="badge bg-secondary text-secondary-fg">{{ 'Sold out'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>

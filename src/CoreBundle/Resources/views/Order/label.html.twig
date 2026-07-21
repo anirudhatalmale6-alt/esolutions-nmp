@@ -23,6 +23,8 @@
             width: 100mm; height: 150mm; margin: 0 auto; background: #fff; color: #000;
             border: 1px solid #000; padding: 5mm; display: flex; flex-direction: column;
         }
+        .brandbar { padding-bottom: 2.5mm; }
+        .brandbar img { height: 8mm; width: auto; display: block; }
         .from { font-size: 9px; line-height: 1.35; border-bottom: 1px solid #000; padding-bottom: 3mm; }
         .from b { font-size: 10px; }
         .to { display: flex; justify-content: space-between; gap: 4mm; padding: 3mm 0; border-bottom: 2px solid #000; }
@@ -56,6 +58,7 @@
     </div>
 
     <div class="label">
+        {% if logo %}<div class="brandbar"><img src="{{ logo }}" alt="{{ sender.name }}"></div>{% endif %}
         <div class="from">
             <b>{{ 'FROM:'|trans }} {{ sender.name }}</b><br>
             {{ sender.line }}, {{ sender.country }}<br>

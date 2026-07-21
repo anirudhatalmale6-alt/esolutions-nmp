@@ -60,6 +60,30 @@ final class OrderLabel extends AbstractController
             'order' => $order,
             'sender' => self::SENDER,
             'qr' => $qrDataUri,
+            'logo' => $this->logoDataUri(),
         ]);
+    }
+
+    /**
+     * The MobilesOnline logo inlined as a data URI so the label stays fully
+     * self-contained (prints/saves with no external asset request). Returns null
+     * if the file is missing, so the label simply omits the logo.
+     */
+    private function logoDataUri(): ?string
+    {
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $path = (is_string($projectDir) ? $projectDir : '') . '/public/mobilesonline-logo.png';
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $data = @file_get_contents($path);
+
+        if ($data === false) {
+            return null;
+        }
+
+        return 'data:image/png;base64,' . base64_encode($data);
     }
 }

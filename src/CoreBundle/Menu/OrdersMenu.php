@@ -19,9 +19,10 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 final class OrdersMenu
 {
     // Shown to the order team (ROLE_ORDERS) and everyone above them. Priority
-    // just above the store so "Orders" sits next to "Online store" at the
-    // bottom of the sidebar.
-    #[MenuBuilder(name: 'sidebar', priority: 6, role: 'ROLE_ORDERS')]
+    // just below the store (store = 5) so "Orders" sits directly UNDER the
+    // "Online store" item at the bottom of the sidebar - everything to do with
+    // the online store is grouped under it.
+    #[MenuBuilder(name: 'sidebar', priority: 4, role: 'ROLE_ORDERS')]
     public function sidebar(ItemInterface $menu): void
     {
         $menu->addChild('orders', [

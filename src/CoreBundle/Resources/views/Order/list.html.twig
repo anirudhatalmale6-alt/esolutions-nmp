@@ -73,13 +73,13 @@
                             <td class="text-end text-nowrap">
                                 <div class="fw-bold">AED {{ order.price|number_format(2) }}</div>
                                 {% if order.cod %}
-                                    <span class="badge bg-warning-lt">{{ 'COD'|trans }}{{ order.codAmount ? ' ' ~ order.codAmount|number_format(2) : '' }}</span>
+                                    <span class="badge bg-orange text-orange-fg">{{ 'COD'|trans }}{{ order.codAmount ? ' ' ~ order.codAmount|number_format(2) : '' }}</span>
                                 {% else %}
-                                    <span class="badge bg-success-lt">{{ 'Paid'|trans }}</span>
+                                    <span class="badge bg-green text-green-fg">{{ 'Paid'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-{{ order.status.color }}-lt mb-1">{{ order.status.label|trans }}</span>
+                                <span class="badge bg-{{ order.status.color }} text-{{ order.status.color }}-fg mb-1">{{ order.status.label|trans }}</span>
                                 <form method="post" action="{{ path('_order_status', {id: order.id}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token(csrfIntent) }}">
                                     <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="{{ 'Change status'|trans }}">

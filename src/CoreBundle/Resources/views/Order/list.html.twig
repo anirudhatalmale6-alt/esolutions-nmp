@@ -21,11 +21,11 @@
 {% block content %}
     <div class="mb-3 d-flex flex-wrap gap-2">
         <a href="{{ path('_orders_list') }}" class="btn btn-sm {{ activeStatus is null ? 'btn-primary' : 'btn-outline-secondary' }}">
-            {{ 'All'|trans }} <span class="badge bg-secondary ms-1">{{ total }}</span>
+            {{ 'All'|trans }} <span class="badge bg-secondary-lt ms-1">{{ total }}</span>
         </a>
         {% for s in statuses %}
             <a href="{{ path('_orders_list', {status: s.value}) }}" class="btn btn-sm {{ activeStatus is same as(s) ? 'btn-primary' : 'btn-outline-secondary' }}">
-                {{ s.label|trans }} <span class="badge bg-{{ s.color }} ms-1">{{ counts[s.value]|default(0) }}</span>
+                {{ s.label|trans }} <span class="badge bg-{{ s.color }}-lt ms-1">{{ counts[s.value]|default(0) }}</span>
             </a>
         {% endfor %}
     </div>
@@ -73,13 +73,13 @@
                             <td class="text-end text-nowrap">
                                 <div class="fw-bold">AED {{ order.price|number_format(2) }}</div>
                                 {% if order.cod %}
-                                    <span class="badge bg-orange">{{ 'COD'|trans }}{{ order.codAmount ? ' ' ~ order.codAmount|number_format(2) : '' }}</span>
+                                    <span class="badge bg-warning-lt">{{ 'COD'|trans }}{{ order.codAmount ? ' ' ~ order.codAmount|number_format(2) : '' }}</span>
                                 {% else %}
-                                    <span class="badge bg-green">{{ 'Paid'|trans }}</span>
+                                    <span class="badge bg-success-lt">{{ 'Paid'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-{{ order.status.color }} mb-1">{{ order.status.label|trans }}</span>
+                                <span class="badge bg-{{ order.status.color }}-lt mb-1">{{ order.status.label|trans }}</span>
                                 <form method="post" action="{{ path('_order_status', {id: order.id}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token(csrfIntent) }}">
                                     <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="{{ 'Change status'|trans }}">

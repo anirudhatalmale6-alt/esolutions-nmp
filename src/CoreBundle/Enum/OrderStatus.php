@@ -40,17 +40,20 @@ enum OrderStatus: string
     }
 
     /**
-     * Tabler badge colour used to show the status in the orders list.
+     * Tabler semantic colour used to show the status in the orders list. We use
+     * only the theme's semantic palette (primary/info/warning/success/etc., via
+     * the soft "-lt" badge variant) so the orders screen matches the rest of the
+     * app instead of introducing off-theme colours.
      */
     public function color(): string
     {
         return match ($this) {
-            self::New => 'blue',
-            self::Confirmed => 'cyan',
-            self::Packed => 'yellow',
-            self::Despatched => 'purple',
-            self::Delivered => 'green',
-            self::Cancelled => 'secondary',
+            self::New => 'secondary',
+            self::Confirmed => 'info',
+            self::Packed => 'warning',
+            self::Despatched => 'primary',
+            self::Delivered => 'success',
+            self::Cancelled => 'danger',
         };
     }
 

@@ -89,10 +89,15 @@ final readonly class View
             fn (): array => $this->creditNoteRepository->findForInvoice($invoice)
         );
 
+        [$refunds, $refundTotalMinor, $netTotalMinor] = $this->refundTotals($invoice, $creditNotes);
+
         return [
             'invoice' => $invoice,
             'payments' => $this->paymentRepository->getPaymentsForInvoice($invoice),
             'creditNotes' => $creditNotes,
+            'refunds' => $refunds,
+            'refundTotalMinor' => $refundTotalMinor,
+            'netTotalMinor' => $netTotalMinor,
             // Net units returned per invoice line, read straight from the table so
             // the "net qty (X returned)" display can never be filtered away.
             'returnedByLine' => $this->returnedByLine($invoice),

@@ -195,7 +195,7 @@
                         <div style="font-size: 18pt; font-weight: bold;">
                             {% if hasOutstandingBalance %}
                                 {{ pay.balance|formatCurrency(currency) }}
-                            {% elseif refundTotalMinor|default(0) > 0 %}
+                            {% elseif isPaid and refundTotalMinor|default(0) > 0 %}
                                 {{ netTotalMinor|default(0)|formatCurrency(currency) }}
                             {% else %}
                                 {{ invoice.total|formatCurrency(currency) }}
@@ -394,8 +394,10 @@
         {% endif %}
 
         {# Refunds / credit notes raised against this invoice - money credited back
-           to the customer, so the amount they actually owe/paid is net of these. #}
-        {% for refund in refunds|default([]) %}
+           to the customer, so the amount they actually owe/paid is net of these.
+           Only shown on a paid invoice; before payment a return is corrected on the
+           invoice itself. #}
+        {% for refund in (isPaid ? refunds|default([]) : []) %}
             <tr class="refund-row">
                 <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
                     {{ 'Refund / Credit'|trans }}{% if refund.label %} <span style="color: #94a3b8;">({{ refund.label }})</span>{% endif %}
@@ -431,7 +433,7 @@
                 </td>
             </tr>
         {% endif %}
-        {% if refundTotalMinor|default(0) > 0 %}
+        {% if isPaid and refundTotalMinor|default(0) > 0 %}
             <tr class="net-total-row" style="background-color: #eff6ff;">
                 <td class="label-cell" style="padding: 14px 20px 14px 12px; font-size: 12pt; font-weight: bold; text-align: right; color: #1e293b;">
                     {{ 'Net Total (after refund)'|trans }}

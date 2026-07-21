@@ -23,6 +23,7 @@ use SolidInvoice\ClientBundle\Repository\CreditRepository;
 use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -61,6 +62,15 @@ final class ManageCreditNote extends AbstractController
 
         if (! $invoice instanceof Invoice) {
             throw $this->createNotFoundException();
+        }
+
+        // A refund only applies once the invoice is paid. Before payment a returned
+        // item is handled by correcting the invoice itself, so block credit notes on
+        // unpaid invoices even if this URL is reached directly.
+        if (InvoiceStatus::Paid !== $invoice->getStatus()) {
+            $this->addFlash('error', 'A refund can only be issued on a paid invoice. For an unpaid invoice, edit the invoice to correct it instead.');
+
+            return $this->redirectToRoute('_invoices_view', ['id' => $invoice->getId()]);
         }
 
         if ($request->isMethod('POST')) {

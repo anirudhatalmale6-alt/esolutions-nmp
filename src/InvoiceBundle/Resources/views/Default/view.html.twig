@@ -139,7 +139,10 @@
                             </a>
                         </li>
 
-                        {% if invoice.status in [enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Active, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Pending, enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Overdue] %}
+                        {# Refunds only make sense once the invoice is paid - before that a
+                           returned item is fixed by correcting the invoice itself, not by
+                           issuing a refund. So this action shows only on paid invoices. #}
+                        {% if invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid %}
                             <li>
                                 <a class="dropdown-item" href="{{ path('_credit_note_new', {'invoiceId' : invoice.id}) }}">
                                     {{ ux_icon('tabler:receipt-refund', {width: 16, height: 16}) }}
@@ -469,6 +472,24 @@
                                 {{ (hasOutstandingBalance ? invoice.balance : invoice.total)|formatCurrency(currency) }}
                             </span>
                         </div>
+
+                        {# Refunds / credit notes on a PAID invoice - deduct them and show the
+                           corrected net total, matching the PDF. Only applies once paid; an
+                           unpaid return is corrected on the invoice itself. #}
+                        {% if invoice.status == enum('SolidInvoice\\InvoiceBundle\\Enum\\InvoiceStatus').Paid and refundTotalMinor|default(0) > 0 %}
+                            {% for refund in refunds|default([]) %}
+                                <div class="totals-row totals-row-payment">
+                                    <span class="totals-label" style="color: #d63939;">
+                                        {{ 'Refund / Credit'|trans }}{% if refund.label %} ({{ refund.label }}){% endif %}
+                                    </span>
+                                    <span class="totals-value" style="color: #d63939;">-{{ refund.amountMinor|formatCurrency(currency) }}</span>
+                                </div>
+                            {% endfor %}
+                            <div class="totals-row totals-row-final">
+                                <span class="totals-label">{{ 'Net Total (after refund)'|trans }}</span>
+                                <span class="totals-value">{{ netTotalMinor|default(0)|formatCurrency(currency) }}</span>
+                            </div>
+                        {% endif %}
                         {% if invoice.withholdingAmount.positive %}
                             <div class="totals-row">
                                 <span class="totals-label">{{ 'invoice.withholding'|trans }}</span>

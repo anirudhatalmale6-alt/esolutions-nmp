@@ -1,0 +1,103 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # Self-contained 4x6 (100x150mm) thermal despatch label. Inline CSS/asset only
+ # so it prints anywhere. IMEI / internal notes are deliberately NOT shown here.
+ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ 'Label'|trans }} {{ order.orderNumber }}</title>
+    <style>
+        @page { size: 100mm 150mm; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #eef1f5; font-family: Arial, Helvetica, sans-serif; color: #000; padding: 16px; }
+        .toolbar { max-width: 100mm; margin: 0 auto 12px; display: flex; gap: 8px; }
+        .toolbar button, .toolbar a { font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #0f172a; cursor: pointer; text-decoration: none; }
+        .toolbar button.print { background: #2f5bff; color: #fff; border-color: #2f5bff; }
+        .label {
+            width: 100mm; height: 150mm; margin: 0 auto; background: #fff; color: #000;
+            border: 1px solid #000; padding: 5mm; display: flex; flex-direction: column;
+        }
+        .from { font-size: 9px; line-height: 1.35; border-bottom: 1px solid #000; padding-bottom: 3mm; }
+        .from b { font-size: 10px; }
+        .to { display: flex; justify-content: space-between; gap: 4mm; padding: 3mm 0; border-bottom: 2px solid #000; }
+        .to .lbl { font-size: 9px; letter-spacing: .08em; font-weight: bold; }
+        .to .name { font-size: 17px; font-weight: bold; margin: 1mm 0; line-height: 1.15; }
+        .to .addr { font-size: 12px; line-height: 1.4; }
+        .qr { flex: none; text-align: center; }
+        .qr img { width: 24mm; height: 24mm; display: block; }
+        .qr .num { font-size: 9px; margin-top: 1mm; font-weight: bold; }
+        .meta { padding: 3mm 0; border-bottom: 1px dashed #000; }
+        .meta .item { font-size: 13px; font-weight: bold; }
+        .meta .spec { font-size: 11px; color: #222; margin-top: .5mm; }
+        .rows { display: flex; flex-wrap: wrap; padding-top: 3mm; font-size: 11px; gap: 2mm 6mm; }
+        .rows div { min-width: 40%; }
+        .rows .k { font-weight: bold; letter-spacing: .04em; }
+        .pay { margin-top: auto; padding-top: 3mm; }
+        .pay .cod { display: inline-block; border: 2px solid #000; padding: 2mm 4mm; font-size: 15px; font-weight: bold; }
+        .pay .paid { display: inline-block; padding: 2mm 4mm; font-size: 13px; font-weight: bold; border: 1px solid #000; }
+        .ordernum { font-size: 15px; font-weight: bold; letter-spacing: .06em; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .toolbar { display: none; }
+            .label { border: none; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button type="button" class="print" onclick="window.print()">{{ 'Print label'|trans }}</button>
+        <a href="{{ path('_orders_list') }}">{{ 'Back to orders'|trans }}</a>
+    </div>
+
+    <div class="label">
+        <div class="from">
+            <b>{{ 'FROM:'|trans }} {{ sender.name }}</b><br>
+            {{ sender.line }}, {{ sender.country }}<br>
+            {{ sender.phone }} · {{ sender.licence }}
+        </div>
+
+        <div class="to">
+            <div>
+                <div class="lbl">{{ 'SHIP TO'|trans }}</div>
+                <div class="name">{{ order.customerName }}</div>
+                <div class="addr">
+                    {% if order.customerPhone %}{{ order.customerPhone }}<br>{% endif %}
+                    {% if order.addressLine %}{{ order.addressLine|nl2br }}<br>{% endif %}
+                    {{ [order.area, order.city, order.emirate]|filter(v => v)|join(', ') }}<br>
+                    {{ order.country }}
+                </div>
+            </div>
+            <div class="qr">
+                <img src="{{ qr }}" alt="{{ order.orderNumber }}">
+                <div class="num">{{ order.orderNumber }}</div>
+            </div>
+        </div>
+
+        <div class="meta">
+            <div class="item">{{ order.model }}{% if order.quantity > 1 %} × {{ order.quantity }}{% endif %}</div>
+            <div class="spec">{{ [order.storage, order.condition, order.color]|filter(v => v)|join(' · ') }}</div>
+        </div>
+
+        <div class="rows">
+            <div><span class="k">{{ 'ORDER:'|trans }}</span> <span class="ordernum">{{ order.orderNumber }}</span></div>
+            <div><span class="k">{{ 'QTY:'|trans }}</span> {{ order.quantity }}</div>
+            {% if order.courier %}<div><span class="k">{{ 'COURIER:'|trans }}</span> {{ order.courier }}</div>{% endif %}
+            {% if order.trackingNumber %}<div><span class="k">{{ 'TRACKING:'|trans }}</span> {{ order.trackingNumber }}</div>{% endif %}
+        </div>
+
+        <div class="pay">
+            {% if order.cod %}
+                <span class="cod">{{ 'COD: AED'|trans }} {{ (order.codAmount ?: order.price)|number_format(2) }}</span>
+            {% else %}
+                <span class="paid">{{ 'PAID — NO CASH TO COLLECT'|trans }}</span>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -31,9 +31,13 @@ return static function (SecurityConfig $config): void {
     // the access of the lower ones: Admin > Manager > Accountant > Staff > User.
     $config
         ->roleHierarchy('ROLE_ADMIN', ['ROLE_MANAGER'])
-        ->roleHierarchy('ROLE_MANAGER', ['ROLE_STAFF', 'ROLE_ACCOUNTANT'])
+        ->roleHierarchy('ROLE_MANAGER', ['ROLE_STAFF', 'ROLE_ACCOUNTANT', 'ROLE_ORDERS'])
         ->roleHierarchy('ROLE_ACCOUNTANT', ['ROLE_STAFF'])
         ->roleHierarchy('ROLE_STAFF', ['ROLE_USER'])
+        // Order team (e.g. a remote desk): the MobilesOnline orders portal only.
+        // Managers and above inherit it; a user given ONLY this role can reach
+        // /orders and nothing else in the invoicing app.
+        ->roleHierarchy('ROLE_ORDERS', ['ROLE_USER'])
         ->roleHierarchy('ROLE_SUPER_ADMIN', ['ROLE_ADMIN', 'ROLE_ALLOWED_TO_SWITCH'])
         ->roleHierarchy('ROLE_CLIENT', ['ROLE_USER'])
         ->roleHierarchy('ROLE_USER', []);
@@ -180,6 +184,8 @@ return static function (SecurityConfig $config): void {
     // storefront itself (/store) is allowed anonymously via the PUBLIC_ACCESS
     // list above, which is matched first.
     $config->accessControl()->path('^/store-admin')->roles(['ROLE_MANAGER']);
+    // Orders portal: the dedicated order team plus everyone above them.
+    $config->accessControl()->path('^/orders')->roles(['ROLE_ORDERS']);
 
     $config->accessControl()
         ->path('^/')

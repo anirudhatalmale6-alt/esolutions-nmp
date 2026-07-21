@@ -28,6 +28,7 @@ enum PortalRole: string
     case Manager = 'ROLE_MANAGER';
     case Accountant = 'ROLE_ACCOUNTANT';
     case Staff = 'ROLE_STAFF';
+    case OrderTeam = 'ROLE_ORDERS';
 
     public function label(): string
     {
@@ -37,6 +38,7 @@ enum PortalRole: string
             self::Manager => 'Manager',
             self::Accountant => 'Accountant',
             self::Staff => 'Staff',
+            self::OrderTeam => 'Order Team',
         };
     }
 
@@ -48,6 +50,7 @@ enum PortalRole: string
             self::Manager => 'All day-to-day work — invoices, quotes, clients, purchases, refunds, payments and reports. No user management or settings.',
             self::Accountant => 'Financials — payments, daily ledger, reports and expenses, plus invoices and purchases to reconcile. No client management or settings.',
             self::Staff => 'Data entry only — create and edit invoices and purchases (and view stock).',
+            self::OrderTeam => 'Orders portal only — enter and manage online orders and print despatch labels. No access to invoicing, stock, reports or settings.',
         };
     }
 
@@ -62,6 +65,7 @@ enum PortalRole: string
             self::Manager => 'blue',
             self::Accountant => 'teal',
             self::Staff => 'secondary',
+            self::OrderTeam => 'orange',
         };
     }
 

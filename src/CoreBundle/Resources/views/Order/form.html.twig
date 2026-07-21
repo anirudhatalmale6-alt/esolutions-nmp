@@ -1,0 +1,157 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% set editing = order is not null %}
+
+{% block title %}{{ ux_icon('tabler:package', {width: 24, height: 24, class: 'me-2'}) }}{{ editing ? ('Edit order %s'|trans|format(order.orderNumber)) : 'New order'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_orders_list') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to orders'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <form method="post" action="{{ editing ? path('_order_edit', {id: order.id}) : path('_order_new') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('order.manage') }}">
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <twig:Ui:Card title="{{ 'Customer'|trans }}">
+                    <div class="mb-3">
+                        <label class="form-label required">{{ 'Customer name'|trans }}</label>
+                        <input type="text" name="customer_name" class="form-control" required value="{{ editing ? order.customerName : '' }}">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ 'Phone'|trans }}</label>
+                            <input type="text" name="customer_phone" class="form-control" value="{{ editing ? order.customerPhone : '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ 'WhatsApp'|trans }}</label>
+                            <input type="text" name="customer_whatsapp" class="form-control" value="{{ editing ? order.customerWhatsapp : '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ 'Despatch address'|trans }}</label>
+                        <textarea name="address_line" class="form-control" rows="2" placeholder="{{ 'House / building, street...'|trans }}">{{ editing ? order.addressLine : '' }}</textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Area'|trans }}</label>
+                            <input type="text" name="area" class="form-control" value="{{ editing ? order.area : '' }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'City'|trans }}</label>
+                            <input type="text" name="city" class="form-control" value="{{ editing ? order.city : '' }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Emirate'|trans }}</label>
+                            <input type="text" name="emirate" class="form-control" value="{{ editing ? order.emirate : '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">{{ 'Country'|trans }}</label>
+                        <input type="text" name="country" class="form-control" value="{{ editing ? order.country : 'United Arab Emirates' }}">
+                    </div>
+                </twig:Ui:Card>
+            </div>
+
+            <div class="col-lg-6">
+                <twig:Ui:Card title="{{ 'Product'|trans }}">
+                    <div class="mb-3">
+                        <label class="form-label required">{{ 'Model'|trans }}</label>
+                        <input type="text" name="model" class="form-control" list="model-list" required value="{{ editing ? order.model : '' }}" placeholder="{{ 'e.g. Apple iPhone 15 Pro Max'|trans }}">
+                        <datalist id="model-list">
+                            {% for product in products %}
+                                <option value="{{ product.make }} {{ product.model }}"></option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Storage'|trans }}</label>
+                            <input type="text" name="storage" class="form-control" value="{{ editing ? order.storage : '' }}" placeholder="128GB">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Grade / condition'|trans }}</label>
+                            <input type="text" name="grade_condition" class="form-control" value="{{ editing ? order.condition : '' }}" placeholder="{{ 'Brand New'|trans }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Colour'|trans }}</label>
+                            <input type="text" name="color" class="form-control" value="{{ editing ? order.color : '' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Quantity'|trans }}</label>
+                            <input type="number" name="quantity" class="form-control" min="1" value="{{ editing ? order.quantity : 1 }}">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">{{ 'Price (AED)'|trans }}</label>
+                            <input type="number" step="0.01" name="price" class="form-control" value="{{ editing ? order.price : '' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ 'Payment'|trans }}</label>
+                            <select name="payment_status" class="form-select">
+                                <option value="cod" {{ (editing and order.cod) or not editing ? 'selected' : '' }}>{{ 'Cash on delivery (COD)'|trans }}</option>
+                                <option value="paid" {{ editing and not order.cod ? 'selected' : '' }}>{{ 'Paid'|trans }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ 'COD amount (AED)'|trans }}</label>
+                            <input type="number" step="0.01" name="cod_amount" class="form-control" value="{{ editing ? order.codAmount : '' }}" placeholder="{{ 'If cash on delivery'|trans }}">
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-0">
+                            <label class="form-label">{{ 'Courier'|trans }}</label>
+                            <input type="text" name="courier" class="form-control" value="{{ editing ? order.courier : '' }}">
+                        </div>
+                        <div class="col-md-6 mb-0">
+                            <label class="form-label">{{ 'Tracking number'|trans }}</label>
+                            <input type="text" name="tracking_number" class="form-control" value="{{ editing ? order.trackingNumber : '' }}">
+                        </div>
+                    </div>
+                </twig:Ui:Card>
+            </div>
+
+            <div class="col-12">
+                <twig:Ui:Card title="{{ 'Status & notes'|trans }}">
+                    <div class="row g-3">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">{{ 'Status'|trans }}</label>
+                            <select name="status" class="form-select">
+                                {% for s in statuses %}
+                                    <option value="{{ s.value }}" {{ (editing and s is same as(order.status)) or (not editing and s.value == 'new') ? 'selected' : '' }}>{{ s.label|trans }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">{{ 'Notes'|trans }}</label>
+                            <input type="text" name="notes" class="form-control" value="{{ editing ? order.notes : '' }}" placeholder="{{ 'Internal notes for despatch'|trans }}">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
+                            {{ editing ? 'Save order'|trans : 'Create order'|trans }}
+                        </button>
+                        <a href="{{ path('_orders_list') }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+                    </div>
+                </twig:Ui:Card>
+            </div>
+        </div>
+    </form>
+{% endblock content %}

@@ -23,6 +23,11 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Order\DeleteOrder;
+use SolidInvoice\CoreBundle\Action\Order\ListOrders;
+use SolidInvoice\CoreBundle\Action\Order\ManageOrder;
+use SolidInvoice\CoreBundle\Action\Order\OrderLabel;
+use SolidInvoice\CoreBundle\Action\Order\UpdateOrderStatus;
 use SolidInvoice\CoreBundle\Action\Store\DeleteStoreProduct;
 use SolidInvoice\CoreBundle\Action\Store\ImportStoreProducts;
 use SolidInvoice\CoreBundle\Action\Store\ListStoreProducts;
@@ -91,6 +96,36 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_store_delete', '/store-admin/{id}/delete')
         ->controller(DeleteStoreProduct::class)
         ->methods(['POST']);
+
+    // MobilesOnline orders portal (order team enters orders, office prints the
+    // 4x6 label and advances the status).
+    $routingConfigurator
+        ->add('_orders_list', '/orders')
+        ->controller(ListOrders::class)
+        ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_order_new', '/orders/new')
+        ->controller(ManageOrder::class);
+
+    $routingConfigurator
+        ->add('_order_label', '/orders/{id}/label')
+        ->controller(OrderLabel::class)
+        ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_order_status', '/orders/{id}/status')
+        ->controller(UpdateOrderStatus::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_order_delete', '/orders/{id}/delete')
+        ->controller(DeleteOrder::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_order_edit', '/orders/{id}/edit')
+        ->controller(ManageOrder::class);
 
     $routingConfigurator
         ->add('_purchases_list', '/purchases')

@@ -195,6 +195,8 @@
                         <div style="font-size: 18pt; font-weight: bold;">
                             {% if hasOutstandingBalance %}
                                 {{ pay.balance|formatCurrency(currency) }}
+                            {% elseif refundTotalMinor|default(0) > 0 %}
+                                {{ netTotalMinor|default(0)|formatCurrency(currency) }}
                             {% else %}
                                 {{ invoice.total|formatCurrency(currency) }}
                             {% endif %}
@@ -391,6 +393,19 @@
             {% endfor %}
         {% endif %}
 
+        {# Refunds / credit notes raised against this invoice - money credited back
+           to the customer, so the amount they actually owe/paid is net of these. #}
+        {% for refund in refunds|default([]) %}
+            <tr class="refund-row">
+                <td class="label-cell" style="padding: 8px 20px 8px 12px; font-size: 9pt; text-align: right; color: #475569;">
+                    {{ 'Refund / Credit'|trans }}{% if refund.label %} <span style="color: #94a3b8;">({{ refund.label }})</span>{% endif %}
+                </td>
+                <td class="value-cell" style="padding: 8px 12px; font-size: 9pt; text-align: right; font-family: 'Courier New', monospace; color: #ef4444;">
+                    -{{ refund.amountMinor|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endfor %}
+
         {# Divider #}
         <tr class="divider-row">
             <td colspan="2" style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;"></td>
@@ -413,6 +428,16 @@
                 </td>
                 <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #166534;">
                     {{ invoice.total|formatCurrency(currency) }}
+                </td>
+            </tr>
+        {% endif %}
+        {% if refundTotalMinor|default(0) > 0 %}
+            <tr class="net-total-row" style="background-color: #eff6ff;">
+                <td class="label-cell" style="padding: 14px 20px 14px 12px; font-size: 12pt; font-weight: bold; text-align: right; color: #1e293b;">
+                    {{ 'Net Total (after refund)'|trans }}
+                </td>
+                <td class="value-cell" style="padding: 14px 12px; font-size: 14pt; font-weight: bold; text-align: right; font-family: 'Courier New', monospace; color: #1d4ed8;">
+                    {{ netTotalMinor|default(0)|formatCurrency(currency) }}
                 </td>
             </tr>
         {% endif %}

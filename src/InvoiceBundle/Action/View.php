@@ -13,9 +13,13 @@ declare(strict_types=1);
 
 namespace SolidInvoice\InvoiceBundle\Action;
 
+use Brick\Math\BigDecimal;
+use Brick\Math\BigInteger;
+use Brick\Math\RoundingMode;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Mpdf\MpdfException;
+use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\CoreBundle\Pdf\Generator;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Response\PdfResponse;
@@ -57,7 +61,22 @@ final readonly class View
     public function __invoke(Request $request, Invoice $invoice): array | Response
     {
         if ('pdf' === $request->getRequestFormat() && $this->pdfGenerator->canPrintPdf()) {
-            return new PdfResponse($this->pdfGenerator->generate($this->twig->render('@SolidInvoiceInvoice/Pdf/invoice.html.twig', ['invoice' => $invoice])), sprintf('invoice_%s.pdf', $invoice->getInvoiceId()));
+            // Any refunds / credit notes raised against this invoice, so the PDF the
+            // customer receives shows the deducted (net) amount instead of the full
+            // total. Same filter-lifting as the on-screen view (see below).
+            $creditNotes = $this->withoutFilters(
+                ['company', 'archivable'],
+                fn (): array => $this->creditNoteRepository->findForInvoice($invoice)
+            );
+
+            [$refunds, $refundTotalMinor, $netTotalMinor] = $this->refundTotals($invoice, $creditNotes);
+
+            return new PdfResponse($this->pdfGenerator->generate($this->twig->render('@SolidInvoiceInvoice/Pdf/invoice.html.twig', [
+                'invoice' => $invoice,
+                'refunds' => $refunds,
+                'refundTotalMinor' => $refundTotalMinor,
+                'netTotalMinor' => $netTotalMinor,
+            ])), sprintf('invoice_%s.pdf', $invoice->getInvoiceId()));
         }
 
         // Credit notes for THIS invoice, with the company/archivable SQL filters
@@ -78,6 +97,41 @@ final readonly class View
             // the "net qty (X returned)" display can never be filtered away.
             'returnedByLine' => $this->returnedByLine($invoice),
         ];
+    }
+
+    /**
+     * Build the refund lines and the net total for the PDF. Credit note amounts are
+     * stored in major units (e.g. "500.00"), while the PDF formats money from minor
+     * units, so each amount is scaled up by 100 before it is summed and subtracted
+     * from the invoice total.
+     *
+     * @param list<CreditNote> $creditNotes
+     *
+     * @return array{0: list<array{label: ?string, storeCredit: bool, amountMinor: string}>, 1: string, 2: string}
+     */
+    private function refundTotals(Invoice $invoice, array $creditNotes): array
+    {
+        $refunds = [];
+        $refundTotalMinor = BigInteger::zero();
+
+        foreach ($creditNotes as $creditNote) {
+            $amountMinor = BigDecimal::of($creditNote->getAmount())
+                ->multipliedBy(100)
+                ->toScale(0, RoundingMode::HALF_UP)
+                ->toBigInteger();
+
+            $refundTotalMinor = $refundTotalMinor->plus($amountMinor);
+
+            $refunds[] = [
+                'label' => $creditNote->getReason(),
+                'storeCredit' => $creditNote->isStoreCredit(),
+                'amountMinor' => (string) $amountMinor,
+            ];
+        }
+
+        $netTotalMinor = $invoice->getTotal()->toBigInteger()->minus($refundTotalMinor);
+
+        return [$refunds, (string) $refundTotalMinor, (string) $netTotalMinor];
     }
 
     /**

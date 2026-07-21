@@ -24,6 +24,7 @@ use Throwable;
 use function in_array;
 use function is_string;
 use function preg_replace;
+use function strlen;
 use function strtolower;
 use function trim;
 
@@ -43,6 +44,19 @@ final class UploadProductImage extends AbstractController
 
     public function __invoke(Request $request, string $id): Response
     {
+        // A phone photo that is larger than PHP's post_max_size makes the whole
+        // POST body get discarded before it reaches us - the file AND the CSRF
+        // token both arrive empty, which used to surface as a misleading
+        // "session expired" error. Detect that case up front and tell the owner
+        // the real reason so they don't keep retrying the same big picture.
+        $postMax = $this->toBytes((string) ini_get('post_max_size'));
+        $contentLength = (int) $request->server->get('CONTENT_LENGTH', 0);
+        if ($postMax > 0 && $contentLength > $postMax && $request->files->count() === 0) {
+            $this->addFlash('error', 'That photo is too large to upload. Please pick a smaller image and try again.');
+
+            return $this->redirectToRoute('_store_admin');
+        }
+
         if (! $this->isCsrfTokenValid('store.product', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Your session expired, please try again.');
 
@@ -61,6 +75,17 @@ final class UploadProductImage extends AbstractController
 
         if (! $file instanceof UploadedFile) {
             $this->addFlash('error', 'Please choose an image to upload.');
+
+            return $this->redirectToRoute('_store_admin');
+        }
+
+        // A file that is over upload_max_filesize (but under post_max_size) does
+        // arrive, but flagged with an upload error and no usable contents.
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            $tooBig = in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
+            $this->addFlash('error', $tooBig
+                ? 'That photo is too large to upload. Please pick a smaller image and try again.'
+                : 'The photo could not be uploaded, please try again.');
 
             return $this->redirectToRoute('_store_admin');
         }
@@ -110,5 +135,26 @@ final class UploadProductImage extends AbstractController
         $value = (string) preg_replace('/[^a-z0-9]+/', '-', $value);
 
         return trim($value, '-');
+    }
+
+    /**
+     * Convert a php.ini shorthand size (e.g. "8M", "2G", "512K") into bytes.
+     */
+    private function toBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower($value[strlen($value) - 1]);
+        $number = (int) $value;
+
+        return match ($unit) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => (int) $value,
+        };
     }
 }

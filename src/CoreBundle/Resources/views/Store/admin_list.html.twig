@@ -144,4 +144,82 @@
             </div>
         {% endif %}
     </twig:Ui:Card>
+
+    <script>
+        // Shrink product photos in the browser before they are sent to the
+        // server. Phone pictures are often 4-8 MB, which is bigger than the
+        // host's upload limit, so the upload used to fail "most of the time".
+        // Here we scale the image down to a sensible size and re-encode it as a
+        // light JPEG, so the file that leaves the browser is small enough to
+        // always go through - and the store also loads faster.
+        (function () {
+            var MAX_SIDE = 1400;   // longest edge, in pixels
+            var QUALITY = 0.82;    // JPEG quality
+
+            if (typeof DataTransfer === 'undefined' || !document.createElement('canvas').toBlob) {
+                return; // very old browser - fall back to a normal upload
+            }
+
+            document.querySelectorAll('.store-photo-form').forEach(function (form) {
+                form.addEventListener('submit', function (ev) {
+                    if (form.dataset.compressed === '1') {
+                        return; // already processed, let it submit for real
+                    }
+                    var input = form.querySelector('input[type=file]');
+                    if (!input || !input.files || !input.files[0]) {
+                        return; // nothing chosen - server will ask for a photo
+                    }
+                    var file = input.files[0];
+                    if (!/^image\//.test(file.type)) {
+                        return; // not an image - let the server reject it
+                    }
+
+                    ev.preventDefault();
+                    var btn = form.querySelector('button[type=submit]');
+                    if (btn) { btn.disabled = true; }
+
+                    var finish = function () {
+                        form.dataset.compressed = '1';
+                        form.submit();
+                    };
+
+                    var img = new Image();
+                    var url = URL.createObjectURL(file);
+                    img.onload = function () {
+                        URL.revokeObjectURL(url);
+                        var w = img.naturalWidth, h = img.naturalHeight;
+                        if (!w || !h) { finish(); return; }
+                        var scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+                        var cw = Math.max(1, Math.round(w * scale));
+                        var ch = Math.max(1, Math.round(h * scale));
+                        var canvas = document.createElement('canvas');
+                        canvas.width = cw;
+                        canvas.height = ch;
+                        var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';           // flatten transparency to white
+                        ctx.fillRect(0, 0, cw, ch);
+                        ctx.drawImage(img, 0, 0, cw, ch);
+                        canvas.toBlob(function (blob) {
+                            if (!blob) { finish(); return; }   // fall back to original
+                            var name = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+                            try {
+                                var newFile = new File([blob], name, { type: 'image/jpeg' });
+                                var dt = new DataTransfer();
+                                dt.items.add(newFile);
+                                input.files = dt.files;
+                            } catch (e) {
+                                // Assigning input.files failed - just send the original.
+                            }
+                            finish();
+                        }, 'image/jpeg', QUALITY);
+                    };
+                    img.onerror = function () {
+                        URL.revokeObjectURL(url);
+                        finish(); // couldn't read it here - let the server try
+                    };
+                    img.src = url;
+                });
+            });
+        })();
+    </script>
 {% endblock content %}

@@ -43,6 +43,41 @@ final readonly class StoreFront
      */
     private const STORE_BRAND = 'Mobiles Online';
 
+    /**
+     * Registered business identity shown in the storefront footer and emitted
+     * as structured data / social-share metadata. Displayed publicly to satisfy
+     * the client's Tabby (BNPL) onboarding and corporate-tax registration, which
+     * require a verifiable trade licence and customer-service contact on the
+     * site. Static display strings - the retail store is a single legal entity.
+     */
+    private const STORE_LEGAL_NAME = 'Mobiles Online - Online Seller';
+
+    private const STORE_LICENCE_NUMBER = '1596056';
+
+    private const STORE_LICENCE_AUTHORITY = 'Dubai Department of Economy and Tourism';
+
+    private const STORE_AREA = 'Deira';
+
+    private const STORE_CITY = 'Dubai';
+
+    private const STORE_COUNTRY = 'United Arab Emirates';
+
+    /** Customer-service WhatsApp: human-readable + digits-only (for wa.me / tel:). */
+    private const STORE_SUPPORT_PHONE_DISPLAY = '+971 58 585 8942';
+
+    private const STORE_SUPPORT_PHONE = '971585858942';
+
+    private const STORE_SUPPORT_EMAIL = 'mobilesonline.ae@gmail.com';
+
+    /**
+     * Canonical public address of the shop. The store is reachable on both the
+     * branded retail domain and the invoicing host, so we pin canonical/OG URLs
+     * to the branded domain to consolidate SEO there.
+     */
+    private const STORE_CANONICAL_URL = 'https://mobilesonline.ae/store';
+
+    private const STORE_OG_IMAGE = 'https://mobilesonline.ae/mobilesonline-og.png';
+
     public function __construct(
         private CompanyRepository $companyRepository,
         private StoreProductRepository $storeProductRepository,
@@ -50,7 +85,7 @@ final readonly class StoreFront
     }
 
     /**
-     * @return array{company: Company, brand: string, products: list<StoreProduct>, makes: list<string>, whatsapp: string}
+     * @return array{company: Company, brand: string, products: list<StoreProduct>, makes: list<string>, whatsapp: string, store: array<string, string>}
      */
     #[Template('@SolidInvoiceCore/Store/storefront.html.twig')]
     public function __invoke(): array
@@ -87,6 +122,19 @@ final readonly class StoreFront
             'products' => $products,
             'makes' => $makes,
             'whatsapp' => self::WHATSAPP_NUMBER,
+            'store' => [
+                'legalName' => self::STORE_LEGAL_NAME,
+                'licenceNumber' => self::STORE_LICENCE_NUMBER,
+                'licenceAuthority' => self::STORE_LICENCE_AUTHORITY,
+                'area' => self::STORE_AREA,
+                'city' => self::STORE_CITY,
+                'country' => self::STORE_COUNTRY,
+                'supportPhoneDisplay' => self::STORE_SUPPORT_PHONE_DISPLAY,
+                'supportPhone' => self::STORE_SUPPORT_PHONE,
+                'supportEmail' => self::STORE_SUPPORT_EMAIL,
+                'canonicalUrl' => self::STORE_CANONICAL_URL,
+                'ogImage' => self::STORE_OG_IMAGE,
+            ],
         ];
     }
 }

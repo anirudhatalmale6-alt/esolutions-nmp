@@ -88,6 +88,7 @@
                         <th>{{ 'SKU'|trans }}</th>
                         <th class="text-end">{{ 'Price'|trans }}</th>
                         <th class="text-center">{{ 'Status'|trans }}</th>
+                        <th class="text-nowrap">{{ 'Last updated'|trans }}</th>
                         <th style="width: 300px;">{{ 'Actions'|trans }}</th>
                     </tr>
                 </thead>
@@ -122,6 +123,14 @@
                                     <span class="badge bg-green text-green-fg">{{ 'In stock'|trans }}</span>
                                 {% else %}
                                     <span class="badge bg-secondary text-secondary-fg">{{ 'Sold out'|trans }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap text-muted small">
+                                {% if product.updated %}
+                                    {{ product.updated|date('d M Y') }}<br>
+                                    <span class="text-secondary">{{ product.updated|date('g:i A') }}</span>
+                                {% else %}
+                                    —
                                 {% endif %}
                             </td>
                             <td>

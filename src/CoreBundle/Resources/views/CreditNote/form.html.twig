@@ -84,20 +84,18 @@
 
                 <div class="col-md-6">
                     <label class="form-label">{{ 'How is the refund given?'|trans }} <span class="text-danger">*</span></label>
-                    <div class="form-selectgroup">
-                        <label class="form-selectgroup-item d-block mb-2">
-                            <input type="radio" name="refund_type" value="cash" class="form-selectgroup-input" {{ data.refund_type != 'credit' ? 'checked' : '' }}>
-                            <span class="form-check-label">
-                                {{ ux_icon('tabler:cash', {width: 16, height: 16}) }}
-                                <strong>{{ 'Cash out'|trans }}</strong> — {{ 'money physically returned to the customer (shows as money-out in the Daily Ledger)'|trans }}
-                            </span>
+                    <div class="form-check mb-2">
+                        <input type="radio" name="refund_type" id="rt-cash" value="cash" class="form-check-input" {{ data.refund_type != 'credit' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="rt-cash">
+                            {{ ux_icon('tabler:cash', {width: 16, height: 16}) }}
+                            <strong>{{ 'Cash out'|trans }}</strong> — {{ 'money physically returned to the customer (shows as money-out in the Daily Ledger)'|trans }}
                         </label>
-                        <label class="form-selectgroup-item d-block">
-                            <input type="radio" name="refund_type" value="credit" class="form-selectgroup-input" {{ data.refund_type == 'credit' ? 'checked' : '' }}>
-                            <span class="form-check-label">
-                                {{ ux_icon('tabler:wallet', {width: 16, height: 16}) }}
-                                <strong>{{ 'Store credit'|trans }}</strong> — {{ 'added to this customer\'s credit balance for a future order'|trans }}
-                            </span>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" name="refund_type" id="rt-credit" value="credit" class="form-check-input" {{ data.refund_type == 'credit' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="rt-credit">
+                            {{ ux_icon('tabler:wallet', {width: 16, height: 16}) }}
+                            <strong>{{ 'Store credit'|trans }}</strong> — {{ 'added to this customer\'s credit balance for a future order'|trans }}
                         </label>
                     </div>
                 </div>

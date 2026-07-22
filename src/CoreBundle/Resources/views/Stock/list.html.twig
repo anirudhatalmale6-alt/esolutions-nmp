@@ -26,6 +26,11 @@
         <strong>{{ totalQuantity|number_format }}</strong> {{ 'units'|trans }}
         &middot;
         <strong>AED {{ totalValue|number_format(2) }}</strong>
+        {% if lastImported %}
+            &middot;
+            {{ ux_icon('tabler:clock', {width: 16, height: 16}) }}
+            {{ 'Stock last updated'|trans }}: <strong>{{ lastImported|date('d M Y, g:i A') }}</strong>
+        {% endif %}
     </div>
 
     {% if shareUrl %}

@@ -29,7 +29,7 @@ final readonly class ListStock
     }
 
     /**
-     * @return array{models: list<\SolidInvoice\CoreBundle\Entity\StockModel>, totalQuantity: int, totalValue: string, shareUrl: string}
+     * @return array{models: list<\SolidInvoice\CoreBundle\Entity\StockModel>, totalQuantity: int, totalValue: string, shareUrl: string, lastImported: ?\DateTimeInterface}
      */
     #[Template('@SolidInvoiceCore/Stock/list.html.twig')]
     public function __invoke(): array
@@ -38,10 +38,18 @@ final readonly class ListStock
 
         $totalQuantity = 0;
         $totalValue = BigDecimal::zero();
+        // The whole stock is cleared and re-imported on each Tally upload, so every
+        // row shares the same timestamp; the newest one is when stock was last updated.
+        $lastImported = null;
 
         foreach ($models as $model) {
             $totalQuantity += $model->getQuantity();
             $totalValue = $totalValue->plus(BigDecimal::of($model->getValue()));
+
+            $stamp = $model->getUpdated() ?? $model->getCreated();
+            if ($stamp !== null && ($lastImported === null || $stamp > $lastImported)) {
+                $lastImported = $stamp;
+            }
         }
 
         return [
@@ -49,6 +57,7 @@ final readonly class ListStock
             'totalQuantity' => $totalQuantity,
             'totalValue' => (string) $totalValue->toScale(2),
             'shareUrl' => $this->urlGenerator->generate('_stock_public', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            'lastImported' => $lastImported,
         ];
     }
 }

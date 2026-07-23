@@ -29,6 +29,12 @@ use function trim;
  */
 final readonly class PublicUnlockLookup
 {
+    /**
+     * The support WhatsApp number customers are pointed to (international format,
+     * digits only, for wa.me links).
+     */
+    private const WHATSAPP_NUMBER = '971585678669';
+
     public function __construct(
         private CompanyRepository $companyRepository,
         private UnlockCodeRepository $unlockCodeRepository,
@@ -36,7 +42,7 @@ final readonly class PublicUnlockLookup
     }
 
     /**
-     * @return array{company: Company, searched: bool, imei: string, result: ?UnlockCode}
+     * @return array{company: Company, searched: bool, imei: string, result: ?UnlockCode, whatsappUrl: string}
      */
     #[Template('@SolidInvoiceCore/Unlock/public.html.twig')]
     public function __invoke(Request $request): array
@@ -65,6 +71,7 @@ final readonly class PublicUnlockLookup
             'searched' => $searched,
             'imei' => $imei,
             'result' => $result,
+            'whatsappUrl' => 'https://wa.me/' . self::WHATSAPP_NUMBER,
         ];
     }
 }

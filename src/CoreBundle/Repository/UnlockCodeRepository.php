@@ -69,6 +69,44 @@ class UnlockCodeRepository extends EntityRepository
     }
 
     /**
+     * Count for the current company, using the CompanyFilter (so it always
+     * matches exactly the rows the list shows).
+     */
+    public function countAll(): int
+    {
+        return (int) $this->createQueryBuilder('u')
+            ->select('COUNT(u.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Look up many IMEIs at once for the current company, returned as a map of
+     * IMEI => entity. Company scoping is applied by the CompanyFilter.
+     *
+     * @param list<string> $imeis digits-only IMEIs
+     * @return array<string, UnlockCode>
+     */
+    public function findByImeis(array $imeis): array
+    {
+        if ($imeis === []) {
+            return [];
+        }
+
+        $map = [];
+
+        foreach ($this->createQueryBuilder('u')
+            ->where('u.imei IN (:imeis)')
+            ->setParameter('imeis', $imeis)
+            ->getQuery()
+            ->getResult() as $entry) {
+            $map[$entry->getImei()] = $entry;
+        }
+
+        return $map;
+    }
+
+    /**
      * Every unlock code for a company, keyed by IMEI, so an import can upsert in
      * memory instead of running a query per row.
      *

@@ -23,6 +23,7 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Unlock\BulkUnlockLookup;
 use SolidInvoice\CoreBundle\Action\Unlock\ClearUnlockCodes;
 use SolidInvoice\CoreBundle\Action\Unlock\ImportUnlockCodes;
 use SolidInvoice\CoreBundle\Action\Unlock\ListUnlockCodes;
@@ -92,6 +93,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_unlock_clear', '/unlock-codes/clear')
         ->controller(ClearUnlockCodes::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_unlock_lookup', '/unlock-codes/lookup')
+        ->controller(BulkUnlockLookup::class)
         ->methods(['POST']);
 
     $routingConfigurator

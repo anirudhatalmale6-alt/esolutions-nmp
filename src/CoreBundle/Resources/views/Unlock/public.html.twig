@@ -67,7 +67,17 @@
         }
         .notfound-box .hint { font-weight: 400; color: #7f1d1d; font-size: 13px; margin-top: 6px; }
         .tip { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 16px; }
-        .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 22px; }
+        .contact { text-align: center; margin-top: 22px; color: #475569; font-size: 14px; }
+        .wa-link {
+            display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; padding: 6px 14px;
+            border-radius: 999px; background: #25d366; color: #fff; text-decoration: none; font-weight: 600;
+        }
+        .wa-link:hover { background: #1ebe5b; }
+        .notfound-box .hint a { color: #b91c1c; font-weight: 600; }
+        .powered { text-align: center; margin-top: 26px; }
+        .powered-logo { width: 96px; height: auto; opacity: .95; }
+        .powered-text { color: #64748b; font-size: 12px; margin-top: 6px; letter-spacing: .3px; }
+        .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 14px; }
     </style>
 </head>
 <body>
@@ -93,14 +103,17 @@
                     {% if result is null %}
                         <div class="notfound-box">
                             {{ 'No code found for this IMEI.'|trans }}
-                            <div class="hint">{{ 'Please check the number and try again, or contact us.'|trans }}</div>
+                            <div class="hint">
+                                {{ 'Please check the number and try again, or'|trans }}
+                                <a href="{{ whatsappUrl }}" target="_blank" rel="noopener">{{ 'contact us on WhatsApp'|trans }}</a>.
+                            </div>
                         </div>
                     {% elseif result.code|trim == '' %}
                         <div class="status-box">{{ 'This IMEI is on file, but no unlock code is available for it yet.'|trans }}</div>
                     {% elseif result.code matches '/^\\d+$/' %}
                         <div class="code-box">
-                            <div class="code" id="unlock-code">{{ result.code }}</div>
-                            <button type="button" class="copy" id="copy-code">{{ 'Copy code'|trans }}</button>
+                            <div class="code" id="unlock-code" data-imei="{{ imei }}">{{ result.code }}</div>
+                            <button type="button" class="copy" id="copy-code">{{ 'Copy IMEI + code'|trans }}</button>
                         </div>
                     {% else %}
                         <div class="status-box">{{ result.code }}</div>
@@ -109,6 +122,19 @@
             {% else %}
                 <div class="tip">{{ 'Type the 15-digit IMEI and tap "Get code".'|trans }}</div>
             {% endif %}
+        </div>
+
+        <div class="contact">
+            {{ 'Need help?'|trans }}
+            <a href="{{ whatsappUrl }}" target="_blank" rel="noopener" class="wa-link">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.3-1.38a9.9 9.9 0 0 0 4.73 1.2h.01c5.46 0 9.9-4.44 9.9-9.9 0-2.64-1.03-5.13-2.9-7A9.82 9.82 0 0 0 12.04 2Zm5.8 14.16c-.24.68-1.42 1.32-1.95 1.36-.5.04-.96.22-3.23-.67-2.73-1.08-4.45-3.86-4.58-4.04-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.27.53-.34.7-.34.18 0 .35 0 .5.01.16.01.38-.06.6.46.23.53.77 1.85.84 1.98.07.13.11.29.02.47-.09.18-.13.29-.27.44-.13.16-.28.35-.4.47-.13.13-.27.28-.12.54.16.27.7 1.15 1.5 1.86 1.04.92 1.9 1.2 2.17 1.34.27.13.42.11.58-.07.16-.18.67-.78.85-1.05.18-.27.35-.22.6-.13.24.09 1.54.72 1.8.86.27.13.44.2.5.31.07.11.07.63-.17 1.31Z"/></svg>
+                {{ 'Chat with us on WhatsApp'|trans }}
+            </a>
+        </div>
+
+        <div class="powered">
+            <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="powered-logo">
+            <div class="powered-text">{{ 'Powered by Unlocking Experts (UK)'|trans }}</div>
         </div>
 
         <div class="foot">{{ company.name }}</div>
@@ -120,7 +146,8 @@
             var code = document.getElementById('unlock-code');
             if (!btn || !code) { return; }
             btn.addEventListener('click', function () {
-                var text = code.textContent.trim();
+                var imei = code.getAttribute('data-imei') || '';
+                var text = 'IMEI: ' + imei + '\nUnlock Code: ' + code.textContent.trim();
                 var done = function () {
                     var original = btn.textContent;
                     btn.textContent = {{ 'Copied!'|trans|json_encode|raw }};

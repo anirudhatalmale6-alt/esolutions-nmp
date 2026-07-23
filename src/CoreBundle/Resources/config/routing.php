@@ -23,6 +23,10 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Unlock\ClearUnlockCodes;
+use SolidInvoice\CoreBundle\Action\Unlock\ImportUnlockCodes;
+use SolidInvoice\CoreBundle\Action\Unlock\ListUnlockCodes;
+use SolidInvoice\CoreBundle\Action\Unlock\PublicUnlockLookup;
 use SolidInvoice\CoreBundle\Action\Order\DeleteOrder;
 use SolidInvoice\CoreBundle\Action\Order\ListOrders;
 use SolidInvoice\CoreBundle\Action\Order\ManageOrder;
@@ -73,6 +77,27 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_public', '/nmp-inventory')
         ->controller(PublicStock::class);
+
+    // IMEI SIM-unlock codes: private admin (upload/manage) plus the public,
+    // no-login customer lookup page.
+    $routingConfigurator
+        ->add('_unlock_list', '/unlock-codes')
+        ->controller(ListUnlockCodes::class)
+        ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_unlock_import', '/unlock-codes/import')
+        ->controller(ImportUnlockCodes::class);
+
+    $routingConfigurator
+        ->add('_unlock_clear', '/unlock-codes/clear')
+        ->controller(ClearUnlockCodes::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_unlock_public', '/imei-unlock')
+        ->controller(PublicUnlockLookup::class)
+        ->methods(['GET']);
 
     // MobilesOnline store (separate catalogue from the internal wholesale stock).
     $routingConfigurator

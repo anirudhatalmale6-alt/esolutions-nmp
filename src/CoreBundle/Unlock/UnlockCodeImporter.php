@@ -71,7 +71,7 @@ final class UnlockCodeImporter
 
         // Merge in memory against what the company already has, so a re-upload of
         // an overlapping file updates rows instead of duplicating them.
-        $existing = $this->unlockCodeRepository->findMapForCompany($company);
+        $existing = $this->unlockCodeRepository->findAllMap();
 
         $added = 0;
         $updated = 0;

@@ -107,18 +107,23 @@ class UnlockCodeRepository extends EntityRepository
     }
 
     /**
-     * Every unlock code for a company, keyed by IMEI, so an import can upsert in
-     * memory instead of running a query per row.
+     * Every unlock code for the CURRENT company, keyed by IMEI, so an import can
+     * upsert in memory instead of running a query per row.
+     *
+     * Scoping is done by the CompanyFilter (same as the rest of the reads here),
+     * NOT by an explicit "company = :company" clause. That matters: the explicit
+     * form returned nothing in some request contexts, which made a re-upload try
+     * to INSERT rows that already existed and hit the unique (company, imei)
+     * constraint. Going through the filter matches exactly the rows that are
+     * really there, so a re-upload updates them instead of duplicating.
      *
      * @return array<string, UnlockCode>
      */
-    public function findMapForCompany(Company $company): array
+    public function findAllMap(): array
     {
         $map = [];
 
         foreach ($this->createQueryBuilder('u')
-            ->where('u.company = :company')
-            ->setParameter('company', $company)
             ->getQuery()
             ->getResult() as $entry) {
             $map[$entry->getImei()] = $entry;

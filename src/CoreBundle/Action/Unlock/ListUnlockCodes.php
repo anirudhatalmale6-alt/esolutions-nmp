@@ -33,16 +33,16 @@ final readonly class ListUnlockCodes
     }
 
     /**
-     * @return array{total: int, codes: list<\SolidInvoice\CoreBundle\Entity\UnlockCode>, publicUrl: string}
+     * @return array{total: int, publicUrl: string}
      */
     #[Template('@SolidInvoiceCore/Unlock/list.html.twig')]
     public function __invoke(): array
     {
-        // Both the count and the list rely on the CompanyFilter, so the number
-        // shown always matches the rows below it.
+        // Just the headline count (via the CompanyFilter) - the full IMEI list is
+        // intentionally not loaded here: it grows large, and lookups are done via
+        // the bulk box and the customer page instead.
         return [
             'total' => $this->unlockCodeRepository->countAll(),
-            'codes' => $this->unlockCodeRepository->findAllOrdered(),
             'publicUrl' => $this->urlGenerator->generate('_unlock_public', [], UrlGeneratorInterface::ABSOLUTE_URL),
         ];
     }

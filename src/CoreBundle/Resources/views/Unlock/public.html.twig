@@ -28,8 +28,10 @@
         }
         .wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 60px; }
         .head { text-align: center; padding: 8px 0 20px; }
-        .head h1 { margin: 0; font-size: 22px; color: #0f172a; }
-        .head .sub { color: #64748b; font-size: 13px; margin-top: 6px; }
+        .brand { display: inline-flex; align-items: flex-start; gap: 12px; text-align: left; }
+        .brand-logo { height: 52px; width: auto; flex: none; }
+        .brand-info h1 { margin: 0; font-size: 22px; color: #0f172a; }
+        .brand-info .sub { color: #64748b; font-size: 13px; margin-top: 4px; }
         .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
         label { display: block; font-size: 13px; color: #475569; margin-bottom: 6px; font-weight: 600; }
         .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -83,8 +85,13 @@
 <body>
     <div class="wrap">
         <div class="head">
-            <h1>{{ company.name }}</h1>
-            <div class="sub">{{ 'SIM Unlock Code Lookup'|trans }}</div>
+            <div class="brand">
+                <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="brand-logo">
+                <div class="brand-info">
+                    <h1>{{ company.name }}</h1>
+                    <div class="sub">{{ 'SIM Unlock Code Lookup'|trans }}</div>
+                </div>
+            </div>
         </div>
 
         <div class="card">
@@ -113,7 +120,7 @@
                     {% elseif result.code matches '/^\\d+$/' %}
                         <div class="code-box">
                             <div class="code" id="unlock-code" data-imei="{{ imei }}">{{ result.code }}</div>
-                            <button type="button" class="copy" id="copy-code">{{ 'Copy IMEI + code'|trans }}</button>
+                            <button type="button" class="copy" id="copy-code">{{ 'Copy'|trans }}</button>
                         </div>
                     {% else %}
                         <div class="status-box">{{ result.code }}</div>
@@ -133,7 +140,6 @@
         </div>
 
         <div class="powered">
-            <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="powered-logo">
             <div class="powered-text">{{ 'Powered by Unlocking Experts (UK)'|trans }}</div>
         </div>
 

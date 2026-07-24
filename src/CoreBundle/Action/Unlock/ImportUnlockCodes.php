@@ -97,6 +97,15 @@ final class ImportUnlockCodes extends AbstractController
         }
 
         if ($summary['added'] === 0 && $summary['updated'] === 0 && $summary['removed'] === 0) {
+            // We read IMEIs from the file, but every one of them is already on the
+            // list with the same code - so there was simply nothing to change.
+            // That is a success, not the "couldn't read this file" error below.
+            if ($summary['total'] > 0) {
+                $this->addFlash('success', sprintf('That file is already up to date - all %d IMEIs in it are already on your list.', $summary['total']));
+
+                return $this->redirectToRoute('_unlock_list');
+            }
+
             $this->addFlash('error', 'No IMEI codes were found in that file. Please check it has a column of IMEI numbers with the code next to it.');
 
             return $this->redirectToRoute('_unlock_import');

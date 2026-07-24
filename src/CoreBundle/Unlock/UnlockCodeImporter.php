@@ -113,6 +113,10 @@ final class UnlockCodeImporter
         $skipped = 0;
 
         foreach ($best as $imei => $info) {
+            // PHP casts an all-digit array key to int, so $imei arrives here as an
+            // int for numeric IMEIs. Force it back to a string before it reaches
+            // the entity (setImei() is typed string) or a lookup.
+            $imei = (string) $imei;
             $current = $existing[$imei] ?? null;
 
             if ($info['real']) {
@@ -179,11 +183,12 @@ final class UnlockCodeImporter
     }
 
     /**
-     * A "real" code is either a recognised status word (SIM Free / Unlocked /
-     * Locked) or a single token that looks like an unlock code - digits (with
-     * optional letters/dashes), 5-40 chars, at least one digit. Everything else
-     * (blank cells, "NOT SUPPORT", "Wrong IMEI", "device is not eligible"...) is
-     * an error response, not a code.
+     * A "real" answer is either an authoritative supplier STATUS (SIM Free /
+     * Unlocked / "Locked (Cannot provide unlock code)"...) or a single token that
+     * looks like an unlock code - digits (with optional letters/dashes), 5-40
+     * chars, at least one digit. Everything else (blank cells and transient
+     * service-log errors like "NOT SUPPORT", "Wrong IMEI", "device is not
+     * eligible"...) is not a deliverable answer.
      */
     private function isRealCode(string $value): bool
     {
@@ -193,13 +198,41 @@ final class UnlockCodeImporter
             return false;
         }
 
-        if (in_array(strtolower($value), ['sim free', 'simfree', 'unlocked', 'locked', 'already unlocked'], true)) {
+        if ($this->matchesStatus($value)) {
             return true;
         }
 
         // A code is a single token (no spaces) with at least one digit.
         return preg_match('/^[A-Za-z0-9-]{5,40}$/', $value) === 1
             && preg_match('/\d/', $value) === 1;
+    }
+
+    /**
+     * Decide whether a free-text cell is an authoritative supplier status worth
+     * storing (so the customer sees "SIM Free" / "device is locked" instead of
+     * "no code found"), as opposed to a transient service-log error.
+     *
+     * Error phrases are checked FIRST so anything like "device is not eligible,
+     * locked bootloader" is rejected before the "locked" status match can catch
+     * it.
+     */
+    private function matchesStatus(string $value): bool
+    {
+        $value = strtolower(trim($value));
+
+        foreach (['not support', 'notsupport', 'not supported', 'wrong', 'not eligible', 'ineligible', 'invalid', 'fail', 'error', 'retry', 'try again', 'pending', 'processing', 'unavailable', 'no result', 'not found', 'reject'] as $bad) {
+            if (str_contains($value, $bad)) {
+                return false;
+            }
+        }
+
+        foreach (['sim free', 'simfree', 'unlocked', 'already unlocked', 'locked'] as $good) {
+            if (str_contains($value, $good)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

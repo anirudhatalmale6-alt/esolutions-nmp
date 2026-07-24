@@ -35,9 +35,20 @@ use function trim;
  * 14-17 digit numbers) and reads the code from the next column across. That way
  * the owner uploads each file exactly as received, with no reformatting.
  *
+ * Some suppliers instead send the raw unlock-service LOG rather than a clean
+ * IMEI+code sheet. In those the same IMEI appears on many rows - one per attempt
+ * - and most rows are error responses ("NOT SUPPORT", "Wrong IMEI", "device is
+ * not eligible", blank...). The single successful row carries the code, and in
+ * that row the code cell is written as "<imei> <code>" (the IMEI repeated, then
+ * the code). So for each IMEI we keep the best answer across all its rows: a real
+ * code always beats an error message, and where the cell repeats the IMEI we drop
+ * that prefix and store only the code.
+ *
  * Rows are matched to existing entries by IMEI and UPDATED IN PLACE, and files
- * only ADD to the list (they never wipe it), because codes arrive invoice by
- * invoice over time. A separate "clear all" action handles a full reset.
+ * only ADD codes (they never wipe the list), because codes arrive invoice by
+ * invoice over time. The one exception is self-healing: if a re-upload shows only
+ * error responses for an IMEI whose stored value is itself a leftover error (not
+ * a real code), that stale junk row is removed - a real code is never removed.
  */
 final class UnlockCodeImporter
 {
@@ -48,7 +59,7 @@ final class UnlockCodeImporter
     }
 
     /**
-     * @return array{added: int, updated: int, skipped: int, total: int}
+     * @return array{added: int, updated: int, removed: int, skipped: int, total: int}
      */
     public function import(string $filePath, Company $company): array
     {
@@ -69,14 +80,12 @@ final class UnlockCodeImporter
 
         $codeColumn = $imeiColumn + 1;
 
-        // Merge in memory against what the company already has, so a re-upload of
-        // an overlapping file updates rows instead of duplicating them.
-        $existing = $this->unlockCodeRepository->findAllMap();
-
-        $added = 0;
-        $updated = 0;
-        $skipped = 0;
-        $seen = [];
+        // Collapse the file to the single best answer per IMEI first. A real code
+        // beats any error message, so a supplier log where an IMEI has one good
+        // row and several error rows resolves to the good code.
+        //
+        // @var array<string, array{code: string, real: bool}> $best
+        $best = [];
 
         foreach ($rows as $row) {
             $imei = $this->normaliseImei((string) ($row[$imeiColumn] ?? ''));
@@ -85,31 +94,56 @@ final class UnlockCodeImporter
                 continue;
             }
 
-            $code = trim((string) ($row[$codeColumn] ?? ''));
+            [$code, $real] = $this->evaluateCode($imei, (string) ($row[$codeColumn] ?? ''));
 
-            // Guard against a header row like "IMEI" / "Key" slipping through, and
-            // against the same IMEI appearing twice in the file (last one wins).
-            if (isset($seen[$imei])) {
-                $entity = $seen[$imei];
-                $entity->setCode($code);
+            // Keep the new answer when it is a real code, or when we have nothing
+            // better yet (the current best is not a real code either).
+            if (! isset($best[$imei]) || $real || ! $best[$imei]['real']) {
+                $best[$imei] = ['code' => $code, 'real' => $real];
+            }
+        }
+
+        // Merge against what the company already has, so a re-upload updates rows
+        // instead of duplicating them.
+        $existing = $this->unlockCodeRepository->findAllMap();
+
+        $added = 0;
+        $updated = 0;
+        $removed = 0;
+        $skipped = 0;
+
+        foreach ($best as $imei => $info) {
+            $current = $existing[$imei] ?? null;
+
+            if ($info['real']) {
+                if ($current !== null) {
+                    if ($current->getCode() !== $info['code']) {
+                        $current->setCode($info['code']);
+                        ++$updated;
+                    } else {
+                        ++$skipped;
+                    }
+                } else {
+                    $entity = new UnlockCode();
+                    $entity->setCompany($company)
+                        ->setImei($imei)
+                        ->setCode($info['code']);
+                    $this->entityManager->persist($entity);
+                    ++$added;
+                }
+
                 continue;
             }
 
-            if (isset($existing[$imei])) {
-                $entity = $existing[$imei];
-                $entity->setCode($code);
-                ++$updated;
+            // Not a real code: never insert it. If a stale junk row is sitting in
+            // the DB for this IMEI (a leftover error, not a real code), clear it
+            // out; but a genuine code already on file is left untouched.
+            if ($current !== null && ! $this->isRealCode($current->getCode())) {
+                $this->entityManager->remove($current);
+                ++$removed;
             } else {
-                $entity = new UnlockCode();
-                $entity->setCompany($company)
-                    ->setImei($imei)
-                    ->setCode($code);
-                $this->entityManager->persist($entity);
-                $existing[$imei] = $entity;
-                ++$added;
+                ++$skipped;
             }
-
-            $seen[$imei] = $entity;
         }
 
         $this->entityManager->flush();
@@ -117,9 +151,55 @@ final class UnlockCodeImporter
         return [
             'added' => $added,
             'updated' => $updated,
+            'removed' => $removed,
             'skipped' => $skipped,
-            'total' => count($seen),
+            'total' => count($best),
         ];
+    }
+
+    /**
+     * Turn a raw "code" cell for a given IMEI into the code to store, plus a flag
+     * for whether it is a real deliverable code (as opposed to an error/blank).
+     *
+     * Handles the supplier-log format where the cell repeats the IMEI in front of
+     * the code ("<imei> <code>") by dropping that prefix.
+     *
+     * @return array{0: string, 1: bool}
+     */
+    private function evaluateCode(string $imei, string $raw): array
+    {
+        $value = trim($raw);
+
+        // Drop a leading copy of the IMEI, e.g. "353674070701631 3073350715757498".
+        if ($value !== '' && str_starts_with($value, $imei)) {
+            $value = trim(substr($value, strlen($imei)));
+        }
+
+        return [$value, $this->isRealCode($value)];
+    }
+
+    /**
+     * A "real" code is either a recognised status word (SIM Free / Unlocked /
+     * Locked) or a single token that looks like an unlock code - digits (with
+     * optional letters/dashes), 5-40 chars, at least one digit. Everything else
+     * (blank cells, "NOT SUPPORT", "Wrong IMEI", "device is not eligible"...) is
+     * an error response, not a code.
+     */
+    private function isRealCode(string $value): bool
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return false;
+        }
+
+        if (in_array(strtolower($value), ['sim free', 'simfree', 'unlocked', 'locked', 'already unlocked'], true)) {
+            return true;
+        }
+
+        // A code is a single token (no spaces) with at least one digit.
+        return preg_match('/^[A-Za-z0-9-]{5,40}$/', $value) === 1
+            && preg_match('/\d/', $value) === 1;
     }
 
     /**

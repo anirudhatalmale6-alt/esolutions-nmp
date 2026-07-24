@@ -96,18 +96,24 @@ final class ImportUnlockCodes extends AbstractController
             }
         }
 
-        if ($summary['added'] === 0 && $summary['updated'] === 0) {
+        if ($summary['added'] === 0 && $summary['updated'] === 0 && $summary['removed'] === 0) {
             $this->addFlash('error', 'No IMEI codes were found in that file. Please check it has a column of IMEI numbers with the code next to it.');
 
             return $this->redirectToRoute('_unlock_import');
         }
 
-        $this->addFlash('success', sprintf(
+        $message = sprintf(
             'Unlock codes updated: %d new, %d updated (%d IMEIs read from the file).',
             $summary['added'],
             $summary['updated'],
             $summary['total'],
-        ));
+        );
+
+        if ($summary['removed'] > 0) {
+            $message .= sprintf(' %d stale entr%s with no valid code removed.', $summary['removed'], $summary['removed'] === 1 ? 'y' : 'ies');
+        }
+
+        $this->addFlash('success', $message);
 
         return $this->redirectToRoute('_unlock_list');
     }

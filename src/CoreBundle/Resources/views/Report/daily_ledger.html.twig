@@ -119,7 +119,7 @@
             <div class="card"><div class="card-body">
                 <div class="text-muted small text-uppercase">{{ 'Invoiced today'|trans }}</div>
                 <div class="h3 mb-0">AED {{ invoicesTotal|number_format(2) }}</div>
-                <div class="small text-muted">{{ invoices|length }} {{ 'invoice(s)'|trans }}</div>
+                <div class="small text-muted">{{ billedCount }} {{ 'invoice(s)'|trans }}{% if cancelledCount > 0 %} · {{ cancelledCount }} {{ 'cancelled'|trans }}{% endif %}</div>
             </div></div>
         </div>
     </div>
@@ -239,17 +239,19 @@
                 {% else %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
-                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
+                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th>{{ 'Status'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
                             <tbody>
                                 {% for inv in invoices %}
-                                    <tr>
+                                    {% set isCancelled = inv.status == 'cancelled' %}
+                                    <tr class="{{ isCancelled ? 'text-muted' : '' }}">
                                         <td>{{ inv.invoiceId ?: '—' }}</td>
                                         <td>{{ inv.client }}</td>
-                                        <td class="text-end">AED {{ inv.total|number_format(2) }}</td>
-                                        <td class="text-end {{ inv.balance == '0.00' ? 'text-success' : '' }}">AED {{ inv.balance|number_format(2) }}</td>
+                                        <td><span class="badge bg-{{ inv.statusColor }}-lt">{{ inv.statusLabel }}</span></td>
+                                        <td class="text-end {{ isCancelled ? 'text-decoration-line-through' : '' }}">AED {{ inv.total|number_format(2) }}</td>
+                                        <td class="text-end {{ not isCancelled and inv.balance == '0.00' ? 'text-success' : '' }}">{{ isCancelled ? '—' : 'AED ' ~ inv.balance|number_format(2) }}</td>
                                     </tr>
                                 {% endfor %}
-                                <tr class="fw-bold"><td colspan="2" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td><td></td></tr>
+                                <tr class="fw-bold"><td colspan="3" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td><td></td></tr>
                             </tbody>
                         </table>
                     </div>

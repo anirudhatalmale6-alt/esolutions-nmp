@@ -21,6 +21,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Repository\ExpenseRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\PaymentBundle\Entity\Payment;
 use SolidInvoice\PaymentBundle\Enum\PaymentStatus;
 use Symfony\Bridge\Twig\Attribute\Template;
@@ -86,8 +87,19 @@ final readonly class DailyLedger
             $refundsOut = $refundsOut->plus(BigDecimal::of($refund->getAmount()));
         }
 
+        // A cancelled invoice was voided - it is not money billed and its balance
+        // is not owed - so it is left out of the day's billed total and counted
+        // separately. It still gets listed (marked Cancelled) so the day is complete.
         $invoicesTotal = BigDecimal::zero();
+        $billedCount = 0;
+        $cancelledCount = 0;
         foreach ($invoices as $invoice) {
+            if (($invoice['status'] ?? '') === InvoiceStatus::Cancelled->value) {
+                ++$cancelledCount;
+                continue;
+            }
+
+            ++$billedCount;
             $invoicesTotal = $invoicesTotal->plus(BigDecimal::of($invoice['total']));
         }
 
@@ -102,6 +114,8 @@ final readonly class DailyLedger
             'expenses' => $expenses,
             'refunds' => $refunds,
             'invoices' => $invoices,
+            'billedCount' => $billedCount,
+            'cancelledCount' => $cancelledCount,
             'moneyIn' => (string) $moneyIn->toScale(2),
             'supplierOut' => (string) $supplierOut->toScale(2),
             'expensesOut' => (string) $expensesOut->toScale(2),
@@ -260,13 +274,18 @@ final readonly class DailyLedger
 
         foreach ($rows as $row) {
             $status = $row['status'] ?? null;
+            $statusEnum = $status instanceof InvoiceStatus
+                ? $status
+                : InvoiceStatus::tryFrom((string) ($status instanceof BackedEnum ? $status->value : ($status ?? '')));
 
             $invoices[] = [
                 'invoiceId' => (string) ($row['invoiceId'] ?? ''),
                 'client' => (string) ($row['client'] ?? '—'),
                 'total' => $this->toMajor((string) ($row['total'] ?? '0')),
                 'balance' => $this->toMajor((string) ($row['balance'] ?? '0')),
-                'status' => $status instanceof BackedEnum ? (string) $status->value : (string) ($status ?? ''),
+                'status' => $statusEnum?->value ?? '',
+                'statusLabel' => $statusEnum?->getLabel() ?? '—',
+                'statusColor' => $statusEnum?->getColor() ?? 'secondary',
             ];
         }
 

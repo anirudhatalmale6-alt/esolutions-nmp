@@ -8,8 +8,8 @@
  #
  # Public, no-login IMEI unlock-code lookup. Customer types an IMEI and gets the
  # code back - nothing else. Doubles as a minimal, mobile-first promo page for
- # NMP Mobiles. Self-contained (inline CSS/JS) so it renders anywhere the link is
- # shared.
+ # NMP Mobiles (brand + sourcing note + carrier logos anchored at the bottom).
+ # Self-contained (inline CSS/JS) so it renders anywhere the link is shared.
  #}
 <!DOCTYPE html>
 <html lang="en">
@@ -21,6 +21,7 @@
     <style>
         :root { color-scheme: light; }
         * { box-sizing: border-box; }
+        html, body { height: 100%; }
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -28,14 +29,17 @@
             color: #1e293b;
             -webkit-font-smoothing: antialiased;
         }
-        .wrap { max-width: 480px; margin: 0 auto; padding: 34px 18px 48px; }
-
-        .head { text-align: center; padding: 4px 0 22px; }
-        .head .logo { height: 56px; width: auto; }
-        .head .sub {
-            margin-top: 12px; color: #64748b; font-size: 13px; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 1.4px;
+        .wrap {
+            max-width: 480px; margin: 0 auto; min-height: 100%;
+            display: flex; flex-direction: column; padding: 24px 18px 28px;
         }
+
+        /* Top: Powered by Unlocking Experts (UK) lockup */
+        .powered-head { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px 0 26px; }
+        .powered-head img { height: 46px; width: auto; flex: none; }
+        .powered-head .txt { text-align: left; line-height: 1.25; }
+        .powered-head .txt .a { color: #94a3b8; font-size: 13px; }
+        .powered-head .txt .b { color: #475569; font-size: 15px; font-weight: 700; }
 
         .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
         label { display: block; font-size: 13px; color: #475569; margin-bottom: 8px; font-weight: 600; }
@@ -78,50 +82,38 @@
         .notfound-box .hint a { color: #b91c1c; font-weight: 600; }
         .tip { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 16px; }
 
-        .contact { text-align: center; margin-top: 22px; color: #475569; font-size: 14px; }
-        .wa-link {
-            display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; padding: 7px 15px;
-            border-radius: 999px; background: #25d366; color: #fff; text-decoration: none; font-weight: 600;
-        }
-        .wa-link:hover { background: #1ebe5b; }
+        .support { text-align: center; margin-top: 20px; color: #475569; font-size: 15px; }
+        .support a { color: #2563eb; text-decoration: none; font-weight: 700; }
+        .support a:hover { text-decoration: underline; }
 
-        /* Minimal business / promo block */
-        .promo {
-            margin-top: 28px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-            padding: 22px; text-align: center;
-        }
-        .promo .tagline { font-size: 14px; line-height: 1.55; color: #334155; }
-        .promo .hubs {
-            margin-top: 12px; font-size: 12px; color: #64748b; font-weight: 600;
-            letter-spacing: .3px;
-        }
-        .promo .hubs b { color: #4f46e5; font-weight: 700; }
-        .promo .divider { height: 1px; background: #eef2f7; margin: 18px 0; }
-        .promo .biz-name { font-weight: 700; color: #0f172a; font-size: 15px; letter-spacing: .3px; }
-        .promo .biz-line { color: #64748b; font-size: 13px; margin-top: 4px; }
-        .promo a.web { color: #4f46e5; text-decoration: none; font-weight: 600; }
-        .promo a.web:hover { text-decoration: underline; }
-        .promo .phones { margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.9; }
-        .promo .phones a { color: #475569; text-decoration: none; }
-        .promo .phones .lbl { color: #94a3b8; }
-        .promo .phones .ph { white-space: nowrap; display: inline-block; }
-        .promo .phones .sep { color: #cbd5e1; margin: 0 6px; }
+        /* Spacer pushes the brand footer to the bottom of the screen */
+        .spacer { flex: 1 1 auto; min-height: 40px; }
 
-        .powered { text-align: center; margin-top: 26px; }
-        .powered-logo { width: 84px; height: auto; opacity: .9; }
-        .powered-text { color: #94a3b8; font-size: 12px; margin-top: 6px; letter-spacing: .3px; }
-
-        @media (max-width: 400px) {
-            .row { flex-direction: column; }
-            .btn { width: 100%; }
+        /* Bottom: NMP brand + sourcing note + carrier logos */
+        .brand-foot { text-align: center; padding-top: 8px; }
+        .brand-foot .name { font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: .5px; }
+        .brand-foot .about {
+            margin: 12px auto 0; max-width: 420px; color: #475569; font-size: 13.5px; line-height: 1.6;
         }
+        .carriers {
+            margin-top: 22px; display: flex; align-items: center; justify-content: center;
+            flex-wrap: wrap; gap: 12px 16px;
+        }
+        .carriers img { display: block; width: auto; opacity: .9; }
+        .carriers img.au { height: 21px; }
+        .carriers img.docomo { height: 18px; }
+        .carriers img.softbank { height: 15px; }
+        .carriers img.att { height: 20px; }
     </style>
 </head>
 <body>
     <div class="wrap">
-        <div class="head">
-            <img src="{{ asset('images/nmp-logo.png') }}" alt="{{ company.name }}" class="logo">
-            <div class="sub">{{ 'SIM Unlock Code Lookup'|trans }}</div>
+        <div class="powered-head">
+            <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)">
+            <div class="txt">
+                <div class="a">{{ 'Powered by'|trans }}</div>
+                <div class="b">{{ 'Unlocking Experts (UK)'|trans }}</div>
+            </div>
         </div>
 
         <div class="card">
@@ -142,7 +134,7 @@
                             {{ 'No code found for this IMEI.'|trans }}
                             <div class="hint">
                                 {{ 'Please check the number and try again, or'|trans }}
-                                <a href="{{ whatsappUrl }}" target="_blank" rel="noopener">{{ 'contact us on WhatsApp'|trans }}</a>.
+                                <a href="{{ whatsappUrl }}" target="_blank" rel="noopener">{{ 'chat with us'|trans }}</a>.
                             </div>
                         </div>
                     {% elseif result.code|trim == '' %}
@@ -161,31 +153,24 @@
             {% endif %}
         </div>
 
-        <div class="contact">
-            {{ 'Need help?'|trans }}
-            <a href="{{ whatsappUrl }}" target="_blank" rel="noopener" class="wa-link">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.3-1.38a9.9 9.9 0 0 0 4.73 1.2h.01c5.46 0 9.9-4.44 9.9-9.9 0-2.64-1.03-5.13-2.9-7A9.82 9.82 0 0 0 12.04 2Zm5.8 14.16c-.24.68-1.42 1.32-1.95 1.36-.5.04-.96.22-3.23-.67-2.73-1.08-4.45-3.86-4.58-4.04-.13-.18-1.1-1.46-1.1-2.78 0-1.32.7-1.97.94-2.24.24-.27.53-.34.7-.34.18 0 .35 0 .5.01.16.01.38-.06.6.46.23.53.77 1.85.84 1.98.07.13.11.29.02.47-.09.18-.13.29-.27.44-.13.16-.28.35-.4.47-.13.13-.27.28-.12.54.16.27.7 1.15 1.5 1.86 1.04.92 1.9 1.2 2.17 1.34.27.13.42.11.58-.07.16-.18.67-.78.85-1.05.18-.27.35-.22.6-.13.24.09 1.54.72 1.8.86.27.13.44.2.5.31.07.11.07.63-.17 1.31Z"/></svg>
-                {{ 'Chat with us on WhatsApp'|trans }}
-            </a>
+        <div class="support">
+            {{ 'Need support?'|trans }}
+            <a href="{{ whatsappUrl }}" target="_blank" rel="noopener">{{ 'Click here to chat'|trans }}</a>
         </div>
 
-        <div class="promo">
-            <div class="tagline">
-                {{ 'Sourcing top-tier Japan-spec & international phones, direct from the world\'s leading tech hubs.'|trans }}
-            </div>
-            <div class="hubs"><b>Japan</b> · <b>Hong Kong</b> · <b>USA</b> · <b>UK</b></div>
-            <div class="divider"></div>
-            <div class="biz-name">{{ 'NMP MOBILES'|trans }}</div>
-            <div class="biz-line">{{ 'Deira, Dubai · United Arab Emirates'|trans }}</div>
-            <div class="biz-line"><a class="web" href="https://mobilesonline.ae" target="_blank" rel="noopener">mobilesonline.ae</a></div>
-            <div class="phones">
-                <span class="ph"><span class="lbl">{{ 'UAE'|trans }}</span> <a href="tel:+971585678669">+971 5856 78669</a></span><span class="sep">·</span><span class="ph"><span class="lbl">{{ 'Hong Kong'|trans }}</span> <a href="tel:+85292934004">+852 9293 4004</a></span>
-            </div>
-        </div>
+        <div class="spacer"></div>
 
-        <div class="powered">
-            <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="powered-logo">
-            <div class="powered-text">{{ 'Powered by Unlocking Experts (UK)'|trans }}</div>
+        <div class="brand-foot">
+            <div class="name">{{ 'NMP MOBILES'|trans }}</div>
+            <div class="about">
+                {{ 'Global supply sourcing of top-tier, Japan-spec and international mobile phones, direct from the world\'s leading tech hubs: Japan, HK, Korea, USA & UK.'|trans }}
+            </div>
+            <div class="carriers">
+                <img class="au" src="{{ asset('images/carrier-au.svg') }}" alt="au">
+                <img class="docomo" src="{{ asset('images/carrier-docomo.png') }}" alt="NTT docomo">
+                <img class="softbank" src="{{ asset('images/carrier-softbank.png') }}" alt="SoftBank">
+                <img class="att" src="{{ asset('images/carrier-att.svg') }}" alt="AT&amp;T">
+            </div>
         </div>
     </div>
 

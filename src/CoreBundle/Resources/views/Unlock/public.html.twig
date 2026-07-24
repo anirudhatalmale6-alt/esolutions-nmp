@@ -7,8 +7,9 @@
  # with this source code in the file LICENSE.
  #
  # Public, no-login IMEI unlock-code lookup. Customer types an IMEI and gets the
- # code back - nothing else. Self-contained (inline CSS/JS) so it renders
- # anywhere the link is shared.
+ # code back - nothing else. Doubles as a minimal, mobile-first promo page for
+ # NMP Mobiles. Self-contained (inline CSS/JS) so it renders anywhere the link is
+ # shared.
  #}
 <!DOCTYPE html>
 <html lang="en">
@@ -25,26 +26,32 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: #f1f5f9;
             color: #1e293b;
+            -webkit-font-smoothing: antialiased;
         }
-        .wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 60px; }
-        .head { text-align: center; padding: 8px 0 20px; }
-        .brand { display: inline-flex; align-items: flex-start; gap: 12px; text-align: left; }
-        .brand-logo { height: 52px; width: auto; flex: none; }
-        .brand-info h1 { margin: 0; font-size: 22px; color: #0f172a; }
-        .brand-info .sub { color: #64748b; font-size: 13px; margin-top: 4px; }
-        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
-        label { display: block; font-size: 13px; color: #475569; margin-bottom: 6px; font-weight: 600; }
-        .row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .wrap { max-width: 480px; margin: 0 auto; padding: 34px 18px 48px; }
+
+        .head { text-align: center; padding: 4px 0 22px; }
+        .head .logo { height: 56px; width: auto; }
+        .head .sub {
+            margin-top: 12px; color: #64748b; font-size: 13px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1.4px;
+        }
+
+        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+        label { display: block; font-size: 13px; color: #475569; margin-bottom: 8px; font-weight: 600; }
+        .row { display: flex; gap: 8px; }
         .search {
-            flex: 1 1 200px; min-width: 0; padding: 13px 14px; font-size: 16px; border: 1px solid #cbd5e1;
-            border-radius: 10px; background: #fff;
+            flex: 1 1 auto; min-width: 0; padding: 13px 14px; font-size: 16px; border: 1px solid #cbd5e1;
+            border-radius: 10px; background: #fff; color: #0f172a;
         }
+        .search::placeholder { color: #cbd5e1; font-weight: 400; }
         .search:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
         .btn {
-            padding: 13px 22px; font-size: 15px; font-weight: 600; border: none; border-radius: 10px;
-            background: #4f46e5; color: #fff; cursor: pointer;
+            flex: none; padding: 13px 22px; font-size: 15px; font-weight: 600; border: none; border-radius: 10px;
+            background: #4f46e5; color: #fff; cursor: pointer; white-space: nowrap;
         }
         .btn:hover { background: #4338ca; }
+
         .result { margin-top: 20px; }
         .result-imei { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
         .code-box {
@@ -68,30 +75,53 @@
             padding: 18px; text-align: center; color: #b91c1c; font-weight: 600;
         }
         .notfound-box .hint { font-weight: 400; color: #7f1d1d; font-size: 13px; margin-top: 6px; }
+        .notfound-box .hint a { color: #b91c1c; font-weight: 600; }
         .tip { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 16px; }
+
         .contact { text-align: center; margin-top: 22px; color: #475569; font-size: 14px; }
         .wa-link {
-            display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; padding: 6px 14px;
+            display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; padding: 7px 15px;
             border-radius: 999px; background: #25d366; color: #fff; text-decoration: none; font-weight: 600;
         }
         .wa-link:hover { background: #1ebe5b; }
-        .notfound-box .hint a { color: #b91c1c; font-weight: 600; }
+
+        /* Minimal business / promo block */
+        .promo {
+            margin-top: 28px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+            padding: 22px; text-align: center;
+        }
+        .promo .tagline { font-size: 14px; line-height: 1.55; color: #334155; }
+        .promo .hubs {
+            margin-top: 12px; font-size: 12px; color: #64748b; font-weight: 600;
+            letter-spacing: .3px;
+        }
+        .promo .hubs b { color: #4f46e5; font-weight: 700; }
+        .promo .divider { height: 1px; background: #eef2f7; margin: 18px 0; }
+        .promo .biz-name { font-weight: 700; color: #0f172a; font-size: 15px; letter-spacing: .3px; }
+        .promo .biz-line { color: #64748b; font-size: 13px; margin-top: 4px; }
+        .promo a.web { color: #4f46e5; text-decoration: none; font-weight: 600; }
+        .promo a.web:hover { text-decoration: underline; }
+        .promo .phones { margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.9; }
+        .promo .phones a { color: #475569; text-decoration: none; }
+        .promo .phones .lbl { color: #94a3b8; }
+        .promo .phones .ph { white-space: nowrap; display: inline-block; }
+        .promo .phones .sep { color: #cbd5e1; margin: 0 6px; }
+
         .powered { text-align: center; margin-top: 26px; }
-        .powered-logo { width: 96px; height: auto; opacity: .95; }
-        .powered-text { color: #64748b; font-size: 12px; margin-top: 6px; letter-spacing: .3px; }
-        .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 14px; }
+        .powered-logo { width: 84px; height: auto; opacity: .9; }
+        .powered-text { color: #94a3b8; font-size: 12px; margin-top: 6px; letter-spacing: .3px; }
+
+        @media (max-width: 400px) {
+            .row { flex-direction: column; }
+            .btn { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <div class="wrap">
         <div class="head">
-            <div class="brand">
-                <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="brand-logo">
-                <div class="brand-info">
-                    <h1>{{ company.name }}</h1>
-                    <div class="sub">{{ 'SIM Unlock Code Lookup'|trans }}</div>
-                </div>
-            </div>
+            <img src="{{ asset('images/nmp-logo.png') }}" alt="{{ company.name }}" class="logo">
+            <div class="sub">{{ 'SIM Unlock Code Lookup'|trans }}</div>
         </div>
 
         <div class="card">
@@ -139,11 +169,24 @@
             </a>
         </div>
 
-        <div class="powered">
-            <div class="powered-text">{{ 'Powered by Unlocking Experts (UK)'|trans }}</div>
+        <div class="promo">
+            <div class="tagline">
+                {{ 'Sourcing top-tier Japan-spec & international phones, direct from the world\'s leading tech hubs.'|trans }}
+            </div>
+            <div class="hubs"><b>Japan</b> · <b>Hong Kong</b> · <b>USA</b> · <b>UK</b></div>
+            <div class="divider"></div>
+            <div class="biz-name">{{ 'NMP MOBILES'|trans }}</div>
+            <div class="biz-line">{{ 'Deira, Dubai · United Arab Emirates'|trans }}</div>
+            <div class="biz-line"><a class="web" href="https://mobilesonline.ae" target="_blank" rel="noopener">mobilesonline.ae</a></div>
+            <div class="phones">
+                <span class="ph"><span class="lbl">{{ 'UAE'|trans }}</span> <a href="tel:+971585678669">+971 5856 78669</a></span><span class="sep">·</span><span class="ph"><span class="lbl">{{ 'Hong Kong'|trans }}</span> <a href="tel:+85292934004">+852 9293 4004</a></span>
+            </div>
         </div>
 
-        <div class="foot">{{ company.name }}</div>
+        <div class="powered">
+            <img src="{{ asset('images/unlocking-experts.png') }}" alt="Unlocking Experts (UK)" class="powered-logo">
+            <div class="powered-text">{{ 'Powered by Unlocking Experts (UK)'|trans }}</div>
+        </div>
     </div>
 
     <script>

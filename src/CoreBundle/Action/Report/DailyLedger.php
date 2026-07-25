@@ -91,6 +91,7 @@ final readonly class DailyLedger
         // is not owed - so it is left out of the day's billed total and counted
         // separately. It still gets listed (marked Cancelled) so the day is complete.
         $invoicesTotal = BigDecimal::zero();
+        $invoicesPaid = BigDecimal::zero();
         $billedCount = 0;
         $cancelledCount = 0;
         foreach ($invoices as $invoice) {
@@ -101,6 +102,7 @@ final readonly class DailyLedger
 
             ++$billedCount;
             $invoicesTotal = $invoicesTotal->plus(BigDecimal::of($invoice['total']));
+            $invoicesPaid = $invoicesPaid->plus(BigDecimal::of($invoice['paid']));
         }
 
         $moneyOut = $supplierOut->plus($expensesOut)->plus($refundsOut);
@@ -122,6 +124,7 @@ final readonly class DailyLedger
             'refundsOut' => (string) $refundsOut->toScale(2),
             'moneyOut' => (string) $moneyOut->toScale(2),
             'invoicesTotal' => (string) $invoicesTotal->toScale(2),
+            'invoicesPaid' => (string) $invoicesPaid->toScale(2),
             'net' => (string) $net->toScale(2),
         ];
     }
@@ -278,11 +281,22 @@ final readonly class DailyLedger
                 ? $status
                 : InvoiceStatus::tryFrom((string) ($status instanceof BackedEnum ? $status->value : ($status ?? '')));
 
+            $total = $this->toMajor((string) ($row['total'] ?? '0'));
+            $balance = $this->toMajor((string) ($row['balance'] ?? '0'));
+
+            // Paid so far = total billed minus what is still owed. Never let it go
+            // negative if a balance somehow exceeds the total.
+            $paid = BigDecimal::of($total)->minus(BigDecimal::of($balance));
+            if ($paid->isNegative()) {
+                $paid = BigDecimal::zero();
+            }
+
             $invoices[] = [
                 'invoiceId' => (string) ($row['invoiceId'] ?? ''),
                 'client' => (string) ($row['client'] ?? '—'),
-                'total' => $this->toMajor((string) ($row['total'] ?? '0')),
-                'balance' => $this->toMajor((string) ($row['balance'] ?? '0')),
+                'total' => $total,
+                'balance' => $balance,
+                'paid' => (string) $paid->toScale(2),
                 'status' => $statusEnum?->value ?? '',
                 'statusLabel' => $statusEnum?->getLabel() ?? '—',
                 'statusColor' => $statusEnum?->getColor() ?? 'secondary',

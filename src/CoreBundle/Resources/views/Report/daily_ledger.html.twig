@@ -239,7 +239,7 @@
                 {% else %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
-                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th>{{ 'Status'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
+                            <thead><tr><th>{{ 'Invoice'|trans }}</th><th>{{ 'Customer'|trans }}</th><th>{{ 'Status'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Paid'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
                             <tbody>
                                 {% for inv in invoices %}
                                     {% set isCancelled = inv.status == 'cancelled' %}
@@ -248,10 +248,11 @@
                                         <td>{{ inv.client }}</td>
                                         <td><span class="badge bg-{{ inv.statusColor }}-lt">{{ inv.statusLabel }}</span></td>
                                         <td class="text-end {{ isCancelled ? 'text-decoration-line-through' : '' }}">AED {{ inv.total|number_format(2) }}</td>
+                                        <td class="text-end {{ not isCancelled and inv.paid != '0.00' ? 'text-success' : '' }}">{{ isCancelled ? '—' : 'AED ' ~ inv.paid|number_format(2) }}</td>
                                         <td class="text-end {{ not isCancelled and inv.balance == '0.00' ? 'text-success' : '' }}">{{ isCancelled ? '—' : 'AED ' ~ inv.balance|number_format(2) }}</td>
                                     </tr>
                                 {% endfor %}
-                                <tr class="fw-bold"><td colspan="3" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td><td></td></tr>
+                                <tr class="fw-bold"><td colspan="3" class="text-end">{{ 'Total billed'|trans }}</td><td class="text-end">AED {{ invoicesTotal|number_format(2) }}</td><td class="text-end text-success">AED {{ invoicesPaid|number_format(2) }}</td><td></td></tr>
                             </tbody>
                         </table>
                     </div>

@@ -107,7 +107,7 @@ final class MarketplaceManager
     /**
      * Every listed business that has the searched model in stock (quantity > 0).
      *
-     * @return list<array{business: string, model: string, qty: int, whatsapp: string, chatUrl: string, city: string, country: string, flag: string, location: string}>
+     * @return list<array{vendorId: string, business: string, model: string, qty: int, whatsapp: string, chatUrl: string, city: string, country: string, flag: string, location: string}>
      */
     public function search(string $query): array
     {
@@ -147,7 +147,7 @@ final class MarketplaceManager
         }
 
         $rows = $this->connection->executeQuery(
-            'SELECT c.name AS business, sm.name AS model, sm.quantity AS qty,
+            'SELECT HEX(c.id) AS vendorId, c.name AS business, sm.name AS model, sm.quantity AS qty,
                     ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city
              FROM stock_model sm
              INNER JOIN companies c ON c.id = sm.company_id
@@ -168,6 +168,7 @@ final class MarketplaceManager
             $city = (string) ($row['city'] ?? '');
 
             $results[] = [
+                'vendorId' => (string) ($row['vendorId'] ?? ''),
                 'business' => (string) ($row['business'] ?? ''),
                 'model' => $model,
                 'qty' => (int) ($row['qty'] ?? 0),
@@ -182,6 +183,40 @@ final class MarketplaceManager
         }
 
         return $results;
+    }
+
+    /**
+     * Search, then collapse to ONE listing per vendor: each vendor appears once
+     * with the list of matching models (and quantities) they hold. The Chat link
+     * uses what the buyer searched for, since a vendor may match several models.
+     *
+     * @return list<array{vendorId: string, business: string, city: string, country: string, flag: string, location: string, whatsapp: string, chatUrl: string, items: list<array{model: string, qty: int}>}>
+     */
+    public function searchGrouped(string $query): array
+    {
+        $groups = [];
+
+        foreach ($this->search($query) as $row) {
+            $key = $row['vendorId'];
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'vendorId' => $row['vendorId'],
+                    'business' => $row['business'],
+                    'city' => $row['city'],
+                    'country' => $row['country'],
+                    'flag' => $row['flag'],
+                    'location' => $row['location'],
+                    'whatsapp' => $row['whatsapp'],
+                    'chatUrl' => $row['whatsapp'] === '' ? '' : $this->chatUrl($row['whatsapp'], trim($query)),
+                    'items' => [],
+                ];
+            }
+
+            $groups[$key]['items'][] = ['model' => $row['model'], 'qty' => $row['qty']];
+        }
+
+        return array_values($groups);
     }
 
     /**

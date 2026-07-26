@@ -20,61 +20,49 @@
     <meta name="robots" content="noindex, nofollow">
     <title>{{ 'Mobile Phones Wholesale & Distributors'|trans }}</title>
     <style>
-        :root { --bg:#ffffff; --card:#ffffff; --ink:#1f2430; --muted:#8a929c; --line:#e8ebf1;
-                --brand:#4285f4; --brand2:#9b72cb; --brand3:#d96570; --wa:#25d366; --chip:#f1f4f9;
-                --shadow:0 8px 28px -14px rgba(20,40,80,.28); }
+        :root { --bg:#f7f8fa; --card:#ffffff; --ink:#20242c; --muted:#8b919b; --line:#e8eaef;
+                --chip:#f2f3f6; --accent:#20242c; --accent-ink:#ffffff; --wa:#25d366; }
         * { box-sizing: border-box; }
         html, body { margin:0; overflow-x:hidden; }
-        body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); min-height:100vh; -webkit-text-size-adjust:100%;
-               background:
-                 radial-gradient(900px 480px at 12% -10%, rgba(66,133,244,.10), transparent 60%),
-                 radial-gradient(900px 480px at 100% -4%, rgba(155,114,203,.12), transparent 55%),
-                 var(--bg); }
-        .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 64px; }
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); min-height:100vh; -webkit-text-size-adjust:100%; }
+        .wrap { max-width: 680px; margin: 0 auto; padding: 16px 16px 64px; }
         .topbar { display:flex; justify-content:flex-end; align-items:center; gap:8px; min-height:26px; }
         .topbar a { text-decoration:none; }
-        .authlink { color:var(--brand); font-weight:600; font-size:.9rem; padding:6px 14px; border:1px solid #dbe3f5; border-radius:999px; background:#fff; }
-        .authlink.solid { background:linear-gradient(90deg,var(--brand),var(--brand2)); color:#fff; border:0; }
+        .authlink { color:var(--ink); font-weight:600; font-size:.9rem; padding:6px 14px; border:1px solid var(--line); border-radius:999px; background:var(--card); }
+        .authlink.solid { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
         .topbar .sep { color:var(--muted); }
-        header.top { text-align:center; padding: 26px 0 8px; }
-        header.top h1 { margin:0; white-space:nowrap; font-size: clamp(0.8rem, 4.1vw, 2rem); font-weight:700; letter-spacing:-.4px;
-                        background:linear-gradient(90deg,var(--brand),var(--brand2) 55%,var(--brand3));
-                        -webkit-background-clip:text; background-clip:text; color:transparent; }
-        header.top p { margin:.5rem 0 0; color:var(--muted); font-size:.95rem; }
-        form.search { display:flex; gap:8px; margin: 22px 0 6px; position: sticky; top: 10px; z-index:5; }
-        form.search input[type=text] { flex:1; min-width:0; padding: 15px 20px; font-size:16px; border:1px solid var(--line); border-radius:28px; background:#fff; color:var(--ink); box-shadow:var(--shadow); outline:none; }
-        form.search input[type=text]:focus { border-color:#c7d6f7; box-shadow:0 8px 28px -10px rgba(66,133,244,.4); }
-        form.search input::placeholder { color:#aeb6c2; font-weight:400; }
-        form.search button { padding: 0 22px; font-size:15px; font-weight:600; border:0; border-radius:28px; background:linear-gradient(90deg,var(--brand),var(--brand2)); color:#fff; cursor:pointer; box-shadow:var(--shadow); }
-        .hint { color:var(--muted); font-size:.9rem; margin:14px 4px; text-align:center; }
+        header.top { text-align:center; padding: 24px 0 6px; }
+        header.top h1 { margin:0; white-space:nowrap; font-size: clamp(0.8rem, 4.1vw, 1.9rem); font-weight:700; letter-spacing:-.4px; color:var(--ink); }
+        header.top p { margin:.45rem 0 0; color:var(--muted); font-size:.92rem; }
+        form.search { display:flex; gap:8px; margin: 20px 0 6px; position: sticky; top: 10px; z-index:5; }
+        form.search input[type=text] { flex:1; min-width:0; padding: 14px 18px; font-size:16px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); outline:none; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+        form.search input[type=text]:focus { border-color:#c3c8d0; }
+        form.search input::placeholder { color:#aab0ba; font-weight:400; }
+        form.search button { padding: 0 20px; font-size:15px; font-weight:600; border:0; border-radius:12px; background:var(--accent); color:var(--accent-ink); cursor:pointer; }
         .count { color:var(--muted); font-size:.82rem; margin:16px 4px 8px; }
-        .result { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; box-shadow:0 2px 12px -8px rgba(20,40,80,.18); }
+        .result { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
         .result .info { flex:1 1 auto; min-width:0; }
         .result .model { font-weight:700; font-size:1.02rem; word-break:break-word; text-align:left; }
         .result .loc { color:var(--muted); font-size:.85rem; margin-top:3px; text-align:left; }
         .result .loc .flag { font-size:1rem; }
-        .chips { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-start; margin-top:9px; }
-        .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:6px 12px; font-size:.82rem; font-weight:600; white-space:nowrap; }
+        .items { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+        .item { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .item .mname { font-size:.92rem; word-break:break-word; }
+        .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:.8rem; font-weight:600; white-space:nowrap; }
         .chip b { font-weight:800; }
-        .chat { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:11px 18px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:999px; font-size:.9rem; white-space:nowrap; }
+        .chat { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:11px 18px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:12px; font-size:.9rem; white-space:nowrap; }
         .nowa { margin-left:auto; color:var(--muted); font-size:.82rem; }
-        .empty { text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:16px; padding: 30px 16px; margin-top:12px; }
+        .empty { text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:14px; padding: 30px 16px; margin-top:12px; }
         footer.foot { text-align:center; color:var(--muted); font-size:.8rem; margin-top:30px; }
         @media (max-width: 480px) {
             .result { align-items:stretch; }
             .result .info { flex-basis:100%; }
-            .chips { width:100%; }
             .chat { width:100%; justify-content:center; margin-left:0; }
             .nowa { margin-left:0; }
         }
         @media (prefers-color-scheme: dark) {
-            :root { --bg:#0f1216; --card:#171b22; --ink:#e8ebef; --muted:#98a2ad; --line:#272d37; --chip:#232a34; }
-            body { background:
-                     radial-gradient(900px 480px at 12% -10%, rgba(66,133,244,.14), transparent 60%),
-                     radial-gradient(900px 480px at 100% -4%, rgba(155,114,203,.16), transparent 55%),
-                     var(--bg); }
-            .authlink { background:#171b22; border-color:#2b3340; }
-            form.search input[type=text] { background:#171b22; }
+            :root { --bg:#0f1216; --card:#171b22; --ink:#e8ebef; --muted:#98a2ad; --line:#272d37; --chip:#222831; --accent:#e9ecf1; --accent-ink:#12151a; }
+            form.search input[type=text]:focus { border-color:#3a4150; }
         }
     </style>
 </head>
@@ -105,29 +93,33 @@
         {% if results is empty %}
             <div class="empty">{{ 'No listed seller has "%q%" in stock right now.'|trans({'%q%': query}) }}</div>
         {% else %}
-            <div class="count">{{ '%n% result(s)'|trans({'%n%': results|length}) }}</div>
-            {% for r in results %}
-                {% set place = r.city ?: r.country %}
+            <div class="count">{{ '%n% seller(s)'|trans({'%n%': results|length}) }}</div>
+            {% for g in results %}
+                {% set place = g.city ?: g.country %}
                 <div class="result">
                     <div class="info">
                         {# Signed-in: business name is the headline, location under it.
                            Guest: business name is hidden, so location is the headline. #}
-                        {% if loggedIn and r.business is not empty %}
-                            <div class="model">{{ r.business }}</div>
-                            {% if r.flag is not empty or place is not empty %}
-                                <div class="loc">{% if r.flag is not empty %}<span class="flag">{{ r.flag }}</span> {% endif %}{{ place }}</div>
+                        {% if loggedIn and g.business is not empty %}
+                            <div class="model">{{ g.business }}</div>
+                            {% if g.flag is not empty or place is not empty %}
+                                <div class="loc">{% if g.flag is not empty %}<span class="flag">{{ g.flag }}</span> {% endif %}{{ place }}</div>
                             {% endif %}
                         {% else %}
-                            <div class="model">{% if r.flag is not empty %}<span class="flag">{{ r.flag }}</span> {% endif %}{{ place ?: 'Verified seller'|trans }}</div>
+                            <div class="model">{% if g.flag is not empty %}<span class="flag">{{ g.flag }}</span> {% endif %}{{ place ?: 'Verified seller'|trans }}</div>
                         {% endif %}
-                        <div class="chips">
-                            <span class="chip">{{ r.model }}</span>
-                            <span class="chip">{{ 'Qty'|trans }} <b>{{ r.qty }}</b></span>
+                        <div class="items">
+                            {% for it in g.items %}
+                                <div class="item">
+                                    <span class="mname">{{ it.model }}</span>
+                                    <span class="chip">{{ 'Qty'|trans }} <b>{{ it.qty }}</b></span>
+                                </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% if loggedIn %}
-                        {% if r.chatUrl is not empty %}
-                            <a class="chat" href="{{ r.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
+                        {% if g.chatUrl is not empty %}
+                            <a class="chat" href="{{ g.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
                         {% else %}
                             <span class="nowa">{{ 'No WhatsApp'|trans }}</span>
                         {% endif %}

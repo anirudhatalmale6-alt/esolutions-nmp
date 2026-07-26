@@ -48,9 +48,10 @@ final class Search
         $query = trim((string) $request->query->get('q', ''));
         $loggedIn = $this->security->isGranted('IS_AUTHENTICATED_REMEMBERED');
 
-        $rows = $query !== '' ? $this->marketplace->search($query) : [];
+        // One listing per vendor, each with the list of models they hold.
+        $rows = $query !== '' ? $this->marketplace->searchGrouped($query) : [];
 
-        // Guests see the same rows but with the seller's identity and number
+        // Guests see the same listings but with the seller's identity and number
         // stripped out server-side, so nothing private ever reaches the browser.
         if (! $loggedIn) {
             $rows = array_map(

@@ -18,9 +18,9 @@
             {{ 'Back to all models'|trans }}
         </a>
     {% else %}
-        <a href="{{ path('_sales_model_merge') }}" class="btn btn-outline-primary">
-            {{ ux_icon('tabler:arrows-join', {width: 18, height: 18}) }}
-            {{ 'Merge / rename models'|trans }}
+        <a href="{{ path('_model_catalog_manage') }}" class="btn btn-outline-primary">
+            {{ ux_icon('tabler:list-check', {width: 18, height: 18}) }}
+            {{ 'Manage model list'|trans }}
         </a>
     {% endif %}
 {% endblock %}

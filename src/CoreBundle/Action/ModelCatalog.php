@@ -13,38 +13,49 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action;
 
+use SolidInvoice\CoreBundle\Catalog\ModelCatalogManager;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Serves the phone-model master list that powers the "type the model on line 1"
- * suggestion box on the invoice / quote line items. The list is a static,
- * manufacturer-sourced catalogue (Apple, Samsung, Sony, Sharp Aquos, Kyocera,
- * Xiaomi, Oppo) kept as a JSON file in the bundle, so the owner always picks the
- * same spelling for a given model and the Sales-by-Model report groups cleanly.
- *
- * Returned as a long-cached JSON array of strings so the browser fetches it once
- * and reuses it across every invoice and quote page.
+ * Serves the active company's phone-model list that powers the "type the model on
+ * line 1" suggestion box on invoice / quote line items. The list is company-owned
+ * (seeded once from the built-in manufacturer catalogue, then editable from the
+ * "Manage model list" page), so it is returned private and un-cached - it must
+ * reflect the owner's latest edits immediately.
  */
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final class ModelCatalog
 {
-    private const CATALOG_FILE = __DIR__ . '/../Resources/data/phone_models.json';
+    public function __construct(
+        private readonly ModelCatalogManager $catalog,
+        private readonly CompanySelector $companySelector,
+    ) {
+    }
 
     public function __invoke(): Response
     {
-        $json = @file_get_contents(self::CATALOG_FILE);
+        $binaryCompanyId = $this->companySelector->getCompany()?->toBinary();
 
-        if ($json === false) {
-            // Never break the page over the suggestion list - just serve empty.
-            $json = '[]';
+        if ($binaryCompanyId === null) {
+            return $this->json([]);
         }
 
-        $response = new JsonResponse($json, Response::HTTP_OK, [], true);
-        $response->setPublic();
-        $response->setMaxAge(86400);
-        $response->headers->addCacheControlDirective('immutable');
+        $this->catalog->ensureSeeded($binaryCompanyId);
+
+        return $this->json($this->catalog->names($binaryCompanyId));
+    }
+
+    /**
+     * @param list<string> $names
+     */
+    private function json(array $names): JsonResponse
+    {
+        $response = new JsonResponse($names, Response::HTTP_OK);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
 
         return $response;
     }

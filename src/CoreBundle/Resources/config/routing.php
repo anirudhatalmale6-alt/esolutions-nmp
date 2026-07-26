@@ -20,6 +20,7 @@ use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
+use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
@@ -44,7 +45,6 @@ use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\PayPurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
-use SolidInvoice\CoreBundle\Action\Report\ModelMerge;
 use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
 use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\Report\SalesByClient;
@@ -198,15 +198,17 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_sales_analysis', '/sales')
         ->controller(SalesAnalysis::class);
 
-    $routingConfigurator
-        ->add('_sales_model_merge', '/sales/models')
-        ->controller(ModelMerge::class);
-
-    // Static phone-model catalogue that feeds the line-item model suggestion box.
+    // Per-company phone-model list that feeds the line-item suggestion box, plus
+    // the "Manage model list" page where the owner edits/pastes that list.
     $routingConfigurator
         ->add('_model_catalog', '/models/catalog.json')
         ->controller(ModelCatalog::class)
         ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_model_catalog_manage', '/models')
+        ->controller(ModelCatalogManage::class)
+        ->methods(['GET', 'POST']);
 
     $routingConfigurator
         ->add('_sales_by_client', '/sales-by-client')

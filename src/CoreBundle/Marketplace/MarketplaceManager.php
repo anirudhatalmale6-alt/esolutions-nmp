@@ -26,8 +26,10 @@ use function strlen;
 use function addcslashes;
 use function array_slice;
 use function count;
+use function explode;
 use function preg_replace;
 use function preg_split;
+use function str_contains;
 use function trim;
 
 /**
@@ -107,7 +109,7 @@ final class MarketplaceManager
     /**
      * Every listed business that has the searched model in stock (quantity > 0).
      *
-     * @return list<array{vendorId: string, business: string, model: string, qty: int, whatsapp: string, chatUrl: string, city: string, country: string, flag: string, location: string}>
+     * @return list<array{vendorId: string, business: string, model: string, qty: int, whatsapp: string, chatUrl: string, city: string, country: string, flag: string, location: string, logo: string}>
      */
     public function search(string $query): array
     {
@@ -146,13 +148,17 @@ final class MarketplaceManager
             return [];
         }
 
+        // The seller's display picture is their company logo, uploaded under
+        // Settings -> Company (app_config key system/company/logo, stored as
+        // "type|base64"). LEFT JOIN so sellers without a logo still show.
         $rows = $this->connection->executeQuery(
-            'SELECT HEX(c.id) AS vendorId, c.name AS business, sm.name AS model, sm.quantity AS qty,
-                    ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city
+            "SELECT HEX(c.id) AS vendorId, c.name AS business, sm.name AS model, sm.quantity AS qty,
+                    ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city, cfg.setting_value AS logo
              FROM stock_model sm
              INNER JOIN companies c ON c.id = sm.company_id
-             INNER JOIN ' . MarketplaceSetting::TABLE_NAME . ' ms ON ms.company_id = sm.company_id AND ms.listed = 1
-             WHERE sm.quantity > 0' . $where . '
+             INNER JOIN " . MarketplaceSetting::TABLE_NAME . " ms ON ms.company_id = sm.company_id AND ms.listed = 1
+             LEFT JOIN app_config cfg ON cfg.company_id = sm.company_id AND cfg.setting_key = 'system/company/logo'
+             WHERE sm.quantity > 0" . $where . '
              ORDER BY sm.name ASC, c.name ASC
              LIMIT ' . self::MAX_RESULTS,
             $params,
@@ -179,6 +185,8 @@ final class MarketplaceManager
                 'flag' => $this->flag($countryCode),
                 // Human location line, e.g. "Dubai, United Arab Emirates".
                 'location' => $this->location($city, $countryCode),
+                // Ready-to-use data URI for the seller's logo, or '' if none.
+                'logo' => $this->logoDataUri((string) ($row['logo'] ?? '')),
             ];
         }
 
@@ -190,7 +198,7 @@ final class MarketplaceManager
      * with the list of matching models (and quantities) they hold. The Chat link
      * uses what the buyer searched for, since a vendor may match several models.
      *
-     * @return list<array{vendorId: string, business: string, city: string, country: string, flag: string, location: string, whatsapp: string, chatUrl: string, items: list<array{model: string, qty: int}>}>
+     * @return list<array{vendorId: string, business: string, city: string, country: string, flag: string, location: string, logo: string, whatsapp: string, chatUrl: string, items: list<array{model: string, qty: int}>}>
      */
     public function searchGrouped(string $query): array
     {
@@ -207,6 +215,7 @@ final class MarketplaceManager
                     'country' => $row['country'],
                     'flag' => $row['flag'],
                     'location' => $row['location'],
+                    'logo' => $row['logo'],
                     'whatsapp' => $row['whatsapp'],
                     'chatUrl' => $row['whatsapp'] === '' ? '' : $this->chatUrl($row['whatsapp'], trim($query)),
                     'items' => [],
@@ -318,5 +327,29 @@ final class MarketplaceManager
 
         // wa.me needs digits only (country code included, no +, spaces or dashes).
         return (string) preg_replace('/\D+/', '', $number);
+    }
+
+    /**
+     * Turn a stored logo value ("type|base64") into an <img>-ready data URI, or
+     * '' when the seller has not uploaded a logo. Mirrors how the app renders
+     * its own logo (GlobalExtension::displayAppLogo).
+     */
+    private function logoDataUri(string $raw): string
+    {
+        $raw = trim($raw);
+
+        if ($raw === '' || ! str_contains($raw, '|')) {
+            return '';
+        }
+
+        [$type, $data] = explode('|', $raw, 2);
+        $type = trim($type);
+        $data = trim($data);
+
+        if ($type === '' || $data === '') {
+            return '';
+        }
+
+        return 'data:image/' . $type . ';base64,' . $data;
     }
 }

@@ -55,7 +55,7 @@ final class Search
         // stripped out server-side, so nothing private ever reaches the browser.
         if (! $loggedIn) {
             $rows = array_map(
-                static fn (array $r): array => array_merge($r, ['business' => '', 'whatsapp' => '', 'chatUrl' => '']),
+                static fn (array $r): array => array_merge($r, ['business' => '', 'whatsapp' => '', 'chatUrl' => '', 'logo' => '']),
                 $rows
             );
         }

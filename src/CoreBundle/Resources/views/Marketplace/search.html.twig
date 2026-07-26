@@ -48,6 +48,7 @@
            + business/location. Text kept un-bold for a calm, minimal look. */
         .vendor { display:flex; align-items:center; gap:12px; }
         .dp { width:40px; height:40px; border-radius:50%; background:var(--chip); color:var(--ink); display:flex; align-items:center; justify-content:center; font-weight:500; font-size:1rem; flex:0 0 auto; overflow:hidden; }
+        img.dp { object-fit:cover; }
         .dp.generic { font-size:1.15rem; }
         .vinfo { flex:1 1 auto; min-width:0; }
         .vinfo .bname { font-weight:500; font-size:1rem; line-height:1.3; word-break:break-word; }
@@ -117,7 +118,11 @@
                        stays generic - it must not leak the hidden initial. #}
                     <div class="vendor">
                         {% if loggedIn and g.business is not empty %}
-                            <div class="dp">{{ g.business|trim|first|upper }}</div>
+                            {% if g.logo is not empty %}
+                                <img class="dp" src="{{ g.logo }}" alt="{{ g.business }}">
+                            {% else %}
+                                <div class="dp">{{ g.business|trim|first|upper }}</div>
+                            {% endif %}
                         {% else %}
                             <div class="dp generic">🏬</div>
                         {% endif %}

@@ -7,6 +7,14 @@
                 </span>
                 <span class="profile-nav-text">{{ 'Profile'|trans }}</span>
             </a>
+            {% if is_granted('ROLE_ADMIN') %}
+                <a href="{{ path('_marketplace_settings') }}" class="profile-nav-item{{ menuItem is defined and menuItem is same as('stock-listing') ? ' active' : '' }}">
+                    <span class="profile-nav-icon">
+                        {{ ux_icon('tabler:building-store', {width: 20, height: 20}) }}
+                    </span>
+                    <span class="profile-nav-text">{{ 'Stock Listing'|trans }}</span>
+                </a>
+            {% endif %}
             <a href="{{ path('_change_password') }}" class="profile-nav-item{{ menuItem is defined and menuItem is same as('change-password') ? ' active' : '' }}">
                 <span class="profile-nav-icon">
                     {{ ux_icon('tabler:lock', {width: 20, height: 20}) }}

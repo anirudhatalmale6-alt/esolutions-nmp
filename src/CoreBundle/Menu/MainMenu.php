@@ -47,7 +47,6 @@ class MainMenu
         self::users($section);
         self::settings($section);
         self::models($section);
-        self::stockListing($section);
         $this->addCustomFields($section);
     }
 
@@ -129,17 +128,6 @@ class MainMenu
             [
                 'route' => '_model_catalog_manage',
                 'extras' => ['icon' => 'list-check'],
-            ],
-        );
-    }
-
-    public static function stockListing(ItemInterface $item): ItemInterface
-    {
-        return $item->addChild(
-            'menu.top.stock_listing',
-            [
-                'route' => '_marketplace_settings',
-                'extras' => ['icon' => 'building-store'],
             ],
         );
     }

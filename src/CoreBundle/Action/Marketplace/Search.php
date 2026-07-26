@@ -17,15 +17,18 @@ use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
+use function array_map;
+use function array_merge;
 use function trim;
 
 /**
  * Public Marketplace search. A buyer types a phone model and sees which listed
  * businesses have it, straight from their Tally stock.
  *
- * Anyone may search. Guests get a seller-hidden view (model + total availability
- * only) and are invited to log in; signed-in portal users see the business and a
- * "Chat Now" WhatsApp button per seller. The page is deliberately text-only and
+ * Anyone may search. Guests see the same per-seller results as signed-in users -
+ * location, model and quantity - only the business name is hidden and the Chat
+ * button leads to login instead of WhatsApp. Signed-in portal users see the
+ * business and a working "Chat Now" button. The page is text-only and
  * self-contained.
  */
 final class Search
@@ -47,12 +50,20 @@ final class Search
 
         $rows = $query !== '' ? $this->marketplace->search($query) : [];
 
+        // Guests see the same rows but with the seller's identity and number
+        // stripped out server-side, so nothing private ever reaches the browser.
+        if (! $loggedIn) {
+            $rows = array_map(
+                static fn (array $r): array => array_merge($r, ['business' => '', 'whatsapp' => '', 'chatUrl' => '']),
+                $rows
+            );
+        }
+
         return [
             'query' => $query,
             'searched' => $query !== '',
             'loggedIn' => $loggedIn,
-            // Signed-in users see per-seller detail; guests get the anonymous roll-up.
-            'results' => $loggedIn ? $rows : $this->marketplace->aggregate($rows),
+            'results' => $rows,
         ];
     }
 }

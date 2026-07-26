@@ -93,6 +93,13 @@ final class ModelMerge extends AbstractController
             return $this->redirectToRoute('_sales_model_merge');
         }
 
+        // "keyword" mode groups every name that CONTAINS a word (e.g. "1M III"),
+        // which is what handles names carrying a unique reference/spec on the end.
+        // Otherwise we work off the individually ticked rows.
+        if ($request->request->get('action') === 'keyword') {
+            return $this->mergeByKeyword($binaryCompanyId, trim((string) $request->request->get('keyword', '')), $target);
+        }
+
         // Aliases are the model names as typed; the column holds up to 255 chars,
         // so drop anything blank or unexpectedly long rather than let it error.
         /** @var list<string> $aliases */
@@ -125,32 +132,98 @@ final class ModelMerge extends AbstractController
         }
 
         $now = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
-        $merged = 0;
 
         foreach ($aliases as $alias) {
-            $this->connection->executeStatement(
-                'INSERT INTO model_alias (id, company_id, alias, canonical, created, updated)
-                 VALUES (:id, :companyId, :alias, :canonical, :created, :updated)
-                 ON DUPLICATE KEY UPDATE canonical = VALUES(canonical), updated = VALUES(updated)',
-                [
-                    'id' => (new Ulid())->toBinary(),
-                    'companyId' => $binaryCompanyId,
-                    'alias' => $alias,
-                    'canonical' => $target,
-                    'created' => $now,
-                    'updated' => $now,
-                ],
-                [
-                    'id' => ParameterType::BINARY,
-                    'companyId' => ParameterType::BINARY,
-                ]
-            );
+            $this->upsertAlias($binaryCompanyId, $alias, $target, $now);
+        }
+
+        $this->addFlash('success', sprintf('Merged %d model name(s) into "%s". Your report now counts them as one.', count($aliases), $target));
+
+        return $this->redirectToRoute('_sales_model_merge');
+    }
+
+    /**
+     * Group every distinct typed name that CONTAINS $keyword onto $target in one
+     * go. This is what copes with names that carry a unique reference or spec on
+     * the end ("Sony Xperia 1M III 3954", "... JP Specs 6193"): one keyword grabs
+     * them all instead of ticking each unique string by hand.
+     */
+    private function mergeByKeyword(string $binaryCompanyId, string $keyword, string $target): Response
+    {
+        if ($keyword === '') {
+            $this->addFlash('error', 'Type a word the names share, e.g. 1M III.');
+
+            return $this->redirectToRoute('_sales_model_merge');
+        }
+
+        if ($target === '') {
+            $this->addFlash('error', 'Type the correct name to keep for the matches.');
+
+            return $this->redirectToRoute('_sales_model_merge');
+        }
+
+        // Escape LIKE wildcards so the keyword is matched literally.
+        $pattern = '%' . addcslashes($keyword, '\\%_') . '%';
+
+        /** @var list<string> $descriptions */
+        $descriptions = $this->connection->executeQuery(
+            'SELECT DISTINCT il.description AS raw
+             FROM invoice_lines il
+             INNER JOIN invoices i ON i.id = il.invoice_id
+             WHERE il.company_id = :companyId
+               AND (i.archived IS NULL OR i.archived = 0)
+               AND il.description LIKE :kw',
+            ['companyId' => $binaryCompanyId, 'kw' => $pattern],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchFirstColumn();
+
+        $now = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+        $merged = 0;
+
+        foreach ($descriptions as $description) {
+            $description = (string) $description;
+
+            if (trim($description) === '' || mb_strlen($description) > 255) {
+                continue;
+            }
+
+            $this->upsertAlias($binaryCompanyId, $description, $target, $now);
             ++$merged;
         }
 
-        $this->addFlash('success', sprintf('Merged %d model name(s) into "%s". Your report now counts them as one.', $merged, $target));
+        if ($merged === 0) {
+            $this->addFlash('error', sprintf('No model names contained "%s".', $keyword));
+
+            return $this->redirectToRoute('_sales_model_merge');
+        }
+
+        $this->addFlash('success', sprintf('Grouped %d name(s) containing "%s" into "%s". Your report now counts them as one.', $merged, $keyword, $target));
 
         return $this->redirectToRoute('_sales_model_merge');
+    }
+
+    /**
+     * Store (or update) the mapping alias -> target for this company.
+     */
+    private function upsertAlias(string $binaryCompanyId, string $alias, string $target, string $now): void
+    {
+        $this->connection->executeStatement(
+            'INSERT INTO model_alias (id, company_id, alias, canonical, created, updated)
+             VALUES (:id, :companyId, :alias, :canonical, :created, :updated)
+             ON DUPLICATE KEY UPDATE canonical = VALUES(canonical), updated = VALUES(updated)',
+            [
+                'id' => (new Ulid())->toBinary(),
+                'companyId' => $binaryCompanyId,
+                'alias' => $alias,
+                'canonical' => $target,
+                'created' => $now,
+                'updated' => $now,
+            ],
+            [
+                'id' => ParameterType::BINARY,
+                'companyId' => ParameterType::BINARY,
+            ]
+        );
     }
 
     /**

@@ -1,0 +1,132 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # Public, no-login Marketplace search. Self-contained (inline CSS) and text-only
+ # by design - no images or heavy graphics. Guests get a seller-hidden roll-up and
+ # a prompt to log in; signed-in portal users see the business and a Chat Now
+ # WhatsApp button per seller.
+ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ 'Marketplace - find a phone model'|trans }}</title>
+    <style>
+        :root { --bg:#f6f7f9; --card:#fff; --ink:#1a2027; --muted:#6b7480; --line:#e5e8ec; --brand:#0b6bcb; --wa:#25d366; }
+        * { box-sizing: border-box; }
+        body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+        .wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
+        header.top { text-align:center; padding: 22px 0 10px; }
+        header.top h1 { margin:0; font-size: 1.5rem; letter-spacing:.2px; }
+        header.top p { margin:.35rem 0 0; color:var(--muted); font-size:.9rem; }
+        form.search { display:flex; gap:8px; margin: 18px 0 6px; }
+        form.search input[type=text] { flex:1; padding: 12px 14px; font-size:1rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+        form.search button { padding: 12px 18px; font-size:1rem; font-weight:600; border:0; border-radius:10px; background:var(--brand); color:#fff; cursor:pointer; }
+        .hint { color:var(--muted); font-size:.9rem; margin:10px 2px; }
+        .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:14px; }
+        table { width:100%; border-collapse:collapse; }
+        th, td { text-align:left; padding: 12px 14px; border-bottom:1px solid var(--line); font-size:.94rem; }
+        th { background:#fafbfc; color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.4px; }
+        tr:last-child td { border-bottom:0; }
+        td.qty, th.qty { text-align:right; white-space:nowrap; }
+        .model { font-weight:600; }
+        .biz { color:var(--ink); }
+        .chat { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:8px; font-size:.85rem; white-space:nowrap; }
+        .locked { color:var(--muted); font-size:.85rem; }
+        .empty { text-align:center; color:var(--muted); padding: 30px 16px; }
+        .notice { background:#eef4ff; border:1px solid #d6e4ff; color:#1c3d6e; border-radius:10px; padding:12px 14px; margin-top:14px; font-size:.9rem; }
+        .notice a { color:var(--brand); font-weight:600; }
+        footer.foot { text-align:center; color:var(--muted); font-size:.8rem; margin-top:26px; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg:#12151a; --card:#1a1f27; --ink:#e8ebef; --muted:#95a0ad; --line:#2a313b; }
+            th { background:#161b22; }
+            .notice { background:#14233b; border-color:#25406b; color:#bcd4ff; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header class="top">
+        <h1>{{ 'eSolutions Marketplace'|trans }}</h1>
+        <p>{{ 'Search a phone model and see who has it in stock.'|trans }}</p>
+    </header>
+
+    <form class="search" method="get" action="{{ path('_marketplace') }}">
+        <input type="text" name="q" value="{{ query }}" placeholder="{{ 'e.g. S26 Ultra, iPhone 15 Pro, Xperia 1 VI'|trans }}" autofocus>
+        <button type="submit">{{ 'Search'|trans }}</button>
+    </form>
+
+    {% if not searched %}
+        <p class="hint">{{ 'Type a model above to search across all listed sellers.'|trans }}</p>
+    {% elseif results is empty %}
+        <div class="card">
+            <div class="empty">{{ 'No listed seller has "%q%" in stock right now.'|trans({'%q%': query}) }}</div>
+        </div>
+    {% elseif loggedIn %}
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ 'Business'|trans }}</th>
+                        <th>{{ 'Model'|trans }}</th>
+                        <th class="qty">{{ 'Qty'|trans }}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                        <tr>
+                            <td class="biz">{{ r.business }}</td>
+                            <td class="model">{{ r.model }}</td>
+                            <td class="qty">{{ r.qty }}</td>
+                            <td class="qty">
+                                {% if r.chatUrl is not empty %}
+                                    <a class="chat" href="{{ r.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
+                                {% else %}
+                                    <span class="locked">{{ 'No WhatsApp'|trans }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        {# Guest: seller identity and chat hidden. #}
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>{{ 'Model'|trans }}</th>
+                        <th class="qty">{{ 'Available'|trans }}</th>
+                        <th class="qty">{{ 'Sellers'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                        <tr>
+                            <td class="model">{{ r.model }}</td>
+                            <td class="qty">{{ r.qty }}</td>
+                            <td class="qty">{{ r.sellers }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="notice">
+            {{ 'Log in to see which businesses have these in stock and chat with them directly.'|trans }}
+            <a href="{{ path('_login_main') }}">{{ 'Log in'|trans }}</a>
+        </div>
+    {% endif %}
+
+    <footer class="foot">{{ 'Powered by eSolutions'|trans }}</footer>
+</div>
+</body>
+</html>

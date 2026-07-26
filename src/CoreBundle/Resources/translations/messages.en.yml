@@ -13,6 +13,8 @@ menu:
         users: 'Users'
         custom_fields: 'Custom Fields'
         models: 'Phone Models'
+        marketplace: 'Marketplace'
+        stock_listing: 'Stock Listing'
 exception:
     error:
         text: 'The following error occurred:'

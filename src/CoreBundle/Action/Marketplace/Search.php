@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of SolidInvoice project.
+ *
+ * (c) Pierre du Plessis <open-source@solidworx.co>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+namespace SolidInvoice\CoreBundle\Action\Marketplace;
+
+use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
+use Symfony\Bridge\Twig\Attribute\Template;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
+use function trim;
+
+/**
+ * Public Marketplace search. A buyer types a phone model and sees which listed
+ * businesses have it, straight from their Tally stock.
+ *
+ * Anyone may search. Guests get a seller-hidden view (model + total availability
+ * only) and are invited to log in; signed-in portal users see the business and a
+ * "Chat Now" WhatsApp button per seller. The page is deliberately text-only and
+ * self-contained.
+ */
+final class Search
+{
+    public function __construct(
+        private readonly MarketplaceManager $marketplace,
+        private readonly Security $security,
+    ) {
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    #[Template('@SolidInvoiceCore/Marketplace/search.html.twig')]
+    public function __invoke(Request $request): array
+    {
+        $query = trim((string) $request->query->get('q', ''));
+        $loggedIn = $this->security->isGranted('IS_AUTHENTICATED_REMEMBERED');
+
+        $rows = $query !== '' ? $this->marketplace->search($query) : [];
+
+        return [
+            'query' => $query,
+            'searched' => $query !== '',
+            'loggedIn' => $loggedIn,
+            // Signed-in users see per-seller detail; guests get the anonymous roll-up.
+            'results' => $loggedIn ? $rows : $this->marketplace->aggregate($rows),
+        ];
+    }
+}

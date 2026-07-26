@@ -19,6 +19,8 @@ use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
+use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
+use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
@@ -208,6 +210,17 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_model_catalog_manage', '/settings/models')
         ->controller(ModelCatalogManage::class)
+        ->methods(['GET', 'POST']);
+
+    // Public Marketplace stock search + each business's opt-in/WhatsApp settings.
+    $routingConfigurator
+        ->add('_marketplace', '/marketplace')
+        ->controller(MarketplaceSearch::class)
+        ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_marketplace_settings', '/settings/marketplace')
+        ->controller(StockListingSettings::class)
         ->methods(['GET', 'POST']);
 
     $routingConfigurator

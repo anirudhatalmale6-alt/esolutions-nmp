@@ -56,19 +56,16 @@ use SolidInvoice\CoreBundle\Action\ViewBilling;
 use SolidInvoice\CoreBundle\Export\Action\DownloadExport;
 use SolidInvoice\CoreBundle\Export\Action\ListExports;
 use SolidInvoice\CoreBundle\Export\Action\RequestExport;
-use Symfony\Bundle\FrameworkBundle\Controller\RedirectController;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 return static function (RoutingConfigurator $routingConfigurator): void {
+    // The Marketplace search is the public home page - the front door for buyers
+    // and sellers. Signed-in staff still land on their dashboard after login
+    // (the login target is _select_company), and reach it from the sidebar.
     $routingConfigurator
         ->add('_home', '/')
-        ->controller([RedirectController::class, 'redirectAction'])
-        ->defaults(
-            [
-                'route' => '_dashboard',
-                'permanent' => true,
-            ]
-        );
+        ->controller(MarketplaceSearch::class)
+        ->methods(['GET']);
 
     $routingConfigurator
         ->add('_stock_list', '/stock')

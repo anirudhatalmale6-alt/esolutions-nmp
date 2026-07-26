@@ -140,6 +140,7 @@ return static function (SecurityConfig $config): void {
             '/nmp-inventory$|' .
             '/imei-unlock$|' .
             '/marketplace$|' .
+            '/$|' .
             '/store$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .
             '/payment/capture/(?:.*)|' .

@@ -114,7 +114,12 @@ final class MarketplaceManager
         $i = 0;
 
         foreach ($tokens as $token) {
-            $where .= ' AND sm.name LIKE :t' . $i;
+            // Match with spaces removed on BOTH sides so the buyer does not have to
+            // type the model exactly the way it sits in Tally - e.g. "1MIV" finds
+            // "1M IV", "s26ultra" finds "S26 Ultra". LIKE is already
+            // case-insensitive under the utf8mb4 collation.
+            $token = str_replace(' ', '', $token);
+            $where .= " AND REPLACE(sm.name, ' ', '') LIKE :t" . $i;
             $params['t' . $i] = '%' . addcslashes($token, '\\%_') . '%';
             $types['t' . $i] = ParameterType::STRING;
             ++$i;

@@ -6,10 +6,11 @@
  # This source file is subject to the MIT license that is bundled
  # with this source code in the file LICENSE.
  #
- # Public, no-login Marketplace search. Self-contained (inline CSS) and text-only
- # by design - no images or heavy graphics. Guests get a seller-hidden roll-up and
- # a prompt to log in; signed-in portal users see the business and a Chat Now
- # WhatsApp button per seller.
+ # Public, no-login Marketplace search - the home page. Self-contained (inline
+ # CSS), text-only and mobile-first by design. Guests get a seller-hidden roll-up
+ # and a prompt to log in; signed-in portal users see the business and a Chat Now
+ # WhatsApp button per seller. Results are cards (not a table) so they read well
+ # on a phone.
  #}
 <!DOCTYPE html>
 <html lang="en">
@@ -17,36 +18,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>{{ 'Marketplace - find a phone model'|trans }}</title>
+    <title>{{ 'eSolutions Marketplace'|trans }}</title>
     <style>
-        :root { --bg:#f6f7f9; --card:#fff; --ink:#1a2027; --muted:#6b7480; --line:#e5e8ec; --brand:#0b6bcb; --wa:#25d366; }
+        :root { --bg:#f6f7f9; --card:#fff; --ink:#1a2027; --muted:#6b7480; --line:#e5e8ec; --brand:#0b6bcb; --wa:#25d366; --chip:#eef2f6; }
         * { box-sizing: border-box; }
-        body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); }
-        .wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
-        header.top { text-align:center; padding: 22px 0 10px; }
-        header.top h1 { margin:0; font-size: 1.5rem; letter-spacing:.2px; }
+        html, body { margin:0; }
+        body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); -webkit-text-size-adjust:100%; }
+        .wrap { max-width: 760px; margin: 0 auto; padding: 18px 14px 60px; }
+        header.top { text-align:center; padding: 14px 0 6px; }
+        header.top h1 { margin:0; font-size: 1.4rem; }
         header.top p { margin:.35rem 0 0; color:var(--muted); font-size:.9rem; }
-        form.search { display:flex; gap:8px; margin: 18px 0 6px; }
-        form.search input[type=text] { flex:1; padding: 12px 14px; font-size:1rem; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
-        form.search button { padding: 12px 18px; font-size:1rem; font-weight:600; border:0; border-radius:10px; background:var(--brand); color:#fff; cursor:pointer; }
-        .hint { color:var(--muted); font-size:.9rem; margin:10px 2px; }
-        .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-top:14px; }
-        table { width:100%; border-collapse:collapse; }
-        th, td { text-align:left; padding: 12px 14px; border-bottom:1px solid var(--line); font-size:.94rem; }
-        th { background:#fafbfc; color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.4px; }
-        tr:last-child td { border-bottom:0; }
-        td.qty, th.qty { text-align:right; white-space:nowrap; }
-        .model { font-weight:600; }
-        .biz { color:var(--ink); }
-        .chat { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:8px; font-size:.85rem; white-space:nowrap; }
-        .locked { color:var(--muted); font-size:.85rem; }
-        .empty { text-align:center; color:var(--muted); padding: 30px 16px; }
-        .notice { background:#eef4ff; border:1px solid #d6e4ff; color:#1c3d6e; border-radius:10px; padding:12px 14px; margin-top:14px; font-size:.9rem; }
-        .notice a { color:var(--brand); font-weight:600; }
+        form.search { display:flex; gap:8px; margin: 16px 0 4px; position: sticky; top: 8px; }
+        form.search input[type=text] { flex:1; min-width:0; padding: 13px 14px; font-size:16px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); }
+        form.search button { padding: 13px 16px; font-size:16px; font-weight:600; border:0; border-radius:12px; background:var(--brand); color:#fff; cursor:pointer; }
+        .hint { color:var(--muted); font-size:.9rem; margin:12px 4px; text-align:center; }
+        .count { color:var(--muted); font-size:.82rem; margin:14px 4px 6px; }
+        .result { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+        .result .info { flex:1 1 180px; min-width:0; }
+        .result .model { font-weight:700; font-size:1.02rem; word-break:break-word; }
+        .result .biz { color:var(--muted); font-size:.9rem; margin-top:2px; }
+        .chips { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:.82rem; font-weight:600; white-space:nowrap; }
+        .chip b { font-weight:800; }
+        .chat { display:inline-flex; align-items:center; gap:6px; padding:11px 16px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:10px; font-size:.9rem; white-space:nowrap; }
+        .nowa { color:var(--muted); font-size:.82rem; }
+        .empty { text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:12px; padding: 30px 16px; margin-top:12px; }
+        .notice { background:#eef4ff; border:1px solid #d6e4ff; color:#1c3d6e; border-radius:12px; padding:13px 15px; margin-top:14px; font-size:.92rem; text-align:center; }
+        .notice a { display:inline-block; margin-top:8px; background:var(--brand); color:#fff; text-decoration:none; font-weight:600; padding:9px 16px; border-radius:10px; }
         footer.foot { text-align:center; color:var(--muted); font-size:.8rem; margin-top:26px; }
+        @media (max-width: 480px) {
+            .result { align-items:stretch; }
+            .result .info { flex-basis:100%; }
+            .chat { width:100%; justify-content:center; }
+        }
         @media (prefers-color-scheme: dark) {
-            :root { --bg:#12151a; --card:#1a1f27; --ink:#e8ebef; --muted:#95a0ad; --line:#2a313b; }
-            th { background:#161b22; }
+            :root { --bg:#12151a; --card:#1a1f27; --ink:#e8ebef; --muted:#95a0ad; --line:#2a313b; --chip:#242b34; }
             .notice { background:#14233b; border-color:#25406b; color:#bcd4ff; }
         }
     </style>
@@ -58,70 +64,50 @@
         <p>{{ 'Search a phone model and see who has it in stock.'|trans }}</p>
     </header>
 
-    <form class="search" method="get" action="{{ path('_marketplace') }}">
-        <input type="text" name="q" value="{{ query }}" placeholder="{{ 'e.g. S26 Ultra, iPhone 15 Pro, Xperia 1 VI'|trans }}" autofocus>
+    <form class="search" method="get" action="{{ path('_marketplace') }}" role="search">
+        <input type="text" name="q" value="{{ query }}" placeholder="{{ 'Search a model, e.g. S26 Ultra'|trans }}"
+               autocomplete="off" autocapitalize="none" autocorrect="off" enterkeyhint="search" aria-label="{{ 'Search a phone model'|trans }}" autofocus>
         <button type="submit">{{ 'Search'|trans }}</button>
     </form>
 
     {% if not searched %}
-        <p class="hint">{{ 'Type a model above to search across all listed sellers.'|trans }}</p>
+        <p class="hint">{{ 'Type a model above - spacing and capitals do not matter.'|trans }}</p>
     {% elseif results is empty %}
-        <div class="card">
-            <div class="empty">{{ 'No listed seller has "%q%" in stock right now.'|trans({'%q%': query}) }}</div>
-        </div>
+        <div class="empty">{{ 'No listed seller has "%q%" in stock right now.'|trans({'%q%': query}) }}</div>
     {% elseif loggedIn %}
-        <div class="card">
-            <table>
-                <thead>
-                    <tr>
-                        <th>{{ 'Business'|trans }}</th>
-                        <th>{{ 'Model'|trans }}</th>
-                        <th class="qty">{{ 'Qty'|trans }}</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in results %}
-                        <tr>
-                            <td class="biz">{{ r.business }}</td>
-                            <td class="model">{{ r.model }}</td>
-                            <td class="qty">{{ r.qty }}</td>
-                            <td class="qty">
-                                {% if r.chatUrl is not empty %}
-                                    <a class="chat" href="{{ r.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
-                                {% else %}
-                                    <span class="locked">{{ 'No WhatsApp'|trans }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <div class="count">{{ '%n% result(s)'|trans({'%n%': results|length}) }}</div>
+        {% for r in results %}
+            <div class="result">
+                <div class="info">
+                    <div class="model">{{ r.model }}</div>
+                    <div class="biz">{{ r.business }}</div>
+                </div>
+                <div class="chips">
+                    <span class="chip">{{ 'Qty'|trans }} <b>{{ r.qty }}</b></span>
+                </div>
+                {% if r.chatUrl is not empty %}
+                    <a class="chat" href="{{ r.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
+                {% else %}
+                    <span class="nowa">{{ 'No WhatsApp'|trans }}</span>
+                {% endif %}
+            </div>
+        {% endfor %}
     {% else %}
         {# Guest: seller identity and chat hidden. #}
-        <div class="card">
-            <table>
-                <thead>
-                    <tr>
-                        <th>{{ 'Model'|trans }}</th>
-                        <th class="qty">{{ 'Available'|trans }}</th>
-                        <th class="qty">{{ 'Sellers'|trans }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in results %}
-                        <tr>
-                            <td class="model">{{ r.model }}</td>
-                            <td class="qty">{{ r.qty }}</td>
-                            <td class="qty">{{ r.sellers }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <div class="count">{{ '%n% model(s) found'|trans({'%n%': results|length}) }}</div>
+        {% for r in results %}
+            <div class="result">
+                <div class="info">
+                    <div class="model">{{ r.model }}</div>
+                </div>
+                <div class="chips">
+                    <span class="chip">{{ r.qty }} {{ 'available'|trans }}</span>
+                    <span class="chip">{{ r.sellers }} {{ r.sellers == 1 ? 'seller'|trans : 'sellers'|trans }}</span>
+                </div>
+            </div>
+        {% endfor %}
         <div class="notice">
-            {{ 'Log in to see which businesses have these in stock and chat with them directly.'|trans }}
+            {{ 'Log in to see which businesses have these and chat with them directly.'|trans }}<br>
             <a href="{{ path('_login_main') }}">{{ 'Log in'|trans }}</a>
         </div>
     {% endif %}

@@ -44,32 +44,36 @@
 
         .result { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px; }
 
-        /* Matched model(s) on top - the hero of the card. */
-        .items { display:flex; flex-direction:column; gap:8px; }
-        .item { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-        .item .mname { font-weight:700; font-size:1rem; line-height:1.3; word-break:break-word; text-align:left; }
-        .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:.8rem; font-weight:600; white-space:nowrap; flex:0 0 auto; }
-        .chip b { font-weight:800; }
+        /* Seller header on top: display picture (portal/company logo placeholder)
+           + business/location. Text kept un-bold for a calm, minimal look. */
+        .vendor { display:flex; align-items:center; gap:12px; }
+        .dp { width:40px; height:40px; border-radius:50%; background:var(--chip); color:var(--ink); display:flex; align-items:center; justify-content:center; font-weight:500; font-size:1rem; flex:0 0 auto; overflow:hidden; }
+        .dp.generic { font-size:1.15rem; }
+        .vinfo { flex:1 1 auto; min-width:0; }
+        .vinfo .bname { font-weight:500; font-size:1rem; line-height:1.3; word-break:break-word; }
+        .vinfo .loc { color:var(--muted); font-size:.85rem; margin-top:2px; }
+        .vinfo .loc .flag { font-size:1rem; }
 
         /* Light hairline running through the card. */
         .divider { height:1px; background:var(--line); margin:13px 0; }
 
-        /* Seller row: display picture + business/location on the left, Chat on the right. */
-        .vendor { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-        .dp { width:40px; height:40px; border-radius:50%; background:var(--chip); color:var(--ink); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; flex:0 0 auto; overflow:hidden; }
-        .dp.generic { font-size:1.15rem; }
-        .vinfo { flex:1 1 auto; min-width:0; }
-        .vinfo .bname { font-weight:700; font-size:1rem; line-height:1.3; word-break:break-word; }
-        .vinfo .loc { color:var(--muted); font-size:.85rem; margin-top:2px; }
-        .vinfo .loc .flag { font-size:1rem; }
-        .chat { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:11px 18px; background:var(--wa); color:#0a2e14; font-weight:700; text-decoration:none; border-radius:12px; font-size:.9rem; white-space:nowrap; flex:0 0 auto; }
-        .nowa { margin-left:auto; color:var(--muted); font-size:.82rem; flex:0 0 auto; }
+        /* Matched model(s) with quantity. */
+        .items { display:flex; flex-direction:column; gap:8px; }
+        .item { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .item .mname { font-weight:500; font-size:1rem; line-height:1.3; word-break:break-word; text-align:left; }
+        .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:.8rem; font-weight:500; white-space:nowrap; flex:0 0 auto; }
+        .chip b { font-weight:600; }
+
+        /* Chat action at the bottom of the card. */
+        .cta { display:flex; justify-content:flex-end; margin-top:13px; }
+        .chat { display:inline-flex; align-items:center; gap:6px; padding:11px 18px; background:var(--wa); color:#0a2e14; font-weight:600; text-decoration:none; border-radius:12px; font-size:.9rem; white-space:nowrap; }
+        .nowa { color:var(--muted); font-size:.82rem; }
 
         .empty { text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:14px; padding: 30px 16px; margin-top:12px; }
         footer.foot { text-align:center; color:var(--muted); font-size:.8rem; margin-top:30px; }
         @media (max-width: 480px) {
-            .chat { width:100%; justify-content:center; margin-left:0; margin-top:2px; }
-            .nowa { margin-left:0; }
+            .cta { margin-top:12px; }
+            .chat { width:100%; justify-content:center; }
         }
         @media (prefers-color-scheme: dark) {
             :root { --bg:#0f1216; --card:#171b22; --ink:#e8ebef; --muted:#98a2ad; --line:#272d37; --chip:#222831; --accent:#e9ecf1; --accent-ink:#12151a; }
@@ -108,20 +112,9 @@
             {% for g in results %}
                 {% set place = g.city ?: g.country %}
                 <div class="result">
-                    {# Matched model(s) with quantity - on top. #}
-                    <div class="items">
-                        {% for it in g.items %}
-                            <div class="item">
-                                <span class="mname">{{ it.model }}</span>
-                                <span class="chip">{{ 'Qty'|trans }} <b>{{ it.qty }}</b></span>
-                            </div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="divider"></div>
-
-                    {# Seller row. Guests never see the business name, so their display
-                       picture stays generic - it must not leak the hidden initial. #}
+                    {# Seller header on top: display picture + business/location.
+                       Guests never see the business name, so their display picture
+                       stays generic - it must not leak the hidden initial. #}
                     <div class="vendor">
                         {% if loggedIn and g.business is not empty %}
                             <div class="dp">{{ g.business|trim|first|upper }}</div>
@@ -138,6 +131,21 @@
                                 <div class="bname">{% if g.flag is not empty %}<span class="flag">{{ g.flag }}</span> {% endif %}{{ place ?: 'Verified seller'|trans }}</div>
                             {% endif %}
                         </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    {# Matched model(s) with quantity. #}
+                    <div class="items">
+                        {% for it in g.items %}
+                            <div class="item">
+                                <span class="mname">{{ it.model }}</span>
+                                <span class="chip">{{ 'Qty'|trans }} <b>{{ it.qty }}</b></span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="cta">
                         {% if loggedIn %}
                             {% if g.chatUrl is not empty %}
                                 <a class="chat" href="{{ g.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>

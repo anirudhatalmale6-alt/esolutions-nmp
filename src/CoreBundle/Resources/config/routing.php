@@ -43,6 +43,7 @@ use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\PayPurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
+use SolidInvoice\CoreBundle\Action\Report\ModelMerge;
 use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
 use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\Report\SalesByClient;
@@ -195,6 +196,10 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_sales_analysis', '/sales')
         ->controller(SalesAnalysis::class);
+
+    $routingConfigurator
+        ->add('_sales_model_merge', '/sales/models')
+        ->controller(ModelMerge::class);
 
     $routingConfigurator
         ->add('_sales_by_client', '/sales-by-client')

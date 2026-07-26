@@ -1,0 +1,124 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:arrows-join', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Merge / rename models'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_sales_analysis') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to report'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        {% if models is empty %}
+            <div class="datagrid-empty">
+                <div class="datagrid-empty-icon">{{ ux_icon('tabler:arrows-join', {width: 40, height: 40}) }}</div>
+                <h3 class="datagrid-empty-title">{{ 'Nothing to merge yet'|trans }}</h3>
+                <p class="datagrid-empty-message">{{ 'Once you raise invoices, the model names you have typed appear here so you can tidy them up.'|trans }}</p>
+            </div>
+        {% else %}
+            <p class="text-secondary">
+                {{ 'Tick the names that are the same phone, type the one correct name to keep, and press Merge. Your report counts them as one straight away - across past invoices too. Leave the name blank and press Merge to reset ticked names back to standalone. Your invoices are never changed.'|trans }}
+            </p>
+
+            <form method="post" action="{{ path('_sales_model_merge') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('model.merge') }}">
+
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-sm-6 col-md-5">
+                        <label for="merge-target" class="form-label">{{ 'Correct name to keep'|trans }}</label>
+                        <input type="text" name="target" id="merge-target" class="form-control" list="model-names" placeholder="{{ 'e.g. Xperia V'|trans }}" autocomplete="off">
+                        <datalist id="model-names">
+                            {% for name in names %}
+                                <option value="{{ name }}"></option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <button type="submit" class="btn btn-primary w-100">
+                            {{ ux_icon('tabler:arrows-join', {width: 18, height: 18}) }}
+                            {{ 'Merge selected'|trans }}
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" id="model-search" class="form-control" placeholder="{{ 'Search model...'|trans }}" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-vcenter">
+                        <thead>
+                            <tr>
+                                <th style="width: 2.5rem;">
+                                    <input type="checkbox" id="check-all" class="form-check-input m-0" title="{{ 'Select all'|trans }}">
+                                </th>
+                                <th>{{ 'Model name (as typed)'|trans }}</th>
+                                <th>{{ 'Counts as now'|trans }}</th>
+                                <th class="text-end">{{ 'Units'|trans }}</th>
+                                <th class="text-end">{{ 'Revenue'|trans }}</th>
+                                <th class="text-end">{{ 'Invoices'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in models %}
+                                <tr data-row data-search="{{ (m.raw ~ ' ' ~ m.current)|lower }}">
+                                    <td>
+                                        <input type="checkbox" name="aliases[]" value="{{ m.raw }}" class="form-check-input m-0 row-check">
+                                    </td>
+                                    <td class="fw-semibold">{{ m.raw }}</td>
+                                    <td>
+                                        {% if m.mapped %}
+                                            <span class="badge bg-blue-lt">{{ m.current }}</span>
+                                        {% else %}
+                                            <span class="text-secondary">{{ 'On its own'|trans }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">{{ m.units }}</td>
+                                    <td class="text-end text-success">AED {{ m.revenue|number_format(2) }}</td>
+                                    <td class="text-end">{{ m.invoices }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+
+            <script>
+                (function () {
+                    var search = document.getElementById('model-search');
+                    var rows = Array.prototype.slice.call(document.querySelectorAll('tr[data-row]'));
+                    if (search) {
+                        search.addEventListener('input', function () {
+                            var q = this.value.trim().toLowerCase();
+                            rows.forEach(function (row) {
+                                var hay = row.getAttribute('data-search') || '';
+                                row.style.display = (q === '' || hay.indexOf(q) !== -1) ? '' : 'none';
+                            });
+                        });
+                    }
+
+                    var checkAll = document.getElementById('check-all');
+                    if (checkAll) {
+                        checkAll.addEventListener('change', function () {
+                            rows.forEach(function (row) {
+                                if (row.style.display === 'none') { return; }
+                                var box = row.querySelector('.row-check');
+                                if (box) { box.checked = checkAll.checked; }
+                            });
+                        });
+                    }
+                })();
+            </script>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock content %}

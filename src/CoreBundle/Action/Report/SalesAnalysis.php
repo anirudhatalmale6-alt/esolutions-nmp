@@ -83,8 +83,11 @@ final readonly class SalesAnalysis
      */
     private function productSummary(string $binaryCompanyId): array
     {
+        // Any typed variant that has been merged onto a canonical model name is
+        // pulled in via model_alias, so "Sony Xperia V" and "Xperia V" collapse
+        // into one row. Unmapped descriptions fall back to themselves.
         $rows = $this->connection->executeQuery(
-            'SELECT il.description AS model,
+            'SELECT COALESCE(ma.canonical, il.description) AS model,
                     SUM(il.qty) AS units,
                     COUNT(DISTINCT il.invoice_id) AS invoices,
                     MIN(il.price_amount) AS minPrice,
@@ -92,9 +95,10 @@ final readonly class SalesAnalysis
                     SUM(il.total_amount) AS revenue
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
              WHERE il.company_id = :companyId
                AND (i.archived IS NULL OR i.archived = 0)
-             GROUP BY il.description',
+             GROUP BY COALESCE(ma.canonical, il.description)',
             ['companyId' => $binaryCompanyId],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();
@@ -137,8 +141,9 @@ final readonly class SalesAnalysis
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
              INNER JOIN clients c ON c.id = i.client_id
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
              WHERE il.company_id = :companyId
-               AND il.description = :model
+               AND COALESCE(ma.canonical, il.description) = :model
                AND (i.archived IS NULL OR i.archived = 0)
              GROUP BY c.id, c.name',
             ['companyId' => $binaryCompanyId, 'model' => $model],
@@ -179,8 +184,9 @@ final readonly class SalesAnalysis
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
              INNER JOIN clients c ON c.id = i.client_id
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
              WHERE il.company_id = :companyId
-               AND il.description = :model
+               AND COALESCE(ma.canonical, il.description) = :model
                AND (i.archived IS NULL OR i.archived = 0)
              ORDER BY i.invoice_date DESC',
             ['companyId' => $binaryCompanyId, 'model' => $model],

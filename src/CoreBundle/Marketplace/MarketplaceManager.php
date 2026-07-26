@@ -17,7 +17,12 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use SolidInvoice\CoreBundle\Entity\MarketplaceSetting;
+use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
+use function mb_ord;
+use function mb_strtoupper;
+use function str_replace;
+use function strlen;
 use function addcslashes;
 use function array_slice;
 use function count;
@@ -48,12 +53,12 @@ final class MarketplaceManager
     /**
      * The active company's own marketplace settings.
      *
-     * @return array{listed: bool, whatsapp: string}
+     * @return array{listed: bool, whatsapp: string, country: string, city: string}
      */
     public function getForCompany(string $binaryCompanyId): array
     {
         $row = $this->connection->fetchAssociative(
-            'SELECT listed, whatsapp FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE company_id = ?',
+            'SELECT listed, whatsapp, country, city FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE company_id = ?',
             [$binaryCompanyId],
             [ParameterType::BINARY]
         );
@@ -61,26 +66,33 @@ final class MarketplaceManager
         return [
             'listed' => (bool) ($row['listed'] ?? false),
             'whatsapp' => (string) ($row['whatsapp'] ?? ''),
+            'country' => (string) ($row['country'] ?? ''),
+            'city' => (string) ($row['city'] ?? ''),
         ];
     }
 
     /**
-     * Save the active company's opt-in flag and WhatsApp number (digits only).
+     * Save the active company's opt-in flag, WhatsApp number (digits only) and
+     * location (ISO-2 country code + free-text city).
      */
-    public function save(string $binaryCompanyId, bool $listed, ?string $whatsapp): void
+    public function save(string $binaryCompanyId, bool $listed, ?string $whatsapp, ?string $country, ?string $city): void
     {
         $whatsapp = $this->normalizeNumber($whatsapp);
+        $country = $this->normalizeCountry($country);
+        $city = $city === null ? '' : trim($city);
         $now = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
 
         $this->connection->executeStatement(
-            'INSERT INTO ' . MarketplaceSetting::TABLE_NAME . ' (id, company_id, listed, whatsapp, created, updated)
-             VALUES (:id, :companyId, :listed, :whatsapp, :created, :updated)
-             ON DUPLICATE KEY UPDATE listed = VALUES(listed), whatsapp = VALUES(whatsapp), updated = VALUES(updated)',
+            'INSERT INTO ' . MarketplaceSetting::TABLE_NAME . ' (id, company_id, listed, whatsapp, country, city, created, updated)
+             VALUES (:id, :companyId, :listed, :whatsapp, :country, :city, :created, :updated)
+             ON DUPLICATE KEY UPDATE listed = VALUES(listed), whatsapp = VALUES(whatsapp), country = VALUES(country), city = VALUES(city), updated = VALUES(updated)',
             [
                 'id' => (new Ulid())->toBinary(),
                 'companyId' => $binaryCompanyId,
                 'listed' => $listed ? 1 : 0,
                 'whatsapp' => $whatsapp === '' ? null : $whatsapp,
+                'country' => $country === '' ? null : $country,
+                'city' => $city === '' ? null : $city,
                 'created' => $now,
                 'updated' => $now,
             ],
@@ -95,7 +107,7 @@ final class MarketplaceManager
     /**
      * Every listed business that has the searched model in stock (quantity > 0).
      *
-     * @return list<array{business: string, model: string, qty: int, whatsapp: string, chatUrl: string}>
+     * @return list<array{business: string, model: string, qty: int, whatsapp: string, chatUrl: string, city: string, country: string, flag: string, location: string}>
      */
     public function search(string $query): array
     {
@@ -114,19 +126,29 @@ final class MarketplaceManager
         $i = 0;
 
         foreach ($tokens as $token) {
-            // Match with spaces removed on BOTH sides so the buyer does not have to
-            // type the model exactly the way it sits in Tally - e.g. "1MIV" finds
-            // "1M IV", "s26ultra" finds "S26 Ultra". LIKE is already
-            // case-insensitive under the utf8mb4 collation.
-            $token = str_replace(' ', '', $token);
-            $where .= " AND REPLACE(sm.name, ' ', '') LIKE :t" . $i;
+            // Match with spaces and hyphens removed on BOTH sides so the buyer does
+            // not have to type the model the way each business happens to have it in
+            // Tally - e.g. "1MIV" finds "1M IV", "s26-ultra" finds "S26 Ultra". LIKE
+            // is already case-insensitive under the utf8mb4 collation.
+            $token = str_replace([' ', '-'], '', $token);
+
+            if ($token === '') {
+                continue;
+            }
+
+            $where .= " AND REPLACE(REPLACE(sm.name, ' ', ''), '-', '') LIKE :t" . $i;
             $params['t' . $i] = '%' . addcslashes($token, '\\%_') . '%';
             $types['t' . $i] = ParameterType::STRING;
             ++$i;
         }
 
+        if ($where === '') {
+            return [];
+        }
+
         $rows = $this->connection->executeQuery(
-            'SELECT c.name AS business, sm.name AS model, sm.quantity AS qty, ms.whatsapp AS whatsapp
+            'SELECT c.name AS business, sm.name AS model, sm.quantity AS qty,
+                    ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city
              FROM stock_model sm
              INNER JOIN companies c ON c.id = sm.company_id
              INNER JOIN ' . MarketplaceSetting::TABLE_NAME . ' ms ON ms.company_id = sm.company_id AND ms.listed = 1
@@ -142,6 +164,8 @@ final class MarketplaceManager
         foreach ($rows as $row) {
             $whatsapp = (string) ($row['whatsapp'] ?? '');
             $model = (string) ($row['model'] ?? '');
+            $countryCode = (string) ($row['country'] ?? '');
+            $city = (string) ($row['city'] ?? '');
 
             $results[] = [
                 'business' => (string) ($row['business'] ?? ''),
@@ -149,10 +173,69 @@ final class MarketplaceManager
                 'qty' => (int) ($row['qty'] ?? 0),
                 'whatsapp' => $whatsapp,
                 'chatUrl' => $whatsapp === '' ? '' : $this->chatUrl($whatsapp, $model),
+                'city' => $city,
+                'country' => $this->countryName($countryCode),
+                'flag' => $this->flag($countryCode),
+                // Human location line, e.g. "Dubai, United Arab Emirates".
+                'location' => $this->location($city, $countryCode),
             ];
         }
 
         return $results;
+    }
+
+    /**
+     * @return list<array{code: string, name: string}> ISO-2 code + English name.
+     */
+    public function countryChoices(): array
+    {
+        $choices = [];
+
+        foreach (Countries::getNames('en') as $code => $name) {
+            $choices[] = ['code' => $code, 'name' => $name];
+        }
+
+        return $choices;
+    }
+
+    public function countryName(string $code): string
+    {
+        $code = mb_strtoupper(trim($code));
+
+        return $code !== '' && Countries::exists($code) ? Countries::getName($code, 'en') : '';
+    }
+
+    /**
+     * Flag emoji from an ISO-2 code, built from the two regional-indicator letters.
+     */
+    public function flag(string $code): string
+    {
+        $code = mb_strtoupper(trim($code));
+
+        if (strlen($code) !== 2 || ! Countries::exists($code)) {
+            return '';
+        }
+
+        return mb_chr(0x1F1E6 + (mb_ord($code[0]) - 65)) . mb_chr(0x1F1E6 + (mb_ord($code[1]) - 65));
+    }
+
+    private function location(string $city, string $code): string
+    {
+        $country = $this->countryName($code);
+        $city = trim($city);
+
+        if ($city !== '' && $country !== '') {
+            return $city . ', ' . $country;
+        }
+
+        return $city !== '' ? $city : $country;
+    }
+
+    private function normalizeCountry(?string $code): string
+    {
+        $code = mb_strtoupper(trim((string) $code));
+
+        return Countries::exists($code) ? $code : '';
     }
 
     /**

@@ -38,6 +38,25 @@
                 <small class="text-secondary">{{ 'Include the country code, digits only (no +, spaces or dashes). Leave blank to hide the Chat Now button.'|trans }}</small>
             </div>
 
+            <div class="row g-3 mb-3" style="max-width: 620px;">
+                <div class="col-md-6">
+                    <label for="country" class="form-label">{{ 'Country'|trans }}</label>
+                    <select name="country" id="country" class="form-select">
+                        <option value="">{{ '- Select -'|trans }}</option>
+                        {% for c in countries %}
+                            <option value="{{ c.code }}"{{ c.code == country ? ' selected' : '' }}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="city" class="form-label">{{ 'City'|trans }}</label>
+                    <input type="text" name="city" id="city" class="form-control" value="{{ city }}" placeholder="{{ 'e.g. Dubai'|trans }}" autocomplete="off">
+                </div>
+                <div class="col-12">
+                    <small class="text-secondary">{{ 'Shown to buyers in search results (with a flag) so they know where you are.'|trans }}</small>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-primary">
                 {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
                 {{ 'Save'|trans }}

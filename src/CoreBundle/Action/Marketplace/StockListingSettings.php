@@ -41,7 +41,9 @@ final class StockListingSettings extends AbstractController
         $binaryCompanyId = $this->companySelector->getCompany()?->toBinary();
 
         if ($binaryCompanyId === null) {
-            return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', ['listed' => false, 'whatsapp' => '']);
+            return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', [
+                'listed' => false, 'whatsapp' => '', 'country' => '', 'city' => '', 'countries' => $this->marketplace->countryChoices(),
+            ]);
         }
 
         if ($request->isMethod('POST')) {
@@ -53,8 +55,10 @@ final class StockListingSettings extends AbstractController
 
             $listed = $request->request->getBoolean('listed');
             $whatsapp = trim((string) $request->request->get('whatsapp', ''));
+            $country = trim((string) $request->request->get('country', ''));
+            $city = trim((string) $request->request->get('city', ''));
 
-            $this->marketplace->save($binaryCompanyId, $listed, $whatsapp);
+            $this->marketplace->save($binaryCompanyId, $listed, $whatsapp, $country, $city);
 
             $this->addFlash('success', $listed
                 ? 'Saved - your stock is now listed on the Marketplace.'
@@ -68,6 +72,9 @@ final class StockListingSettings extends AbstractController
         return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', [
             'listed' => $settings['listed'],
             'whatsapp' => $settings['whatsapp'],
+            'country' => $settings['country'],
+            'city' => $settings['city'],
+            'countries' => $this->marketplace->countryChoices(),
         ]);
     }
 }

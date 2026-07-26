@@ -49,6 +49,13 @@ class MarketplaceSetting
     #[ORM\Column(name: 'whatsapp', type: Types::STRING, length: 50, nullable: true)]
     private ?string $whatsapp = null;
 
+    /** ISO 3166-1 alpha-2 country code (e.g. "AE"), used for the flag and name. */
+    #[ORM\Column(name: 'country', type: Types::STRING, length: 2, nullable: true)]
+    private ?string $country = null;
+
+    #[ORM\Column(name: 'city', type: Types::STRING, length: 100, nullable: true)]
+    private ?string $city = null;
+
     public function getId(): ?Ulid
     {
         return $this->id;
@@ -74,6 +81,30 @@ class MarketplaceSetting
     public function setWhatsapp(?string $whatsapp): self
     {
         $this->whatsapp = $whatsapp;
+
+        return $this;
+    }
+
+    public function getCountry(): ?string
+    {
+        return $this->country;
+    }
+
+    public function setCountry(?string $country): self
+    {
+        $this->country = $country;
+
+        return $this;
+    }
+
+    public function getCity(): ?string
+    {
+        return $this->city;
+    }
+
+    public function setCity(?string $city): self
+    {
+        $this->city = $city;
 
         return $this;
     }

@@ -37,6 +37,8 @@
         .result .info { flex:1 1 180px; min-width:0; }
         .result .model { font-weight:700; font-size:1.02rem; word-break:break-word; }
         .result .biz { color:var(--muted); font-size:.9rem; margin-top:2px; }
+        .result .loc { color:var(--muted); font-size:.85rem; margin-top:3px; }
+        .result .loc .flag { font-size:1rem; }
         .chips { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
         .chip { background:var(--chip); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:.82rem; font-weight:600; white-space:nowrap; }
         .chip b { font-weight:800; }
@@ -81,6 +83,9 @@
                 <div class="info">
                     <div class="model">{{ r.model }}</div>
                     <div class="biz">{{ r.business }}</div>
+                    {% if r.location is not empty %}
+                        <div class="loc">{% if r.flag is not empty %}<span class="flag">{{ r.flag }}</span> {% endif %}{{ r.location }}</div>
+                    {% endif %}
                 </div>
                 <div class="chips">
                     <span class="chip">{{ 'Qty'|trans }} <b>{{ r.qty }}</b></span>

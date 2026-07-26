@@ -206,7 +206,7 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->methods(['GET']);
 
     $routingConfigurator
-        ->add('_model_catalog_manage', '/models')
+        ->add('_model_catalog_manage', '/settings/models')
         ->controller(ModelCatalogManage::class)
         ->methods(['GET', 'POST']);
 

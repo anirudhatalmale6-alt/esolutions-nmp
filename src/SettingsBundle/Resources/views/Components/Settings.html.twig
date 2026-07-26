@@ -36,6 +36,15 @@
                 </a>
             </li>
         {% endfor %}
+        {# Phone model list - lives on its own page but reached from Settings. #}
+        <li class="nav-item">
+            <a href="{{ path('_model_catalog_manage') }}" class="nav-link">
+                <span class="nav-link-icon d-none d-sm-inline-block">
+                    {{ ux_icon('tabler:list-check', {width: 16, height: 16}) }}
+                </span>
+                <span>{{ 'Phone models'|trans }}</span>
+            </a>
+        </li>
     </ul>
 
     {{ form_start(form, {

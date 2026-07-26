@@ -19,3 +19,10 @@
     {% endif %}
 {% endblock content %}
 
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        {% include '@SolidInvoiceCore/Billing/_model_autocomplete.html.twig' %}
+    </script>
+{% endblock javascripts %}
+

@@ -19,6 +19,7 @@ use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
+use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
@@ -200,6 +201,12 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_sales_model_merge', '/sales/models')
         ->controller(ModelMerge::class);
+
+    // Static phone-model catalogue that feeds the line-item model suggestion box.
+    $routingConfigurator
+        ->add('_model_catalog', '/models/catalog.json')
+        ->controller(ModelCatalog::class)
+        ->methods(['GET']);
 
     $routingConfigurator
         ->add('_sales_by_client', '/sales-by-client')

@@ -4,3 +4,10 @@
 {% block content %}
     <twig:CreateQuote :form="form" :dto="dto" :isEdit="isEdit" :quote="quote|default(null)" />
 {% endblock content %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        {% include '@SolidInvoiceCore/Billing/_model_autocomplete.html.twig' %}
+    </script>
+{% endblock javascripts %}

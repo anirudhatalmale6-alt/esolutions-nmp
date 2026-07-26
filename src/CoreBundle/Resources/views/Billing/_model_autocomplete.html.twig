@@ -1,0 +1,216 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # Model-name suggestion box for invoice / quote line items.
+ #
+ # The owner types the phone model on LINE 1 of the description and any free
+ # detail (US Specs, Dual Sim, Sim Locked, ...) on line 2 onwards. As they type
+ # line 1 we suggest from the manufacturer master list (served by _model_catalog)
+ # so the same model is always spelled identically and the Sales-by-Model report
+ # groups cleanly. Picking a suggestion only rewrites line 1 - any line-2 detail
+ # is kept exactly as typed.
+ #
+ # Uses event delegation on document so it keeps working after Live Component
+ # re-renders replace the line rows. Rendered once at page level (block
+ # javascripts), never inside the component, so the catalogue is not re-sent on
+ # every keystroke.
+ #}
+(function () {
+    "use strict";
+
+    if (window.__nmpModelAutocomplete) { return; }
+    window.__nmpModelAutocomplete = true;
+
+    var CATALOG_URL = {{ path('_model_catalog')|json_encode|raw }};
+    var FIELD_SELECTOR = "textarea.invoice-item-name, textarea.quote-item-name";
+    var MAX_RESULTS = 12;
+
+    var catalog = null;      // array of model-name strings, loaded once
+    var loading = false;
+    var box = null;          // the floating suggestion element
+    var field = null;        // the textarea we are currently attached to
+    var items = [];          // current suggestion strings
+    var active = -1;         // highlighted index, -1 = none
+
+    function loadCatalog() {
+        if (catalog !== null || loading) { return; }
+        loading = true;
+        fetch(CATALOG_URL, { credentials: "same-origin" })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (list) { catalog = Array.isArray(list) ? list : []; })
+            .catch(function () { catalog = []; })
+            .finally(function () { loading = false; });
+    }
+
+    function ensureBox() {
+        if (box) { return box; }
+        var style = document.createElement("style");
+        style.textContent =
+            ".nmp-ac{position:absolute;z-index:1080;background:var(--tblr-bg-surface,#fff);" +
+            "border:1px solid var(--tblr-border-color,#dadfe5);border-radius:6px;" +
+            "box-shadow:0 6px 18px -6px rgba(0,0,0,.35);max-height:260px;overflow-y:auto;" +
+            "font-size:.875rem;padding:.25rem 0;margin:0;list-style:none;}" +
+            ".nmp-ac li{padding:.35rem .75rem;cursor:pointer;white-space:nowrap;" +
+            "overflow:hidden;text-overflow:ellipsis;}" +
+            ".nmp-ac li.nmp-active,.nmp-ac li:hover{background:var(--tblr-primary,#066fd1);color:#fff;}";
+        document.head.appendChild(style);
+
+        box = document.createElement("ul");
+        box.className = "nmp-ac";
+        box.style.display = "none";
+        // Use mousedown (fires before the textarea blur) so the click registers.
+        box.addEventListener("mousedown", function (e) {
+            var li = e.target.closest("li");
+            if (!li) { return; }
+            e.preventDefault();
+            choose(parseInt(li.getAttribute("data-i"), 10));
+        });
+        document.body.appendChild(box);
+        return box;
+    }
+
+    // Split the value into line 1 (the model) and "the rest" (from the first
+    // line break onwards, break included) so we can rewrite only line 1.
+    function splitValue(value) {
+        var nl = value.search(/\r?\n/);
+        if (nl === -1) { return { first: value, rest: "" }; }
+        return { first: value.slice(0, nl), rest: value.slice(nl) };
+    }
+
+    function caretOnFirstLine(el) {
+        // Only suggest while the caret is on line 1 - if they have moved down to
+        // type the detail, stay out of the way.
+        var pos = el.selectionStart;
+        if (pos === null || typeof pos === "undefined") { return true; }
+        var nl = el.value.search(/\r?\n/);
+        return nl === -1 || pos <= nl;
+    }
+
+    function rank(query) {
+        if (!catalog || catalog.length === 0) { return []; }
+        var q = query.trim().toLowerCase();
+        if (q.length < 2) { return []; }
+        var starts = [], contains = [];
+        for (var i = 0; i < catalog.length; i++) {
+            var name = catalog[i];
+            var lc = name.toLowerCase();
+            if (lc === q) { continue; } // already an exact match, nothing to add
+            var at = lc.indexOf(q);
+            if (at === 0) { starts.push(name); }
+            else if (at > 0) { contains.push(name); }
+            if (starts.length >= MAX_RESULTS) { break; }
+        }
+        return starts.concat(contains).slice(0, MAX_RESULTS);
+    }
+
+    function render() {
+        ensureBox();
+        if (items.length === 0) { hide(); return; }
+        var html = "";
+        for (var i = 0; i < items.length; i++) {
+            html += '<li data-i="' + i + '"' + (i === active ? ' class="nmp-active"' : '') +
+                '>' + escapeHtml(items[i]) + '</li>';
+        }
+        box.innerHTML = html;
+        position();
+        box.style.display = "block";
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    function position() {
+        if (!field || !box) { return; }
+        var r = field.getBoundingClientRect();
+        box.style.left = (window.scrollX + r.left) + "px";
+        box.style.top = (window.scrollY + r.bottom + 2) + "px";
+        box.style.minWidth = Math.max(r.width, 220) + "px";
+        box.style.maxWidth = Math.max(r.width, 320) + "px";
+    }
+
+    function hide() {
+        if (box) { box.style.display = "none"; }
+        items = [];
+        active = -1;
+    }
+
+    function choose(i) {
+        if (!field || i < 0 || i >= items.length) { return; }
+        var parts = splitValue(field.value);
+        var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        setter.call(field, items[i] + parts.rest);
+        // Let the Live Component pick up the new value.
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        // Put the caret at the end of line 1.
+        try { field.selectionStart = field.selectionEnd = items[i].length; } catch (e) {}
+        hide();
+        field.focus();
+    }
+
+    function refresh(el) {
+        field = el;
+        if (!caretOnFirstLine(el)) { hide(); return; }
+        var first = splitValue(el.value).first;
+        items = rank(first);
+        active = -1;
+        render();
+    }
+
+    // --- delegated events -------------------------------------------------
+
+    document.addEventListener("focusin", function (e) {
+        if (e.target.matches && e.target.matches(FIELD_SELECTOR)) {
+            loadCatalog();
+            field = e.target;
+        }
+    });
+
+    document.addEventListener("input", function (e) {
+        if (e.target.matches && e.target.matches(FIELD_SELECTOR)) {
+            refresh(e.target);
+        }
+    });
+
+    document.addEventListener("keydown", function (e) {
+        if (!field || !e.target.matches || !e.target.matches(FIELD_SELECTOR)) { return; }
+        if (!box || box.style.display === "none" || items.length === 0) { return; }
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            active = (active + 1) % items.length;
+            render();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            active = (active - 1 + items.length) % items.length;
+            render();
+        } else if (e.key === "Enter" || e.key === "Tab") {
+            // Only steal Enter/Tab when a suggestion is highlighted; otherwise
+            // Enter must still start line 2 for the detail text.
+            if (active >= 0) {
+                e.preventDefault();
+                choose(active);
+            }
+        } else if (e.key === "Escape") {
+            hide();
+        }
+    });
+
+    document.addEventListener("focusout", function (e) {
+        if (e.target.matches && e.target.matches(FIELD_SELECTOR)) {
+            // Delay so a mousedown selection on the box can run first.
+            setTimeout(hide, 150);
+        }
+    });
+
+    window.addEventListener("scroll", function () { if (box && box.style.display !== "none") { position(); } }, true);
+    window.addEventListener("resize", function () { if (box && box.style.display !== "none") { position(); } });
+})();

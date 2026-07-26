@@ -45,6 +45,15 @@ use function trim;
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final class ModelMerge extends AbstractController
 {
+    /**
+     * SQL for the "model line": the FIRST line of the description (before the
+     * first line-break), CR stripped and trimmed. Models are entered on line 1
+     * and free detail (US Specs, Dual Sim, ...) on line 2 onwards, so both the
+     * report and this merge screen work off line 1 only. Kept identical to
+     * SalesAnalysis::MODEL_LINE so grouping and merges line up exactly.
+     */
+    private const MODEL_LINE = "TRIM(SUBSTRING_INDEX(REPLACE(il.description, CHAR(13), ''), CHAR(10), 1))";
+
     public function __construct(
         private readonly Connection $connection,
         private readonly CompanySelector $companySelector,
@@ -164,15 +173,18 @@ final class ModelMerge extends AbstractController
 
         // Escape LIKE wildcards so the keyword is matched literally.
         $pattern = '%' . addcslashes($keyword, '\\%_') . '%';
+        $modelLine = self::MODEL_LINE;
 
+        // Match the keyword against the model line only, so line-2 detail never
+        // causes a false match, and store the model line as the alias.
         /** @var list<string> $descriptions */
         $descriptions = $this->connection->executeQuery(
-            'SELECT DISTINCT il.description AS raw
+            "SELECT DISTINCT {$modelLine} AS raw
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
              WHERE il.company_id = :companyId
                AND (i.archived IS NULL OR i.archived = 0)
-               AND il.description LIKE :kw',
+               AND {$modelLine} LIKE :kw",
             ['companyId' => $binaryCompanyId, 'kw' => $pattern],
             ['companyId' => ParameterType::BINARY]
         )->fetchFirstColumn();
@@ -234,20 +246,23 @@ final class ModelMerge extends AbstractController
      */
     private function modelsInUse(string $binaryCompanyId): array
     {
+        $modelLine = self::MODEL_LINE;
+
         $rows = $this->connection->executeQuery(
-            'SELECT il.description AS raw,
-                    COALESCE(ma.canonical, il.description) AS current,
+            "SELECT {$modelLine} AS raw,
+                    COALESCE(ma.canonical, {$modelLine}) AS current,
                     ma.canonical AS mapped,
                     SUM(il.qty) AS units,
                     SUM(il.total_amount) AS revenue,
                     COUNT(DISTINCT il.invoice_id) AS invoices
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
-             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = {$modelLine}
              WHERE il.company_id = :companyId
                AND (i.archived IS NULL OR i.archived = 0)
-             GROUP BY il.description, ma.canonical
-             ORDER BY COALESCE(ma.canonical, il.description) ASC, il.description ASC',
+               AND {$modelLine} <> ''
+             GROUP BY {$modelLine}, ma.canonical
+             ORDER BY COALESCE(ma.canonical, {$modelLine}) ASC, {$modelLine} ASC",
             ['companyId' => $binaryCompanyId],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();

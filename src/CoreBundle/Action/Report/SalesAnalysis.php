@@ -39,6 +39,17 @@ use function trim;
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final readonly class SalesAnalysis
 {
+    /**
+     * SQL expression for the "model line": the FIRST line of the description
+     * (before the first line-break), with any carriage-return stripped and the
+     * surrounding spaces trimmed. The owner types the model on line 1 and any
+     * free detail (US Specs, Dual Sim, Sim Locked, ...) on line 2 onwards, so the
+     * report must group on line 1 only - otherwise the same model splits into a
+     * separate row per detail. CHAR(13)/CHAR(10) are used instead of '\r'/'\n'
+     * so the meaning does not depend on the SQL escape mode.
+     */
+    private const MODEL_LINE = "TRIM(SUBSTRING_INDEX(REPLACE(il.description, CHAR(13), ''), CHAR(10), 1))";
+
     public function __construct(
         private Connection $connection,
         private CompanySelector $companySelector,
@@ -83,11 +94,14 @@ final readonly class SalesAnalysis
      */
     private function productSummary(string $binaryCompanyId): array
     {
-        // Any typed variant that has been merged onto a canonical model name is
-        // pulled in via model_alias, so "Sony Xperia V" and "Xperia V" collapse
-        // into one row. Unmapped descriptions fall back to themselves.
+        // Group by the model line (line 1) only, so the free line-2 detail never
+        // splits a model. Any typed variant that has been merged onto a canonical
+        // name is pulled in via model_alias, so "Sony Xperia V" and "Xperia V"
+        // collapse into one row. Unmapped model lines fall back to themselves.
+        $modelLine = self::MODEL_LINE;
+
         $rows = $this->connection->executeQuery(
-            'SELECT COALESCE(ma.canonical, il.description) AS model,
+            "SELECT COALESCE(ma.canonical, {$modelLine}) AS model,
                     SUM(il.qty) AS units,
                     COUNT(DISTINCT il.invoice_id) AS invoices,
                     MIN(il.price_amount) AS minPrice,
@@ -95,10 +109,11 @@ final readonly class SalesAnalysis
                     SUM(il.total_amount) AS revenue
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
-             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = {$modelLine}
              WHERE il.company_id = :companyId
                AND (i.archived IS NULL OR i.archived = 0)
-             GROUP BY COALESCE(ma.canonical, il.description)',
+               AND {$modelLine} <> ''
+             GROUP BY COALESCE(ma.canonical, {$modelLine})",
             ['companyId' => $binaryCompanyId],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();
@@ -132,8 +147,10 @@ final readonly class SalesAnalysis
      */
     private function topBuyers(string $binaryCompanyId, string $model): array
     {
+        $modelLine = self::MODEL_LINE;
+
         $rows = $this->connection->executeQuery(
-            'SELECT c.name AS client,
+            "SELECT c.name AS client,
                     SUM(il.qty) AS units,
                     MIN(il.price_amount) AS minPrice,
                     MAX(il.price_amount) AS maxPrice,
@@ -141,11 +158,11 @@ final readonly class SalesAnalysis
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
              INNER JOIN clients c ON c.id = i.client_id
-             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = {$modelLine}
              WHERE il.company_id = :companyId
-               AND COALESCE(ma.canonical, il.description) = :model
+               AND COALESCE(ma.canonical, {$modelLine}) = :model
                AND (i.archived IS NULL OR i.archived = 0)
-             GROUP BY c.id, c.name',
+             GROUP BY c.id, c.name",
             ['companyId' => $binaryCompanyId, 'model' => $model],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();
@@ -174,8 +191,10 @@ final readonly class SalesAnalysis
      */
     private function saleHistory(string $binaryCompanyId, string $model): array
     {
+        $modelLine = self::MODEL_LINE;
+
         $rows = $this->connection->executeQuery(
-            'SELECT i.invoice_id AS invoiceId,
+            "SELECT i.invoice_id AS invoiceId,
                     i.invoice_date AS saleDate,
                     c.name AS client,
                     il.qty AS qty,
@@ -184,11 +203,11 @@ final readonly class SalesAnalysis
              FROM invoice_lines il
              INNER JOIN invoices i ON i.id = il.invoice_id
              INNER JOIN clients c ON c.id = i.client_id
-             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = il.description
+             LEFT JOIN model_alias ma ON ma.company_id = il.company_id AND ma.alias = {$modelLine}
              WHERE il.company_id = :companyId
-               AND COALESCE(ma.canonical, il.description) = :model
+               AND COALESCE(ma.canonical, {$modelLine}) = :model
                AND (i.archived IS NULL OR i.archived = 0)
-             ORDER BY i.invoice_date DESC',
+             ORDER BY i.invoice_date DESC",
             ['companyId' => $binaryCompanyId, 'model' => $model],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();

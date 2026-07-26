@@ -26,13 +26,32 @@
             {{ 'The Marketplace lets buyers search phone models across sellers. Turn this on to list your Tally stock so buyers can find it and reach you on WhatsApp. Turn it off any time and your stock disappears from search. Prices are never shown - buyers message you for details.'|trans }}
         </p>
 
-        <form method="post" action="{{ path('_marketplace_settings') }}">
+        <form method="post" action="{{ path('_marketplace_settings') }}" enctype="multipart/form-data">
             <input type="hidden" name="_token" value="{{ csrf_token('marketplace.settings') }}">
 
             <label class="form-check form-switch mb-4">
                 <input class="form-check-input" type="checkbox" name="listed" value="1"{{ listed ? ' checked' : '' }}>
                 <span class="form-check-label fw-semibold">{{ 'List my stock on the Marketplace'|trans }}</span>
             </label>
+
+            <div class="mb-4" style="max-width: 620px;">
+                <label for="logo" class="form-label">{{ 'Listing logo (display picture)'|trans }}</label>
+                <div class="d-flex align-items-center gap-3">
+                    {% if logo is not empty %}
+                        <img src="{{ logo }}" alt="{{ 'Current listing logo'|trans }}" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--bs-border-color);">
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <input type="file" name="logo" id="logo" class="form-control" accept="image/jpeg,image/png,image/gif,image/webp">
+                    </div>
+                </div>
+                <small class="text-secondary d-block mt-1">{{ 'Shown next to your business in search results. A colour image works best (JPEG, PNG, GIF or WebP, under 1.5 MB). This is separate from your invoice logo. If you leave it blank, your company logo is used.'|trans }}</small>
+                {% if logo is not empty %}
+                    <label class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="remove_logo" value="1">
+                        <span class="form-check-label">{{ 'Remove current listing logo'|trans }}</span>
+                    </label>
+                {% endif %}
+            </div>
 
             <div class="mb-3" style="max-width: 420px;">
                 <label for="whatsapp" class="form-label">{{ 'WhatsApp number for buyers'|trans }}</label>

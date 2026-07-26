@@ -17,6 +17,8 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use SolidInvoice\CoreBundle\Entity\MarketplaceSetting;
+use SolidInvoice\CoreBundle\Form\Type\ImageUploadType;
+use SolidInvoice\SettingsBundle\Entity\Setting;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
 use function mb_ord;
@@ -53,9 +55,11 @@ final class MarketplaceManager
     }
 
     /**
-     * The active company's own marketplace settings.
+     * The active company's own marketplace settings. "logo" is a ready-to-use
+     * data URI for the seller's own listing logo (the one they upload here,
+     * NOT the invoice/company logo), or '' when none has been uploaded.
      *
-     * @return array{listed: bool, whatsapp: string, country: string, city: string}
+     * @return array{listed: bool, whatsapp: string, country: string, city: string, logo: string}
      */
     public function getForCompany(string $binaryCompanyId): array
     {
@@ -65,12 +69,62 @@ final class MarketplaceManager
             [ParameterType::BINARY]
         );
 
+        $logo = (string) ($this->connection->fetchOne(
+            'SELECT setting_value FROM ' . Setting::TABLE_NAME . " WHERE company_id = ? AND setting_key = 'marketplace/logo'",
+            [$binaryCompanyId],
+            [ParameterType::BINARY]
+        ) ?: '');
+
         return [
             'listed' => (bool) ($row['listed'] ?? false),
             'whatsapp' => (string) ($row['whatsapp'] ?? ''),
             'country' => (string) ($row['country'] ?? ''),
             'city' => (string) ($row['city'] ?? ''),
+            'logo' => $this->logoDataUri($logo),
         ];
+    }
+
+    /**
+     * Save (or clear) the company's own Marketplace listing logo, kept separate
+     * from the invoice/company logo so a seller can use a colour image here
+     * without affecting their invoices. Stored in app_config under the key
+     * "marketplace/logo" as "type|base64", exactly like the company logo.
+     *
+     *   $logo === null -> leave the current logo untouched
+     *   $logo === ''   -> remove the logo
+     *   otherwise      -> set/replace it ("type|base64")
+     */
+    public function saveLogo(string $binaryCompanyId, ?string $logo): void
+    {
+        if ($logo === null) {
+            return;
+        }
+
+        if ($logo === '') {
+            $this->connection->executeStatement(
+                'DELETE FROM ' . Setting::TABLE_NAME . " WHERE company_id = ? AND setting_key = 'marketplace/logo'",
+                [$binaryCompanyId],
+                [ParameterType::BINARY]
+            );
+
+            return;
+        }
+
+        $this->connection->executeStatement(
+            'INSERT INTO ' . Setting::TABLE_NAME . " (id, company_id, setting_key, setting_value, field_type)
+             VALUES (:id, :companyId, 'marketplace/logo', :value, :type)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+            [
+                'id' => (new Ulid())->toBinary(),
+                'companyId' => $binaryCompanyId,
+                'value' => $logo,
+                'type' => ImageUploadType::class,
+            ],
+            [
+                'id' => ParameterType::BINARY,
+                'companyId' => ParameterType::BINARY,
+            ]
+        );
     }
 
     /**
@@ -148,16 +202,19 @@ final class MarketplaceManager
             return [];
         }
 
-        // The seller's display picture is their company logo, uploaded under
-        // Settings -> Company (app_config key system/company/logo, stored as
-        // "type|base64"). LEFT JOIN so sellers without a logo still show.
+        // The seller's display picture: their own Marketplace listing logo
+        // (app_config key marketplace/logo) if they uploaded one, otherwise a
+        // fall-back to the company/invoice logo (system/company/logo). Both are
+        // stored as "type|base64". LEFT JOINs so sellers without any logo show.
         $rows = $this->connection->executeQuery(
             "SELECT HEX(c.id) AS vendorId, c.name AS business, sm.name AS model, sm.quantity AS qty,
-                    ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city, cfg.setting_value AS logo
+                    ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city,
+                    COALESCE(NULLIF(mpl.setting_value, ''), col.setting_value) AS logo
              FROM stock_model sm
              INNER JOIN companies c ON c.id = sm.company_id
              INNER JOIN " . MarketplaceSetting::TABLE_NAME . " ms ON ms.company_id = sm.company_id AND ms.listed = 1
-             LEFT JOIN app_config cfg ON cfg.company_id = sm.company_id AND cfg.setting_key = 'system/company/logo'
+             LEFT JOIN app_config mpl ON mpl.company_id = sm.company_id AND mpl.setting_key = 'marketplace/logo'
+             LEFT JOIN app_config col ON col.company_id = sm.company_id AND col.setting_key = 'system/company/logo'
              WHERE sm.quantity > 0" . $where . '
              ORDER BY sm.name ASC, c.name ASC
              LIMIT ' . self::MAX_RESULTS,

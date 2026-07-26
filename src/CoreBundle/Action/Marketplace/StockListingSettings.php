@@ -14,11 +14,17 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Marketplace;
 
 use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Form\Type\ImageUploadType;
 use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use function base64_encode;
+use function file_get_contents;
+use function getimagesize;
+use function in_array;
 use function trim;
 
 /**
@@ -42,7 +48,7 @@ final class StockListingSettings extends AbstractController
 
         if ($binaryCompanyId === null) {
             return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', [
-                'listed' => false, 'whatsapp' => '', 'country' => '', 'city' => '', 'countries' => $this->marketplace->countryChoices(),
+                'listed' => false, 'whatsapp' => '', 'country' => '', 'city' => '', 'logo' => '', 'countries' => $this->marketplace->countryChoices(),
             ]);
         }
 
@@ -58,7 +64,16 @@ final class StockListingSettings extends AbstractController
             $country = trim((string) $request->request->get('country', ''));
             $city = trim((string) $request->request->get('city', ''));
 
+            // null = leave the current logo untouched, '' = remove it,
+            // "type|base64" = a newly uploaded image to store.
+            $logo = $this->readLogo($request);
+
+            if ($logo === false) {
+                return $this->redirectToRoute('_marketplace_settings');
+            }
+
             $this->marketplace->save($binaryCompanyId, $listed, $whatsapp, $country, $city);
+            $this->marketplace->saveLogo($binaryCompanyId, $logo);
 
             $this->addFlash('success', $listed
                 ? 'Saved - your stock is now listed on the Marketplace.'
@@ -74,7 +89,49 @@ final class StockListingSettings extends AbstractController
             'whatsapp' => $settings['whatsapp'],
             'country' => $settings['country'],
             'city' => $settings['city'],
+            'logo' => $settings['logo'],
             'countries' => $this->marketplace->countryChoices(),
         ]);
+    }
+
+    /**
+     * Read the uploaded listing logo from the request. Returns "type|base64" for
+     * a valid new image, '' if the seller asked to remove it, null to leave the
+     * current logo as-is, or false when the upload was rejected (a flash message
+     * is set) so the caller can bounce back to the form.
+     */
+    private function readLogo(Request $request): string|false|null
+    {
+        if ($request->request->getBoolean('remove_logo')) {
+            return '';
+        }
+
+        $file = $request->files->get('logo');
+
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        if (! $file->isValid()) {
+            $this->addFlash('error', 'The logo could not be uploaded, please try again.');
+
+            return false;
+        }
+
+        // ~1.5 MB cap so the Marketplace page stays light (the image is inlined).
+        if ($file->getSize() > 1_500_000) {
+            $this->addFlash('error', 'The logo is too large - please use an image under 1.5 MB.');
+
+            return false;
+        }
+
+        if (! in_array((string) $file->getMimeType(), ImageUploadType::ALLOWED_MIME_TYPES, true)
+            || @getimagesize($file->getPathname()) === false) {
+            $this->addFlash('error', 'The logo must be a JPEG, PNG, GIF or WebP image.');
+
+            return false;
+        }
+
+        return $file->guessExtension() . '|' . base64_encode((string) file_get_contents($file->getPathname()));
     }
 }

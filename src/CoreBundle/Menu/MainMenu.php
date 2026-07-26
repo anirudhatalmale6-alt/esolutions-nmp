@@ -46,6 +46,7 @@ class MainMenu
         self::api($section);
         self::users($section);
         self::settings($section);
+        self::models($section);
         $this->addCustomFields($section);
     }
 
@@ -116,6 +117,17 @@ class MainMenu
             [
                 'route' => '_settings',
                 'extras' => ['icon' => 'settings'],
+            ],
+        );
+    }
+
+    public static function models(ItemInterface $item): ItemInterface
+    {
+        return $item->addChild(
+            'menu.top.models',
+            [
+                'route' => '_model_catalog_manage',
+                'extras' => ['icon' => 'list-check'],
             ],
         );
     }

@@ -12,6 +12,7 @@ menu:
         tax: 'Tax Rates'
         users: 'Users'
         custom_fields: 'Custom Fields'
+        models: 'Phone Models'
 exception:
     error:
         text: 'The following error occurred:'

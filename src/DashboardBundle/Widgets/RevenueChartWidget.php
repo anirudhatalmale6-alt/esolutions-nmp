@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\DashboardBundle\Widgets;
 
+use Brick\Math\BigInteger;
 use Brick\Math\BigNumber;
 use Brick\Math\RoundingMode;
 use Carbon\CarbonImmutable;
@@ -22,6 +23,7 @@ use Doctrine\Persistence\ObjectManager;
 use SolidInvoice\PaymentBundle\Entity\Payment;
 use SolidInvoice\PaymentBundle\Repository\PaymentRepository;
 use SolidInvoice\SettingsBundle\SystemConfig;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\UX\Chartjs\Builder\ChartBuilderInterface;
 use Symfony\UX\Chartjs\Model\Chart;
 
@@ -30,12 +32,25 @@ use Symfony\UX\Chartjs\Model\Chart;
  */
 final readonly class RevenueChartWidget implements WidgetInterface
 {
+    /**
+     * How many buckets to show, per period. Kept modest so the line stays
+     * readable: a year of weeks, a year of months, two years of quarters, and
+     * five years.
+     */
+    private const PERIODS = [
+        'weekly' => 12,
+        'monthly' => 12,
+        'quarterly' => 8,
+        'annual' => 5,
+    ];
+
     private ObjectManager $manager;
 
     public function __construct(
         ManagerRegistry $registry,
         private ChartBuilderInterface $chartBuilder,
         private SystemConfig $systemConfig,
+        private RequestStack $requestStack,
     ) {
         $this->manager = $registry->getManager();
     }
@@ -49,16 +64,31 @@ final readonly class RevenueChartWidget implements WidgetInterface
         /** @var PaymentRepository $paymentRepository */
         $paymentRepository = $this->manager->getRepository(Payment::class);
 
-        $revenueData = $paymentRepository->getRevenueByMonthGrouped(12);
-
-        // Generate labels for the last 12 months
-        $labels = [];
+        $period = $this->resolvePeriod();
+        $count = self::PERIODS[$period];
         $now = CarbonImmutable::now();
 
-        for ($i = 11; $i >= 0; --$i) {
-            $date = $now->modify(sprintf('-%d months', $i));
-            $labels[] = $date->format('M Y');
+        // Build the ordered list of buckets (oldest -> newest) for this period,
+        // each with a stable key and a human label for the axis.
+        $buckets = [];
+        for ($i = $count - 1; $i >= 0; --$i) {
+            $start = $this->periodStart($period, $now, $i);
+            $buckets[] = $this->describe($period, $start);
         }
+
+        $since = $this->periodStart($period, $now, $count - 1);
+
+        // Fetch captured payments once, then bucket them in PHP by the same key.
+        $revenueData = [];
+        foreach ($paymentRepository->getCapturedRevenueSince($since) as $row) {
+            $key = $this->describe($period, CarbonImmutable::instance($row['created']))['key'];
+            $currency = $row['currencyCode'];
+
+            $revenueData[$key][$currency] = ($revenueData[$key][$currency] ?? BigInteger::zero())
+                ->plus(BigNumber::of($row['totalAmount']));
+        }
+
+        $labels = array_column($buckets, 'label');
 
         // Get all currencies from the data
         $currencies = [];
@@ -86,11 +116,10 @@ final readonly class RevenueChartWidget implements WidgetInterface
 
         foreach ($currencies as $index => $currency) {
             $data = [];
-            for ($i = 11; $i >= 0; --$i) {
-                $date = $now->modify(sprintf('-%d months', $i));
-                $monthKey = $date->format('Y-m');
-                $data[] = isset($revenueData[$monthKey][$currency])
-                    ? $revenueData[$monthKey][$currency]->dividedBy(BigNumber::of(100), RoundingMode::HalfEven)->toFloat() // Convert cents to currency units
+            foreach ($buckets as $bucket) {
+                $bucketKey = $bucket['key'];
+                $data[] = isset($revenueData[$bucketKey][$currency])
+                    ? $revenueData[$bucketKey][$currency]->dividedBy(BigNumber::of(100), RoundingMode::HalfEven)->toFloat() // Convert cents to currency units
                     : 0;
             }
 
@@ -159,7 +188,63 @@ final readonly class RevenueChartWidget implements WidgetInterface
         return [
             'chart' => $chart,
             'hasData' => ! empty($revenueData),
+            'period' => $period,
+            'periods' => array_keys(self::PERIODS),
         ];
+    }
+
+    /**
+     * The chosen period from ?revenue_period=..., validated against the allowed
+     * list, defaulting to monthly.
+     */
+    private function resolvePeriod(): string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        $requested = $request !== null ? (string) $request->query->get('revenue_period', '') : '';
+
+        return isset(self::PERIODS[$requested]) ? $requested : 'monthly';
+    }
+
+    /**
+     * The start date of the bucket $offset periods before "now" (offset 0 = the
+     * current, still-open period).
+     */
+    private function periodStart(string $period, CarbonImmutable $now, int $offset): CarbonImmutable
+    {
+        return match ($period) {
+            'weekly' => $now->startOfWeek()->subWeeks($offset),
+            'quarterly' => $now->startOfQuarter()->subQuarters($offset),
+            'annual' => $now->startOfYear()->subYears($offset),
+            default => $now->startOfMonth()->subMonths($offset),
+        };
+    }
+
+    /**
+     * Turn a date into its bucket: a stable key (so the same period always maps
+     * to the same slot) and a short human label for the chart axis.
+     *
+     * @return array{key: string, label: string}
+     */
+    private function describe(string $period, CarbonImmutable $date): array
+    {
+        return match ($period) {
+            'weekly' => [
+                'key' => $date->format('o-\WW'),
+                'label' => $date->startOfWeek()->format('d M'),
+            ],
+            'quarterly' => [
+                'key' => $date->format('Y') . '-Q' . $date->quarter,
+                'label' => 'Q' . $date->quarter . ' ' . $date->format('Y'),
+            ],
+            'annual' => [
+                'key' => $date->format('Y'),
+                'label' => $date->format('Y'),
+            ],
+            default => [
+                'key' => $date->format('Y-m'),
+                'label' => $date->format('M Y'),
+            ],
+        };
     }
 
     public function getTemplate(): string

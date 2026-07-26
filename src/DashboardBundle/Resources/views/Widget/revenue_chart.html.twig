@@ -7,14 +7,24 @@
  # with this source code in the file LICENSE.
  #}
 
-<div class="col-12 mb-4">
+<div class="col-12 mb-4" id="revenue-chart">
     <twig:Ui:Card>
         <twig:block name="header">
-            <div class="d-flex justify-content-between align-items-center w-100">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 w-100">
                 <div>
                     <h3 class="card-title mb-0">{{ 'dashboard.charts.revenue_title'|trans }}</h3>
                     <small class="text-muted">{{ 'dashboard.charts.revenue_subtitle'|trans }}</small>
                 </div>
+                {% if periods is defined %}
+                    <div class="btn-group btn-group-sm no-print" role="group" aria-label="{{ 'Period'|trans }}">
+                        {% for p in periods %}
+                            <a href="{{ path('_dashboard', {'revenue_period': p}) }}#revenue-chart"
+                               class="btn {{ p == period ? 'btn-primary' : 'btn-outline-primary' }}">
+                                {{ p|capitalize|trans }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
         </twig:block>
 

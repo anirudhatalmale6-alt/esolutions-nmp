@@ -373,6 +373,30 @@ class PaymentRepository extends EntityRepository
     }
 
     /**
+     * Raw captured payment rows (amount, date, currency) since a given date, in
+     * date order. Used by the dashboard revenue chart, which buckets them into
+     * weekly / monthly / quarterly / annual periods in PHP.
+     *
+     * @return list<array{totalAmount: string, created: DateTimeInterface, currencyCode: string}>
+     */
+    public function getCapturedRevenueSince(DateTimeInterface $since): array
+    {
+        $qb = $this->createQueryBuilder('p');
+
+        $qb->select('p.totalAmount', 'p.created', 'p.currencyCode')
+            ->where('p.created >= :date')
+            ->andWhere('p.status = :status')
+            ->setParameter('date', $since)
+            ->setParameter('status', PaymentStatus::Captured->value)
+            ->orderBy('p.created', Criteria::ASC);
+
+        /** @var list<array{totalAmount: string, created: DateTimeInterface, currencyCode: string}> $rows */
+        $rows = $qb->getQuery()->getArrayResult();
+
+        return $rows;
+    }
+
+    /**
      * Get total payments received in the current month grouped by currency.
      *
      * @return array<string, BigInteger>

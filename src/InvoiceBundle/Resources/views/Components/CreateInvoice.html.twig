@@ -462,7 +462,25 @@
     </dialog>
 
     <style>
-        .column-actions { display: flex; align-items: center; gap: .25rem; }
+        .column-actions { display: flex; align-items: center; justify-content: flex-end; gap: .25rem; }
+        /* The line row's actions track was sized (24px) for a single delete button.
+           Adding the IMEI button needs room for two, and the Total column
+           (minmax(60px,.4fr)) was too narrow for a full currency amount so the
+           no-wrap total spilled into the actions - which read as the barcode icon
+           "overlaying" the total. Give both the Total and Actions tracks proper
+           width on desktop; the mobile (<=900px) stacked grid-areas layout is
+           untouched. */
+        @media (min-width: 901px) {
+            .billing-items-list:not(:has(.column-tax)) .billing-items-header-row,
+            .billing-items-list:not(:has(.column-tax)) .billing-item-row {
+                grid-template-columns: minmax(0,3.4fr) minmax(100px,.9fr) 56px minmax(120px,.6fr) 66px !important;
+            }
+            .billing-items-list:has(.column-tax) .billing-items-header-row,
+            .billing-items-list:has(.column-tax) .billing-item-row {
+                grid-template-columns: minmax(0,2.4fr) minmax(120px,1fr) 56px minmax(120px,.8fr) minmax(120px,.6fr) 66px !important;
+            }
+        }
+        .column-total .item-total-value { white-space: nowrap; }
         .imei-line-btn { position: relative; }
         .imei-dot { position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #f4c430; box-shadow: 0 0 0 2px var(--bs-body-bg, #fff); }
         .imei-dot[hidden] { display: none; }

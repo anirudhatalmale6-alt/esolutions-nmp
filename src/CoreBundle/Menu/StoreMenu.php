@@ -28,7 +28,7 @@ final class StoreMenu
             'label' => 'Online store',
             'attributes' => [
                 // Hook for the premium gold styling (see Layout/base.html.twig).
-                'class' => 'store-premium',
+                'class' => 'premium-feature',
             ],
             'extras' => [
                 // Gold crown = the premium marker (styled in Layout/base.html.twig).

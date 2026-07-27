@@ -18,14 +18,41 @@ use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class MarketplaceMenu
 {
-    // Sits just below the dashboard so the model search is easy to reach for any
-    // signed-in portal user. The page itself is public; this is the in-portal way in.
-    #[MenuBuilder(name: 'sidebar', priority: 95, role: 'ROLE_USER')]
+    // Premium section, just above "Online store" at the bottom of the sidebar
+    // (priority 6 > store's 5, < system's 10). Any signed-in user sees it; the
+    // gold crown marks it as a premium feature (styling in Layout/base.html.twig).
+    #[MenuBuilder(name: 'sidebar', priority: 6, role: 'ROLE_USER')]
     public function sidebar(ItemInterface $menu): void
     {
-        $menu->addChild('menu.top.marketplace', [
+        $marketplace = $menu->addChild('marketplace', [
+            'label' => 'Marketplace',
+            'attributes' => [
+                'class' => 'premium-feature',
+            ],
+            'extras' => [
+                'icon' => 'crown',
+            ],
+        ]);
+
+        // Searching the marketplace is open to every signed-in user.
+        $marketplace->addChild('marketplace.search', [
             'route' => '_marketplace',
-            'extras' => ['icon' => 'building-store'],
+            'label' => 'Search',
+            'extras' => [
+                'icon' => 'search',
+            ],
+        ]);
+
+        // Sharing your own stock onto the marketplace is the paid/premium side -
+        // for now limited to the business owner (Admin+); a subscription gate will
+        // layer on top of this in the next phase.
+        $marketplace->addChild('marketplace.share', [
+            'route' => '_marketplace_settings',
+            'label' => 'Share My Inventory',
+            'extras' => [
+                'icon' => 'building-store',
+                'role' => 'ROLE_ADMIN',
+            ],
         ]);
     }
 }

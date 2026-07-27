@@ -47,12 +47,12 @@
         /* Seller header on top: display picture (portal/company logo placeholder)
            + business/location. Text kept un-bold for a calm, minimal look. */
         .vendor { display:flex; align-items:center; gap:12px; }
-        .dp { width:40px; height:40px; border-radius:50%; background:var(--chip); color:var(--ink); display:flex; align-items:center; justify-content:center; font-weight:500; font-size:1rem; flex:0 0 auto; overflow:hidden; }
+        .dp { width:52px; height:52px; border-radius:50%; background:var(--chip); color:var(--ink); display:flex; align-items:center; justify-content:center; font-weight:500; font-size:1.25rem; flex:0 0 auto; overflow:hidden; }
         /* Logos sit on a white circle so a transparent or black-on-transparent
            logo never renders as a dark/empty disc (looks right in dark mode too),
            and "contain" shows the whole logo instead of cropping a wordmark. */
         img.dp { object-fit:contain; background:#ffffff; padding:4px; }
-        .dp.generic { font-size:1.15rem; }
+        .dp.generic { font-size:1.5rem; }
         .vinfo { flex:1 1 auto; min-width:0; }
         .vinfo .bname { font-weight:500; font-size:1rem; line-height:1.3; word-break:break-word; }
         .vinfo .loc { color:var(--muted); font-size:.85rem; margin-top:2px; }

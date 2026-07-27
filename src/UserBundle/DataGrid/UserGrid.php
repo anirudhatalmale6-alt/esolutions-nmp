@@ -41,11 +41,22 @@ final class UserGrid extends Grid
         return [
             StringColumn::new('email')
                 ->label('Email Address'),
-            StringColumn::new('roles')
-                ->label('Role')
+            StatusColumn::new('roles')
+                ->label('Account type')
                 ->sortable(false)
                 ->searchable(false)
-                ->formatValue(static fn (mixed $value, User $user): string => PortalRole::fromRoles($user->getRoles())?->label() ?? 'No role'),
+                ->formatValue(static fn (mixed $value, User $user): string => PortalRole::fromRoles($user->getRoles())?->label() ?? 'No role')
+                // Super User stands out in red so it is obvious which account runs
+                // the whole portal.
+                ->statusMap([
+                    'super user' => 'danger',
+                    'admin' => 'primary',
+                    'manager' => 'info',
+                    'accountant' => 'success',
+                    'staff' => 'secondary',
+                    'order team' => 'warning',
+                    'no role' => 'secondary',
+                ]),
             StringColumn::new('mobile')
                 ->label('Mobile')
                 ->formatValue(fn ($value) => $value ?: '—'),

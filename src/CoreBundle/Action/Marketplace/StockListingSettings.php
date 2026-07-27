@@ -23,8 +23,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use function base64_encode;
 use function file_get_contents;
+use function function_exists;
 use function getimagesize;
+use function imagecopyresampled;
+use function imagecreatefromstring;
+use function imagecreatetruecolor;
 use function in_array;
+use function max;
+use function min;
+use function ob_get_clean;
+use function ob_start;
+use function round;
 use function trim;
 
 /**
@@ -36,6 +45,9 @@ use function trim;
 #[IsGranted('ROLE_ADMIN')]
 final class StockListingSettings extends AbstractController
 {
+    /** Longest-side size, in pixels, the listing display picture is resized to. */
+    private const THUMB_MAX = 320;
+
     public function __construct(
         private readonly MarketplaceManager $marketplace,
         private readonly CompanySelector $companySelector,
@@ -132,6 +144,79 @@ final class StockListingSettings extends AbstractController
             return false;
         }
 
+        // Shrink the display picture to a small thumbnail so the Marketplace page
+        // (which inlines the image) stays light and the value comfortably fits the
+        // settings column. Falls back to the original bytes if GD is unavailable.
+        $thumbnail = $this->thumbnail($file->getPathname(), (string) $file->getMimeType());
+
+        if ($thumbnail !== null) {
+            return $thumbnail;
+        }
+
         return $file->guessExtension() . '|' . base64_encode((string) file_get_contents($file->getPathname()));
+    }
+
+    /**
+     * Resize an uploaded image down to fit within {@see self::THUMB_MAX} px on its
+     * longest side and re-encode it, returning "type|base64" - or null when GD
+     * cannot handle it, so the caller keeps the original bytes. Transparency is
+     * preserved (non-JPEG sources are written as PNG).
+     */
+    private function thumbnail(string $path, string $mime): ?string
+    {
+        if (! function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $bytes = @file_get_contents($path);
+
+        if ($bytes === false) {
+            return null;
+        }
+
+        $src = @imagecreatefromstring($bytes);
+
+        if ($src === false) {
+            return null;
+        }
+
+        $width = imagesx($src);
+        $height = imagesy($src);
+        $scale = min(1.0, self::THUMB_MAX / max($width, $height));
+        $newWidth = max(1, (int) round($width * $scale));
+        $newHeight = max(1, (int) round($height * $scale));
+
+        $dst = imagecreatetruecolor($newWidth, $newHeight);
+        $isJpeg = $mime === 'image/jpeg';
+
+        if (! $isJpeg) {
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+            imagefilledrectangle($dst, 0, 0, $newWidth, $newHeight, $transparent);
+        }
+
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+        ob_start();
+
+        if ($isJpeg) {
+            imagejpeg($dst, null, 85);
+            $type = 'jpg';
+        } else {
+            imagepng($dst, null, 6);
+            $type = 'png';
+        }
+
+        $encoded = (string) ob_get_clean();
+
+        imagedestroy($src);
+        imagedestroy($dst);
+
+        if ($encoded === '') {
+            return null;
+        }
+
+        return $type . '|' . base64_encode($encoded);
     }
 }

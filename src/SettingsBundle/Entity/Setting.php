@@ -43,7 +43,9 @@ class Setting implements Stringable, Serializable
     #[ORM\Column(name: 'setting_key', type: Types::STRING, length: 125)]
     protected ?string $key = null;
 
-    #[ORM\Column(name: 'setting_value', type: Types::TEXT, nullable: true)]
+    // LONGTEXT: image settings (company logo, Marketplace listing logo) are stored
+    // here as base64, and a colour photo can exceed a plain TEXT column's 64 KB.
+    #[ORM\Column(name: 'setting_value', type: Types::TEXT, length: 4294967295, nullable: true)]
     protected ?string $value = null;
 
     #[ORM\Column(name: 'description', type: Types::TEXT, nullable: true)]

@@ -17,6 +17,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use SolidInvoice\CoreBundle\Entity\ModelCatalogEntry;
+use SolidInvoice\CoreBundle\Entity\SharedModelCatalogEntry;
 use Symfony\Component\Uid\Ulid;
 use Throwable;
 use function array_chunk;
@@ -127,6 +128,114 @@ final class ModelCatalogManager
         }
 
         return count($names);
+    }
+
+    // ---------------------------------------------------------------------
+    // Portal-wide shared list (model_catalog_shared). A single master list every
+    // vendor reads from; only the Super User edits it. The per-company methods
+    // above are kept for old data but are no longer used to feed suggestions.
+    // ---------------------------------------------------------------------
+
+    /**
+     * The portal-wide shared model list, alphabetically.
+     *
+     * @return list<string>
+     */
+    public function sharedNames(): array
+    {
+        /** @var list<string> $names */
+        $names = $this->connection->fetchFirstColumn(
+            'SELECT name FROM ' . SharedModelCatalogEntry::TABLE_NAME . ' ORDER BY name ASC'
+        );
+
+        return $names;
+    }
+
+    /**
+     * Fill the shared list the first time it is needed. To preserve any list a
+     * vendor has already curated, we seed it from the union of every existing
+     * per-company list; only if there is nothing at all do we fall back to the
+     * built-in manufacturer catalogue.
+     */
+    public function ensureSharedSeeded(): void
+    {
+        $count = (int) $this->connection->fetchOne(
+            'SELECT COUNT(*) FROM ' . SharedModelCatalogEntry::TABLE_NAME
+        );
+
+        if ($count > 0) {
+            return;
+        }
+
+        /** @var list<string> $existing */
+        $existing = $this->connection->fetchFirstColumn(
+            'SELECT DISTINCT name FROM ' . ModelCatalogEntry::TABLE_NAME . ' ORDER BY name ASC'
+        );
+
+        $seed = $existing !== [] ? $existing : $this->defaults();
+
+        $this->insertManyShared($this->normalize($seed));
+    }
+
+    /**
+     * Replace the whole shared list with $names. Returns the number saved.
+     *
+     * @param array<mixed> $names
+     */
+    public function replaceShared(array $names): int
+    {
+        $names = $this->normalize($names);
+
+        $this->connection->beginTransaction();
+
+        try {
+            $this->connection->executeStatement('DELETE FROM ' . SharedModelCatalogEntry::TABLE_NAME);
+            $this->insertManyShared($names);
+            $this->connection->commit();
+        } catch (Throwable $e) {
+            $this->connection->rollBack();
+
+            throw $e;
+        }
+
+        return count($names);
+    }
+
+    /**
+     * @param list<string> $names
+     */
+    private function insertManyShared(array $names): void
+    {
+        if ($names === []) {
+            return;
+        }
+
+        $now = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+
+        foreach (array_chunk($names, 100) as $chunk) {
+            $rows = [];
+            $params = [];
+            $types = [];
+
+            foreach ($chunk as $name) {
+                $rows[] = '(?, ?, ?, ?)';
+                $params[] = (new Ulid())->toBinary();
+                $params[] = $name;
+                $params[] = $now;
+                $params[] = $now;
+                $types[] = ParameterType::BINARY;
+                $types[] = ParameterType::STRING;
+                $types[] = ParameterType::STRING;
+                $types[] = ParameterType::STRING;
+            }
+
+            $this->connection->executeStatement(
+                'INSERT IGNORE INTO ' . SharedModelCatalogEntry::TABLE_NAME
+                . ' (id, name, created, updated) VALUES ' . implode(', ', $rows),
+                $params,
+                $types
+            );
+        }
     }
 
     /**

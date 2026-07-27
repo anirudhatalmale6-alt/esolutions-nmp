@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action;
 
 use SolidInvoice\CoreBundle\Catalog\ModelCatalogManager;
-use SolidInvoice\CoreBundle\Company\CompanySelector;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,44 +22,46 @@ use function count;
 use function implode;
 
 /**
- * "Manage model list" page: the owner sees the company's phone-model list, one
- * per line, edits or pastes a fresh list, and saves. This is what feeds the model
- * suggestion box on invoice / quote line items, so keeping it tidy keeps the
- * Sales-by-Model report accurate. Replaces the old merge tool with something an
- * end customer understands at a glance.
+ * "Phone models" page: the portal-wide shared model list that feeds the line-item
+ * model suggestion box for every vendor. It is a single master list, so keeping it
+ * tidy keeps the Sales-by-Model report accurate for everyone. Every admin can view
+ * it, but only the Super User (platform owner) can edit or delete it - business
+ * admins see it read-only so they cannot change or remove the shared list.
  */
 #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 final class ModelCatalogManage extends AbstractController
 {
     public function __construct(
         private readonly ModelCatalogManager $catalog,
-        private readonly CompanySelector $companySelector,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
-        $binaryCompanyId = $this->companySelector->getCompany()?->toBinary();
-
-        if ($binaryCompanyId === null) {
-            return $this->render('@SolidInvoiceCore/Catalog/manage.html.twig', ['models' => '', 'count' => 0]);
-        }
+        $canEdit = $this->isGranted('ROLE_SUPER_ADMIN');
 
         if ($request->isMethod('POST')) {
-            return $this->handleSave($request, $binaryCompanyId);
+            return $this->handleSave($request, $canEdit);
         }
 
-        $this->catalog->ensureSeeded($binaryCompanyId);
-        $names = $this->catalog->names($binaryCompanyId);
+        $this->catalog->ensureSharedSeeded();
+        $names = $this->catalog->sharedNames();
 
         return $this->render('@SolidInvoiceCore/Catalog/manage.html.twig', [
             'models' => implode("\n", $names),
             'count' => count($names),
+            'canEdit' => $canEdit,
         ]);
     }
 
-    private function handleSave(Request $request, string $binaryCompanyId): Response
+    private function handleSave(Request $request, bool $canEdit): Response
     {
+        if (! $canEdit) {
+            $this->addFlash('error', 'Only the Super User can change the shared model list.');
+
+            return $this->redirectToRoute('_model_catalog_manage');
+        }
+
         if (! $this->isCsrfTokenValid('model.catalog', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Your session expired, please try again.');
 
@@ -69,7 +70,7 @@ final class ModelCatalogManage extends AbstractController
 
         // "Restore default list" puts the full built-in manufacturer catalogue back.
         if ($request->request->get('action') === 'reset') {
-            $saved = $this->catalog->replace($binaryCompanyId, $this->catalog->defaults());
+            $saved = $this->catalog->replaceShared($this->catalog->defaults());
             $this->addFlash('success', sprintf('Restored the full model list (%d models).', $saved));
 
             return $this->redirectToRoute('_model_catalog_manage');
@@ -83,8 +84,8 @@ final class ModelCatalogManage extends AbstractController
             return $this->redirectToRoute('_model_catalog_manage');
         }
 
-        $saved = $this->catalog->replace($binaryCompanyId, $names);
-        $this->addFlash('success', sprintf('Saved your model list - %d models. These now show as suggestions when you type a model on an invoice.', $saved));
+        $saved = $this->catalog->replaceShared($names);
+        $this->addFlash('success', sprintf('Saved the shared model list - %d models. Every vendor now sees these as suggestions when they type a model on an invoice.', $saved));
 
         return $this->redirectToRoute('_model_catalog_manage');
     }

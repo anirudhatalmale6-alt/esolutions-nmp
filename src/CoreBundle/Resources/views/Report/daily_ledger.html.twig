@@ -58,6 +58,17 @@
             .row.g-3 { --bs-gutter-y: .4rem !important; --bs-gutter-x: .4rem !important; }
             .col-lg-6 { width: 50% !important; float: left; }
             .col-md-3 { width: 25% !important; float: left; }
+
+            /* The "Invoices raised today" card holds a 6-column table
+               (Invoice, Customer, Status, Total, Paid, Balance). At 50% page
+               width the Balance column overflowed and got clipped off the right
+               edge in print. Give this one wide card the full page width, and
+               stop the responsive wrapper from clipping (there is no scroll in
+               print, so overflow:auto just cuts the content). */
+            .table-responsive { overflow: visible !important; }
+            .row.g-3 > .ledger-invoices-col { width: 100% !important; float: none !important; clear: both; }
+            .ledger-invoices-col table { table-layout: fixed !important; width: 100% !important; }
+            .ledger-invoices-col th, .ledger-invoices-col td { word-break: break-word; }
         }
     </style>
 
@@ -231,7 +242,7 @@
         </div>
 
         {# ---------------- Invoices raised today ---------------- #}
-        <div class="col-lg-6">
+        <div class="col-lg-6 ledger-invoices-col">
             <twig:Ui:Card>
                 <h3 class="h5 mb-3">{{ ux_icon('tabler:file-invoice', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Invoices raised today'|trans }}</h3>
                 {% if invoices is empty %}

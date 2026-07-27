@@ -395,7 +395,16 @@
                         <tbody>
                             {% for item in invoice.lines %}
                                 <tr>
-                                    <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}</td>
+                                    <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}
+                                        {# Internal IMEI record for warranty/claim tracking - staff-facing only,
+                                           never shown on the customer PDF or the public invoice view. #}
+                                        {% if item.imei is not empty %}
+                                            <div class="line-imei text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                                <strong>{{ 'IMEI'|trans }}:</strong>
+                                                {% for imei in item.imei|split(',') %}{% if imei|trim is not empty %}<span class="line-imei-item" style="display:inline-block;margin-right:.5rem;">{{ imei|trim }}</span>{% endif %}{% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </td>
                                     <td class="column-price" data-label="{{ 'invoice.item.heading.price'|trans }}">{{ item.price|formatCurrency(currency) }}</td>
                                     <td class="column-qty" data-label="{{ 'invoice.item.heading.qty'|trans }}">{{ item.qty }}</td>
                                     {% if invoice.tax.positive %}

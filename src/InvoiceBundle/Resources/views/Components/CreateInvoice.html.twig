@@ -219,6 +219,15 @@
                                         <span class="item-total-value">{{ item.vars.value.total|formatCurrency(currency) }}</span>
                                     </div>
                                     <div class="column-actions">
+                                        {# Internal IMEI capture for this line: a hidden value plus a button
+                                           that opens the scan/enter popup. A gold dot shows when IMEIs are
+                                           saved. The IMEI never appears on the customer PDF or public view. #}
+                                        {{ form_widget(item.imei) }}
+                                        <button type="button" class="btn btn-sm imei-line-btn" data-imei-open
+                                                title="{{ 'Scan / enter IMEI(s)'|trans }}" aria-label="{{ 'Scan / enter IMEI(s)'|trans }}">
+                                            {{ ux_icon('tabler:device-mobile', {width: 16, height: 16}) }}
+                                            <span class="imei-dot" data-imei-dot{{ item.vars.value.imei is empty ? ' hidden' : '' }}></span>
+                                        </button>
                                         {% if form.lines|length > 1 %}
                                             {{ form_widget(item.vars.button_delete, {
                                                 label: ux_icon('tabler:trash', {width: 16, height: 16})|raw,
@@ -440,4 +449,84 @@
     </div>
 
     {{ form_end(form) }}
+
+    {# ---- Internal IMEI capture popup, shared by every line ---- #}
+    <dialog id="imei-dialog" class="imei-dialog">
+        <div class="imei-dialog-head">{{ 'IMEI numbers'|trans }}</div>
+        <p class="imei-dialog-hint">{{ 'One IMEI per line. Scan each handset with your barcode scanner, or type the numbers in.'|trans }}</p>
+        <textarea id="imei-dialog-text" rows="8" class="form-control" spellcheck="false" autocomplete="off"></textarea>
+        <div class="imei-dialog-actions">
+            <button type="button" class="btn btn-ghost" data-imei-cancel>{{ 'Cancel'|trans }}</button>
+            <button type="button" class="btn btn-primary" data-imei-save>{{ 'Save IMEIs'|trans }}</button>
+        </div>
+    </dialog>
+
+    <style>
+        .column-actions { display: flex; align-items: center; gap: .25rem; }
+        .imei-line-btn { position: relative; }
+        .imei-dot { position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #f4c430; box-shadow: 0 0 0 2px var(--bs-body-bg, #fff); }
+        .imei-dot[hidden] { display: none; }
+        .imei-dialog { border: none; border-radius: 12px; padding: 20px; max-width: 420px; width: 92vw; color: var(--bs-body-color); background: var(--bs-body-bg, #fff); box-shadow: 0 20px 60px -20px rgba(0,0,0,.45); }
+        .imei-dialog::backdrop { background: rgba(0,0,0,.4); }
+        .imei-dialog-head { font-size: 1.05rem; font-weight: 600; margin-bottom: .35rem; }
+        .imei-dialog-hint { color: var(--bs-secondary-color, #6c757d); font-size: .85rem; margin: 0 0 .75rem; }
+        .imei-dialog textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .imei-dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .9rem; }
+    </style>
+
+    <script>
+        (function () {
+            if (window.__imeiPopupInit) { return; }
+            window.__imeiPopupInit = true;
+
+            var activeField = null;
+            var activeDot = null;
+
+            function toLines(value) {
+                return (value || '').split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+            }
+
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest) { return; }
+
+                var openBtn = e.target.closest('[data-imei-open]');
+                if (openBtn) {
+                    e.preventDefault();
+                    var row = openBtn.closest('.billing-item-row');
+                    activeField = row ? row.querySelector('[data-imei-field]') : null;
+                    activeDot = openBtn.querySelector('[data-imei-dot]');
+                    var d = document.getElementById('imei-dialog');
+                    var ta = document.getElementById('imei-dialog-text');
+                    if (!d || !ta) { return; }
+                    ta.value = toLines(activeField ? activeField.value : '').join('\n');
+                    if (typeof d.showModal === 'function') { d.showModal(); } else { d.setAttribute('open', ''); }
+                    setTimeout(function () { ta.focus(); }, 0);
+                    return;
+                }
+
+                if (e.target.closest('[data-imei-cancel]')) {
+                    var dc = document.getElementById('imei-dialog');
+                    if (dc) { dc.close ? dc.close() : dc.removeAttribute('open'); }
+                    return;
+                }
+
+                if (e.target.closest('[data-imei-save]')) {
+                    var ta2 = document.getElementById('imei-dialog-text');
+                    var list = (ta2 ? ta2.value : '').split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+                    var stored = list.join(', ');
+                    if (activeField) {
+                        activeField.value = stored;
+                        activeField.dispatchEvent(new Event('input', { bubbles: true }));
+                        activeField.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (activeDot) {
+                        if (stored) { activeDot.removeAttribute('hidden'); } else { activeDot.setAttribute('hidden', ''); }
+                    }
+                    var ds = document.getElementById('imei-dialog');
+                    if (ds) { ds.close ? ds.close() : ds.removeAttribute('open'); }
+                    return;
+                }
+            });
+        })();
+    </script>
 </div>

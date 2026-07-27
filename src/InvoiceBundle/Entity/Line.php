@@ -125,6 +125,15 @@ class Line implements LineInterface, Stringable
     #[Groups(['invoice_api:read', 'invoice_api:write', 'recurring_invoice_api:read', 'recurring_invoice_api:write'])]
     protected ?float $qty = 1;
 
+    /**
+     * Internal only: the IMEI number(s) of the handset(s) sold on this line,
+     * stored comma-separated. Captured on the invoice form for warranty/claim
+     * tracking and shown on the internal invoice view - deliberately kept off
+     * the customer PDF and the public (external) invoice view.
+     */
+    #[ORM\Column(name: 'imei', type: Types::TEXT, nullable: true)]
+    protected ?string $imei = null;
+
     #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'lines')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(
@@ -176,6 +185,19 @@ class Line implements LineInterface, Stringable
     public function getDescription(): ?string
     {
         return $this->description;
+    }
+
+    public function setImei(?string $imei): static
+    {
+        $imei = $imei !== null ? trim($imei) : null;
+        $this->imei = ($imei === null || $imei === '') ? null : $imei;
+
+        return $this;
+    }
+
+    public function getImei(): ?string
+    {
+        return $this->imei;
     }
 
     /**

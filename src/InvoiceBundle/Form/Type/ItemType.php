@@ -20,6 +20,7 @@ use SolidInvoice\InvoiceBundle\Entity\Line;
 use SolidInvoice\TaxBundle\Entity\Tax;
 use SolidInvoice\TaxBundle\Form\Type\LineTaxType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\MoneyType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -68,6 +69,19 @@ class ItemType extends AbstractType
                 'empty_data' => 1,
                 'attr' => [
                     'class' => 'input-mini invoice-item-qty',
+                ],
+            ]
+        );
+
+        // Internal IMEI capture for this line (comma-separated, entered via the
+        // per-line IMEI popup). Hidden input; never shown to the customer.
+        $builder->add(
+            'imei',
+            HiddenType::class,
+            [
+                'required' => false,
+                'attr' => [
+                    'data-imei-field' => true,
                 ],
             ]
         );

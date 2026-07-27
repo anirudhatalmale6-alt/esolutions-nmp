@@ -7,9 +7,11 @@
  # with this source code in the file LICENSE.
  #}
 
-{% set menuItem = 'stock-listing' %}
-
-{% extends "@SolidInvoiceUser/Layout/profile.html.twig" %}
+{# Standalone Marketplace page (reached via sidebar Marketplace > Share My
+   Inventory) - uses the plain content layout, not the profile-settings layout,
+   so the account-settings side nav (Profile, Change Password, ...) is not shown
+   here where it isn't relevant. #}
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
 {% block title %}{{ ux_icon('tabler:building-store', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Stock Listing'|trans }}{% endblock title %}
 
@@ -20,7 +22,7 @@
     </a>
 {% endblock %}
 
-{% block profile_content %}
+{% block content %}
     <twig:Ui:Card>
         <p class="text-secondary">
             {{ 'The Marketplace lets buyers search phone models across sellers. Turn this on to list your Tally stock so buyers can find it and reach you on WhatsApp. Turn it off any time and your stock disappears from search. Prices are never shown - buyers message you for details.'|trans }}
@@ -84,4 +86,4 @@
             </button>
         </form>
     </twig:Ui:Card>
-{% endblock profile_content %}
+{% endblock content %}

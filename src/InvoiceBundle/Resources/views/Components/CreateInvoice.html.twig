@@ -225,7 +225,7 @@
                                         {{ form_widget(item.imei) }}
                                         <button type="button" class="btn btn-sm imei-line-btn" data-imei-open
                                                 title="{{ 'Scan / enter IMEI(s)'|trans }}" aria-label="{{ 'Scan / enter IMEI(s)'|trans }}">
-                                            {{ ux_icon('tabler:device-mobile', {width: 16, height: 16}) }}
+                                            {{ ux_icon('tabler:barcode', {width: 16, height: 16}) }}
                                             <span class="imei-dot" data-imei-dot{{ item.vars.value.imei is empty ? ' hidden' : '' }}></span>
                                         </button>
                                         {% if form.lines|length > 1 %}

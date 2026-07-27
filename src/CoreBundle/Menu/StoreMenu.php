@@ -31,7 +31,8 @@ final class StoreMenu
                 'class' => 'store-premium',
             ],
             'extras' => [
-                'icon' => 'building-store',
+                // Gold crown = the premium marker (styled in Layout/base.html.twig).
+                'icon' => 'crown',
             ],
         ]);
     }

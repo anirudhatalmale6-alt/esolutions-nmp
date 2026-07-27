@@ -78,13 +78,13 @@ class DataGrid extends AbstractController
     #[LiveProp(writable: true, url: true)]
     public int $page = 1;
 
-    #[LiveProp(writable: true, url: true)]
+    #[LiveProp(writable: true, url: true, onUpdated: 'rememberState')]
     public string $sort = '';
 
-    #[LiveProp(writable: true, url: true)]
+    #[LiveProp(writable: true, url: true, onUpdated: 'rememberState')]
     public int $perPage = 10;
 
-    #[LiveProp(writable: true, url: true)]
+    #[LiveProp(writable: true, url: true, onUpdated: 'rememberState')]
     public string $search = '';
 
     /**
@@ -194,6 +194,73 @@ class DataGrid extends AbstractController
     {
         try {
             $this->requestStack->getSession()->set($this->columnPrefKey(), $this->hiddenColumns);
+        } catch (Throwable) {
+            // No session available - nothing to persist.
+        }
+    }
+
+    /**
+     * Session key under which this grid's search / sort / page-size / filter
+     * selection is stored, so the view a user set up is still there after a
+     * refresh or when they navigate away and come back.
+     */
+    private function statePrefKey(): string
+    {
+        return 'datagrid_state_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $this->name);
+    }
+
+    /**
+     * Restore the remembered search/sort/perPage/filters on first render.
+     * Runs before {@see initializeFormFromFilters()} so the filter form picks
+     * up the restored values. A value explicitly present in the URL always wins
+     * (it hydrates the prop away from its default, so we leave it untouched);
+     * otherwise we fall back to what the user last had.
+     */
+    #[PostMount(priority: 15)]
+    public function loadRememberedState(): void
+    {
+        try {
+            $saved = $this->requestStack->getSession()->get($this->statePrefKey());
+        } catch (Throwable) {
+            // No session available (e.g. stateless request) - ignore.
+            return;
+        }
+
+        if (! is_array($saved)) {
+            return;
+        }
+
+        if ($this->search === '' && isset($saved['search']) && is_string($saved['search'])) {
+            $this->search = $saved['search'];
+        }
+
+        if ($this->sort === '' && isset($saved['sort']) && is_string($saved['sort'])) {
+            $this->sort = $saved['sort'];
+        }
+
+        if ($this->perPage === 10 && isset($saved['perPage']) && is_int($saved['perPage'])) {
+            $this->perPage = $saved['perPage'];
+        }
+
+        if ($this->gridFilters === [] && isset($saved['gridFilters']) && is_array($saved['gridFilters'])) {
+            $this->gridFilters = $saved['gridFilters'];
+        }
+    }
+
+    /**
+     * Persist the current search/sort/perPage/filters for this grid. Also used
+     * as the onUpdated hook for the search, sort and perPage props, so simply
+     * typing a search or changing the sort/page size is remembered too.
+     */
+    public function rememberState(): void
+    {
+        try {
+            $this->requestStack->getSession()->set($this->statePrefKey(), [
+                'search' => $this->search,
+                'sort' => $this->sort,
+                'perPage' => $this->perPage,
+                'gridFilters' => $this->gridFilters,
+            ]);
         } catch (Throwable) {
             // No session available - nothing to persist.
         }
@@ -388,6 +455,7 @@ class DataGrid extends AbstractController
 
         // Reset page to 1 when filters change
         $this->page = 1;
+        $this->rememberState();
     }
 
     #[LiveAction]
@@ -395,6 +463,7 @@ class DataGrid extends AbstractController
     {
         $this->gridFilters = [];
         $this->resetForm();
+        $this->rememberState();
     }
 
     #[LiveAction]
@@ -409,6 +478,7 @@ class DataGrid extends AbstractController
     {
         unset($this->gridFilters[$filterKey]);
         $this->resetForm();
+        $this->rememberState();
     }
 
     /**

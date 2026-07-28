@@ -13,15 +13,20 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action;
 
+use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
+use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Ulid;
+use function in_array;
 
 /**
  * Super-user membership console. The platform owner sees every vendor company
@@ -29,6 +34,9 @@ use Symfony\Component\Uid\Ulid;
  *   - verify / un-verify a company
  *   - set its plan (None / Basic / Premium) for an annual term or lifetime
  *   - grant it complimentary (free) - no Stripe charge
+ *   - reset the password of any account (no e-mail server needed)
+ *   - delete a company outright (removes its data and any account left with no
+ *     other company) - used to clean up duplicate/test sign-ups
  *
  * Premium cannot be granted to an unverified company (matches the rule that
  * verification is required for Premium). Only the Super User (platform owner)
@@ -40,19 +48,41 @@ final class MembershipManage extends AbstractController
     public function __construct(
         private readonly CompanyRepository $companyRepository,
         private readonly MembershipManager $membership,
+        private readonly UserRepository $userRepository,
+        private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
         if ($request->isMethod('POST')) {
-            return $this->handleSave($request);
+            return match ((string) $request->request->get('intent', 'save')) {
+                'reset_password' => $this->handleResetPassword($request),
+                'delete_company' => $this->handleDeleteCompany($request),
+                default => $this->handleSave($request),
+            };
         }
 
         $companies = $this->companyRepository->findBy([], ['name' => 'ASC']);
 
         $rows = [];
         foreach ($companies as $company) {
+            $users = [];
+            $hasSuperAdmin = false;
+
+            foreach ($company->getUsers() as $user) {
+                if (! $user instanceof User) {
+                    continue;
+                }
+
+                if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+                    $hasSuperAdmin = true;
+                }
+
+                $users[] = $user;
+            }
+
             $rows[] = [
                 'company' => $company,
                 'plan' => $this->membership->planFor($company),
@@ -60,6 +90,10 @@ final class MembershipManage extends AbstractController
                 'expiresAt' => $company->getMembershipExpiresAt(),
                 'complimentary' => $company->isMembershipComplimentary(),
                 'verified' => $company->isVerified(),
+                'users' => $users,
+                // A company the platform owner belongs to (any super-admin member)
+                // can't be deleted from here, so the owner can't wipe themselves out.
+                'canDelete' => ! $hasSuperAdmin,
             ];
         }
 
@@ -77,8 +111,7 @@ final class MembershipManage extends AbstractController
             return $this->redirectToRoute('_membership_manage');
         }
 
-        $companyId = (string) $request->request->get('company');
-        $company = Ulid::isValid($companyId) ? $this->companyRepository->find(Ulid::fromString($companyId)) : null;
+        $company = $this->resolveCompany($request);
 
         if (! $company instanceof Company) {
             $this->addFlash('error', 'That company could not be found.');
@@ -113,5 +146,101 @@ final class MembershipManage extends AbstractController
         $this->addFlash('success', sprintf('%s updated: %s%s.', $company->getName(), $plan->label(), $complimentary && $plan->isPaid() ? ' (complimentary)' : ''));
 
         return $this->redirectToRoute('_membership_manage');
+    }
+
+    private function handleResetPassword(Request $request): Response
+    {
+        if (! $this->isCsrfTokenValid('membership.manage', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Your session expired, please try again.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        $email = trim((string) $request->request->get('email'));
+        $password = (string) $request->request->get('password');
+
+        $user = $email === '' ? null : $this->userRepository->findOneBy(['email' => $email]);
+
+        if (! $user instanceof User) {
+            $this->addFlash('error', 'That account could not be found.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        if (strlen($password) < 6) {
+            $this->addFlash('error', 'Please enter a password of at least 6 characters.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        $user->setPassword($this->passwordHasher->hashPassword($user, $password));
+        $user->eraseCredentials();
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('Password updated for %s.', $email));
+
+        return $this->redirectToRoute('_membership_manage');
+    }
+
+    private function handleDeleteCompany(Request $request): Response
+    {
+        if (! $this->isCsrfTokenValid('membership.manage', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Your session expired, please try again.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        $company = $this->resolveCompany($request);
+
+        if (! $company instanceof Company) {
+            $this->addFlash('error', 'That company could not be found.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        // Capture the members and whether each belongs ONLY to this company, before
+        // deleting. Refuse if the platform owner (a super-admin) is a member, so the
+        // console can never delete the owner's own company.
+        $soleOwners = [];
+
+        foreach ($company->getUsers() as $user) {
+            if (! $user instanceof User) {
+                continue;
+            }
+
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+                $this->addFlash('error', sprintf('%s can\'t be deleted here because the platform owner is a member of it.', $company->getName()));
+
+                return $this->redirectToRoute('_membership_manage');
+            }
+
+            if ($user->getCompanies()->count() === 1) {
+                $soleOwners[] = $user;
+            }
+        }
+
+        $name = $company->getName();
+
+        // Removing the company clears its join-table rows and cascades its data.
+        $this->companyRepository->deleteCompany($company->getId());
+
+        // Any account that had no other company is now orphaned - remove it too so
+        // duplicate/test sign-ups don't linger in the accounts list.
+        foreach ($soleOwners as $user) {
+            $this->entityManager->remove($user);
+        }
+
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('%s and its account(s) were deleted.', $name));
+
+        return $this->redirectToRoute('_membership_manage');
+    }
+
+    private function resolveCompany(Request $request): ?Company
+    {
+        $companyId = (string) $request->request->get('company');
+
+        return Ulid::isValid($companyId) ? $this->companyRepository->find(Ulid::fromString($companyId)) : null;
     }
 }

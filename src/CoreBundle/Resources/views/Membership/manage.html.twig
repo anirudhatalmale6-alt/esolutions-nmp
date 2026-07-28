@@ -14,7 +14,7 @@
 {% block content %}
     <twig:Ui:Card>
         <p class="text-secondary">
-            {{ 'Every company on the portal. New sign-ups appear here as "Not verified" - tick Verified to approve them into the portal. A company with No plan cannot use anything until you put it on Basic or Premium (or later, they pay). Basic gives invoicing and internal tools; Premium also unlocks the Marketplace and Online Store. You can also grant a plan complimentary (free).'|trans }}
+            {{ 'Every company on the portal. New sign-ups appear here as "Not verified" - tick Verified to approve them into the portal. A company with No plan cannot use anything until you put it on Basic or Premium (or later, they pay). Basic gives invoicing and internal tools; Premium also unlocks the Marketplace and Online Store. You can also grant a plan complimentary (free). Under Account you can reset any account\'s password, or delete a company and its account - handy for clearing duplicate or test sign-ups (your own company can\'t be deleted here).'|trans }}
         </p>
 
         <div class="table-responsive">
@@ -24,6 +24,7 @@
                         <th>{{ 'Company'|trans }}</th>
                         <th>{{ 'Current status'|trans }}</th>
                         <th style="min-width: 360px;">{{ 'Set membership'|trans }}</th>
+                        <th style="min-width: 240px;">{{ 'Account'|trans }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -102,10 +103,41 @@
                                     </div>
                                 </form>
                             </td>
+
+                            <td>
+                                {% for u in row.users %}
+                                    <div class="mb-2">
+                                        <div class="small fw-bold text-truncate" style="max-width: 230px;" title="{{ u.email }}">{{ u.email }}</div>
+                                        <form method="post" action="{{ path('_membership_manage') }}" class="d-flex gap-1 mt-1">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                                            <input type="hidden" name="intent" value="reset_password">
+                                            <input type="hidden" name="email" value="{{ u.email }}">
+                                            <input type="password" name="password" class="form-control form-control-sm" placeholder="{{ 'New password'|trans }}" minlength="6" required style="max-width: 150px;">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="{{ 'Set a new password for this account'|trans }}">{{ 'Set'|trans }}</button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <div class="small text-secondary">{{ 'No account'|trans }}</div>
+                                {% endfor %}
+
+                                {% if row.canDelete %}
+                                    <form method="post" action="{{ path('_membership_manage') }}" class="mt-2"
+                                          onsubmit="return confirm('{{ 'Delete %name% and its account(s)? This cannot be undone.'|trans({'%name%': row.company.name})|e('js') }}');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                                        <input type="hidden" name="intent" value="delete_company">
+                                        <input type="hidden" name="company" value="{{ row.company.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            {{ ux_icon('tabler:trash', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Delete'|trans }}
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <div class="small text-secondary mt-2">{{ ux_icon('tabler:lock', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Your company'|trans }}</div>
+                                {% endif %}
+                            </td>
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="3" class="text-center text-secondary py-4">{{ 'No companies yet.'|trans }}</td>
+                            <td colspan="4" class="text-center text-secondary py-4">{{ 'No companies yet.'|trans }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

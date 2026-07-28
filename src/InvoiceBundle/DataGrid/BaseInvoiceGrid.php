@@ -108,6 +108,43 @@ abstract class BaseInvoiceGrid extends Grid
             MoneyColumn::new('balance')
                 ->searchable(false)
                 ->formatValue(fn (BigNumber $value, Invoice $invoice) => new Money((string) $value, $invoice->getClient()?->getCurrency())),
+            // IMEIs captured on this invoice's phones. Displayed as a compact
+            // count ("how many handsets are serial-tracked on this invoice");
+            // more importantly it makes the invoice searchable by IMEI - typing
+            // a full or partial IMEI in the search box pulls up the invoice it
+            // sits on (for warranty/claim lookups). 'imei' is a virtual column
+            // (Invoice has no such property, so the renderer hands us the entity)
+            // and the search is delegated to the joined invoice_lines.imei via
+            // searchField(); sorting is disabled since there is nothing on the
+            // root row to sort by.
+            StringColumn::new('imei')
+                ->label('IMEIs')
+                ->sortable(false)
+                ->searchField('lines.imei')
+                ->formatValue(function (mixed $value, Invoice $invoice): string {
+                    // Defensive: if the invoice_lines.imei column is not present
+                    // yet (migration not run on this environment), lazy-loading
+                    // the lines would throw and take the whole invoice list down.
+                    // Degrade to a dash instead of 500-ing the page.
+                    try {
+                        $count = 0;
+                        foreach ($invoice->getLines() as $line) {
+                            $imei = trim((string) $line->getImei());
+                            if ($imei === '') {
+                                continue;
+                            }
+                            foreach (explode(',', $imei) as $one) {
+                                if (trim($one) !== '') {
+                                    ++$count;
+                                }
+                            }
+                        }
+                    } catch (\Throwable) {
+                        return '—';
+                    }
+
+                    return $count > 0 ? (string) $count : '—';
+                }),
         ];
     }
 

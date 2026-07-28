@@ -207,7 +207,7 @@ final class MarketplaceManager
         // fall-back to the company/invoice logo (system/company/logo). Both are
         // stored as "type|base64". LEFT JOINs so sellers without any logo show.
         $rows = $this->connection->executeQuery(
-            "SELECT HEX(c.id) AS vendorId, c.name AS business, sm.name AS model, sm.quantity AS qty,
+            "SELECT HEX(c.id) AS vendorId, c.name AS business, c.verified AS verified, sm.name AS model, sm.quantity AS qty,
                     ms.whatsapp AS whatsapp, ms.country AS country, ms.city AS city,
                     COALESCE(NULLIF(mpl.setting_value, ''), col.setting_value) AS logo
              FROM stock_model sm
@@ -233,6 +233,8 @@ final class MarketplaceManager
             $results[] = [
                 'vendorId' => (string) ($row['vendorId'] ?? ''),
                 'business' => (string) ($row['business'] ?? ''),
+                // Approved (verified) by the platform owner - drives the tick.
+                'verified' => (bool) ($row['verified'] ?? false),
                 'model' => $model,
                 'qty' => (int) ($row['qty'] ?? 0),
                 'whatsapp' => $whatsapp,
@@ -268,6 +270,7 @@ final class MarketplaceManager
                 $groups[$key] = [
                     'vendorId' => $row['vendorId'],
                     'business' => $row['business'],
+                    'verified' => $row['verified'],
                     'city' => $row['city'],
                     'country' => $row['country'],
                     'flag' => $row['flag'],

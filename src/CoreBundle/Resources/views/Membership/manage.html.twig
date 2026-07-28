@@ -1,0 +1,115 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:crown', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Memberships'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <p class="text-secondary">
+            {{ 'Every vendor company on the portal. Set a plan, verify an account, or grant complimentary (free) access. Premium unlocks the Marketplace and Online Store; Basic and No plan keep those locked. A company must be verified before it can go Premium.'|trans }}
+        </p>
+
+        <div class="table-responsive">
+            <table class="table table-vcenter">
+                <thead>
+                    <tr>
+                        <th>{{ 'Company'|trans }}</th>
+                        <th>{{ 'Current status'|trans }}</th>
+                        <th style="min-width: 360px;">{{ 'Set membership'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        {% set isLifetime = row.plan.isPaid and row.expiresAt is null %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ row.company.name }}</div>
+                                {% if row.verified %}
+                                    <span class="badge bg-green-lt">{{ ux_icon('tabler:rosette-discount-check', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-lt">{{ 'Not verified'|trans }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if row.plan.value == 'premium' %}
+                                    <span class="badge bg-yellow-lt">{{ ux_icon('tabler:crown', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Premium'|trans }}</span>
+                                {% elseif row.plan.value == 'basic' %}
+                                    <span class="badge bg-blue-lt">{{ 'Basic'|trans }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-lt">{{ 'No plan'|trans }}</span>
+                                {% endif %}
+
+                                {% if row.plan.isPaid %}
+                                    {% if not row.active %}
+                                        <span class="badge bg-red-lt ms-1">{{ 'Lapsed'|trans }}</span>
+                                    {% endif %}
+                                    {% if row.complimentary %}
+                                        <span class="badge bg-purple-lt ms-1">{{ 'Complimentary'|trans }}</span>
+                                    {% endif %}
+                                    <div class="small text-secondary mt-1">
+                                        {% if row.expiresAt is null %}
+                                            {{ 'No expiry'|trans }}
+                                        {% else %}
+                                            {{ 'Expires'|trans }}: {{ row.expiresAt|date('d M Y') }}
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <form method="post" action="{{ path('_membership_manage') }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                                    <input type="hidden" name="company" value="{{ row.company.id }}">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-auto">
+                                            <select name="plan" class="form-select form-select-sm">
+                                                {% for plan in plans %}
+                                                    <option value="{{ plan.value }}"{{ row.plan.value == plan.value ? ' selected' }}>{{ plan.label|trans }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-auto">
+                                            <select name="term" class="form-select form-select-sm" title="{{ 'Term (only applies to a paid plan)'|trans }}">
+                                                <option value="annual"{{ not isLifetime ? ' selected' }}>{{ 'Annual (1 year)'|trans }}</option>
+                                                <option value="lifetime"{{ isLifetime ? ' selected' }}>{{ 'Lifetime (no expiry)'|trans }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-auto">
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                {{ ux_icon('tabler:device-floppy', {width: 16, height: 16}) }}
+                                                {{ 'Save'|trans }}
+                                            </button>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" name="verified" value="1"{{ row.verified ? ' checked' }}>
+                                                <span class="form-check-label">{{ 'Verified'|trans }}</span>
+                                            </label>
+                                            <label class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" name="complimentary" value="1"{{ row.complimentary ? ' checked' }}>
+                                                <span class="form-check-label">{{ 'Complimentary (free)'|trans }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-secondary py-4">{{ 'No companies yet.'|trans }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </twig:Ui:Card>
+{% endblock content %}

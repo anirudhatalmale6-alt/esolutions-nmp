@@ -14,24 +14,37 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Menu;
 
 use Knp\Menu\ItemInterface;
+use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class MarketplaceMenu
 {
+    public function __construct(
+        private readonly MembershipManager $membership,
+    ) {
+    }
+
     // Premium section, just above "Online store" at the bottom of the sidebar
     // (priority 6 > store's 5, < system's 10). Any signed-in user sees it; the
     // gold crown marks it as a premium feature (styling in Layout/base.html.twig).
     #[MenuBuilder(name: 'sidebar', priority: 6, role: 'ROLE_USER')]
     public function sidebar(ItemInterface $menu): void
     {
+        $extras = ['icon' => 'crown'];
+
+        // Marketplace is a Premium sales channel. On non-Premium companies it
+        // stays visible but carries an "Upgrade to Premium" badge; the actual
+        // feature pages are blocked server-side (MembershipGateListener).
+        if (! $this->membership->currentHasSalesChannels()) {
+            $extras['plan_label'] = 'Premium';
+        }
+
         $marketplace = $menu->addChild('marketplace', [
             'label' => 'Marketplace',
             'attributes' => [
                 'class' => 'premium-feature',
             ],
-            'extras' => [
-                'icon' => 'crown',
-            ],
+            'extras' => $extras,
         ]);
 
         // Searching the marketplace is open to every signed-in user.

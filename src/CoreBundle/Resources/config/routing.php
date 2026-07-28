@@ -21,6 +21,8 @@ use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
 use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
 use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
+use SolidInvoice\CoreBundle\Action\Membership\Upgrade as MembershipUpgrade;
+use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
@@ -208,6 +210,18 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_model_catalog_manage', '/settings/models')
         ->controller(ModelCatalogManage::class)
         ->methods(['GET', 'POST']);
+
+    // Super-user membership console (platform owner only) + the member-facing
+    // "Upgrade to Premium" landing page.
+    $routingConfigurator
+        ->add('_membership_manage', '/settings/memberships')
+        ->controller(MembershipManage::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_membership_upgrade', '/membership/upgrade')
+        ->controller(MembershipUpgrade::class)
+        ->methods(['GET']);
 
     // Public Marketplace stock search + each business's opt-in/WhatsApp settings.
     $routingConfigurator

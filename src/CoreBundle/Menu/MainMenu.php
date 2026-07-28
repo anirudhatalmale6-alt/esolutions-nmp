@@ -47,6 +47,7 @@ class MainMenu
         self::users($section);
         self::settings($section);
         self::models($section);
+        self::memberships($section);
         $this->addCustomFields($section);
     }
 
@@ -128,6 +129,21 @@ class MainMenu
             [
                 'route' => '_model_catalog_manage',
                 'extras' => ['icon' => 'list-check'],
+            ],
+        );
+    }
+
+    // Super-user only: the membership console (set plans, verify, comp accounts).
+    // The extras.role gate hides it from ordinary business admins; the action
+    // itself is also #[IsGranted('ROLE_SUPER_ADMIN')].
+    public static function memberships(ItemInterface $item): ItemInterface
+    {
+        return $item->addChild(
+            'menu.top.memberships',
+            [
+                'route' => '_membership_manage',
+                'label' => 'Memberships',
+                'extras' => ['icon' => 'crown', 'role' => 'ROLE_SUPER_ADMIN'],
             ],
         );
     }

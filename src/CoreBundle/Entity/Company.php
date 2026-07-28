@@ -87,6 +87,39 @@ class Company implements Stringable, SubscribableInterface
     #[Assert\Hostname(requireTld: true)]
     private ?string $customDomain = null;
 
+    // --- Membership / subscription state (managed via MembershipManager) ---
+
+    /**
+     * The company's membership tier: 'none' | 'basic' | 'premium'.
+     * Stored as a plain string (resolved to {@see MembershipPlan}) so a stray
+     * value can never blow up hydration.
+     */
+    #[ORM\Column(name: 'membership_plan', type: Types::STRING, length: 20, options: ['default' => 'none'])]
+    private string $membershipPlan = 'none';
+
+    /**
+     * When the current membership lapses. NULL = no expiry (lifetime access,
+     * e.g. a permanent complimentary account). A paid annual plan sets this to
+     * roughly one year out.
+     */
+    #[ORM\Column(name: 'membership_expires_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $membershipExpiresAt = null;
+
+    /**
+     * TRUE when the platform owner granted this plan for free (no Stripe charge).
+     * Purely informational - access is still decided by plan + expiry - but it
+     * tells the super-user panel "this one is comped, don't expect a renewal".
+     */
+    #[ORM\Column(name: 'membership_complimentary', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $membershipComplimentary = false;
+
+    /**
+     * TRUE once the platform owner has vetted this company. Verification is
+     * required before a company can hold the Premium tier.
+     */
+    #[ORM\Column(name: 'verified', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $verified = false;
+
     // Related entities: Only added here to enable orphan removal
     /**
      * @var Collection<int, ApiTokenHistory>
@@ -284,6 +317,54 @@ class Company implements Stringable, SubscribableInterface
     public function setCustomDomain(?string $customDomain): self
     {
         $this->customDomain = self::normalizeCustomDomain($customDomain);
+
+        return $this;
+    }
+
+    public function getMembershipPlan(): string
+    {
+        return $this->membershipPlan;
+    }
+
+    public function setMembershipPlan(string $membershipPlan): self
+    {
+        $this->membershipPlan = $membershipPlan;
+
+        return $this;
+    }
+
+    public function getMembershipExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->membershipExpiresAt;
+    }
+
+    public function setMembershipExpiresAt(?\DateTimeImmutable $membershipExpiresAt): self
+    {
+        $this->membershipExpiresAt = $membershipExpiresAt;
+
+        return $this;
+    }
+
+    public function isMembershipComplimentary(): bool
+    {
+        return $this->membershipComplimentary;
+    }
+
+    public function setMembershipComplimentary(bool $membershipComplimentary): self
+    {
+        $this->membershipComplimentary = $membershipComplimentary;
+
+        return $this;
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verified;
+    }
+
+    public function setVerified(bool $verified): self
+    {
+        $this->verified = $verified;
 
         return $this;
     }

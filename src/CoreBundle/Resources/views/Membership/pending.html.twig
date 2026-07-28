@@ -30,10 +30,16 @@
                     <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'You are ready to trade on the network'|trans }}</span></li>
                 </ul>
                 <div class="mt-4">
-                    <a href="{{ path('_logout') }}" class="btn btn-outline-secondary">
-                        {{ ux_icon('tabler:logout', {width: 18, height: 18}) }}
-                        {{ 'Log out'|trans }}
-                    </a>
+                    {# Logout requires a CSRF-protected POST (enableCsrf) - a plain
+                       GET link is rejected as "Access denied". Mirror the platform
+                       LogoutLink component. #}
+                    <form method="post" action="{{ logout_path('main') }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                        <button type="submit" class="btn btn-outline-secondary">
+                            {{ ux_icon('tabler:logout', {width: 18, height: 18}) }}
+                            {{ 'Log out'|trans }}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

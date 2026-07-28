@@ -16,6 +16,7 @@ namespace SolidInvoice\UserBundle\Action;
 use SolidInvoice\UserBundle\DTO\Registration;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Entity\UserInvitation;
+use SolidInvoice\UserBundle\Enum\PortalRole;
 use SolidInvoice\UserBundle\Form\Type\RegisterType;
 use SolidInvoice\UserBundle\Repository\UserInvitationRepository;
 use SolidInvoice\UserBundle\Repository\UserRepository;
@@ -89,6 +90,15 @@ final class Register extends AbstractController
             if ($invitation instanceof UserInvitation) {
                 $user->addCompany($invitation->getCompany());
                 $this->invitationRepository->delete($invitation);
+            } else {
+                // A self-registering business owns the workspace it is about to
+                // create during onboarding, so it needs full admin rights over
+                // that company (otherwise the very first redirect after
+                // onboarding - to the invoice it just made - is denied, since a
+                // plain ROLE_USER can't reach /invoices). The membership funnel
+                // still holds the account on the pending-approval page until the
+                // platform owner verifies it, so this grants no early access.
+                $user->addRole(PortalRole::Admin->value);
             }
 
             // For regular users, company will be created during onboarding

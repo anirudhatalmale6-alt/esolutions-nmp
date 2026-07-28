@@ -32,7 +32,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
     $parameters->set('env(SOLIDINVOICE_APPLICATION_URL)', '');
     $parameters->set('env(SOLIDINVOICE_CUSTOM_DOMAIN_DNS_RECORD)', '');
     $parameters->set('env(SOLIDINVOICE_RUNTIME)', null);
-    $parameters->set('env(SOLIDINVOICE_ALLOW_REGISTRATION)', '0');
+    // Public self-registration is ON for the B2B Network portal: any business can
+    // sign up, but a new company lands unverified (pending super-user approval)
+    // and with no plan, so it cannot use the portal until the owner approves it
+    // and it is put on a plan. Can still be overridden per-environment via .env.
+    $parameters->set('env(SOLIDINVOICE_ALLOW_REGISTRATION)', '1');
     $parameters->set('env(SOLIDINVOICE_OAUTH_CLIENT_GOOGLE_CLIENT_ID)', null);
     $parameters->set('env(SOLIDINVOICE_OAUTH_CLIENT_GOOGLE_CLIENT_SECRET)', null);
     $parameters->set('env(SOLIDINVOICE_TURNSTILE_SITE_KEY)', null);

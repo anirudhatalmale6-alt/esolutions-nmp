@@ -21,6 +21,7 @@ use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
 use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
 use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
+use SolidInvoice\CoreBundle\Action\Membership\Pending as MembershipPending;
 use SolidInvoice\CoreBundle\Action\Membership\Upgrade as MembershipUpgrade;
 use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
@@ -221,6 +222,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_membership_upgrade', '/membership/upgrade')
         ->controller(MembershipUpgrade::class)
+        ->methods(['GET']);
+
+    $routingConfigurator
+        ->add('_membership_pending', '/membership/pending')
+        ->controller(MembershipPending::class)
         ->methods(['GET']);
 
     // Public Marketplace stock search + each business's opt-in/WhatsApp settings.

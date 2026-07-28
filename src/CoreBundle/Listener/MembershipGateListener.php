@@ -14,32 +14,75 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Listener;
 
 use SolidInvoice\CoreBundle\Membership\MembershipManager;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use function in_array;
 
 /**
- * Server-side membership gate for the two Premium sales channels: sharing stock
- * onto the Marketplace, and the Online Store admin. Hiding/badging the menu is
- * not enough - a Basic member could still hit the URL directly, so we block the
- * actual routes here and bounce them to the upgrade page.
+ * The membership access funnel for the whole portal. In order, a signed-in user
+ * working inside a company must clear:
  *
- * Public shop-window pages (the marketplace search and the public storefront)
- * are deliberately NOT gated - they must stay reachable for guests/SEO.
+ *   1. Approval  - the company must be verified (approved) by the platform owner.
+ *                  Until then the user is held on the "pending approval" page.
+ *                  This is what keeps the portal to real wholesalers/distributors.
+ *   2. A plan    - the company must be on an active Basic or Premium plan. With
+ *                  no plan the user can't use anything and is sent to the
+ *                  subscribe/upgrade page.
+ *   3. Premium   - the two public sales channels (Marketplace share + Online
+ *                  Store admin) additionally require Premium.
  *
- * Runs on kernel.request at a priority below CompanyEventSubscriber (7) so the
- * current company is already selected by the time we check.
+ * The platform owner (ROLE_SUPER_ADMIN) is never gated. Public shop-window pages,
+ * login/registration, onboarding, company switching, profile and the membership
+ * pages themselves are always reachable so a gated user is never trapped.
+ *
+ * Runs on kernel.request at priority 0 - after the firewall (8) and the company
+ * selection (7), so both the user and the current company are known.
  */
 final readonly class MembershipGateListener implements EventSubscriberInterface
 {
     /**
-     * The "use it" routes that require an active Premium membership.
+     * Routes reachable regardless of approval/plan, so a gated user can still log
+     * out, switch/create a company, finish onboarding, browse the public pages,
+     * see why they're blocked and (once available) pay.
      */
-    private const GATED_ROUTES = [
+    private const ALWAYS_ALLOWED = [
+        // session / auth
+        '_logout',
+        '2fa_login',
+        // company context
+        '_select_company',
+        '_switch_company',
+        '_create_company',
+        '_delete_company',
+        // onboarding
+        '_onboarding',
+        '_dashboard_onboarding_dismiss',
+        // membership funnel pages
+        '_membership_pending',
+        '_membership_upgrade',
+        '_membership_manage',
+        // profile
+        '_profile',
+        '_edit_profile',
+        '_profile_notifications',
+        // public shop-window pages (viewable while gated)
+        '_home',
+        '_marketplace',
+        '_store_front',
+        '_stock_public',
+        '_unlock_public',
+        '_unlock_lookup',
+    ];
+
+    /**
+     * The "use it" routes that require an active Premium membership specifically.
+     */
+    private const PREMIUM_ROUTES = [
         '_marketplace_settings',
         '_store_admin',
         '_store_import',
@@ -50,6 +93,7 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
     public function __construct(
         private MembershipManager $membership,
         private RouterInterface $router,
+        private Security $security,
     ) {
     }
 
@@ -68,28 +112,64 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
 
         $request = $event->getRequest();
 
-        if (! in_array($request->attributes->get('_route'), self::GATED_ROUTES, true)) {
+        if ($request->attributes->get('_stateless')) {
+            return;
+        }
+
+        $route = $request->attributes->get('_route');
+
+        if ($route === null || in_array($route, self::ALWAYS_ALLOWED, true)) {
+            return;
+        }
+
+        // Guests (login/register/public pages) are not gated here.
+        if ($this->security->getUser() === null) {
+            return;
+        }
+
+        // The platform owner always has full access - never lock the owner out.
+        if ($this->security->isGranted('ROLE_SUPER_ADMIN')) {
             return;
         }
 
         $company = $this->membership->currentCompany();
 
-        // No company context, or the company already has the sales channels:
-        // nothing to block.
-        if ($company === null || $this->membership->hasSalesChannels($company)) {
+        // No company selected yet: CompanyEventSubscriber handles that redirect.
+        if ($company === null) {
             return;
         }
 
+        // 1. Approval gate.
+        if (! $this->membership->isVerified($company)) {
+            $event->setResponse(new RedirectResponse($this->router->generate('_membership_pending')));
+            $event->stopPropagation();
+
+            return;
+        }
+
+        // 2. Plan gate - no active plan means no access to the portal at all.
+        if (! $this->membership->isActive($company)) {
+            $this->flash($request, 'info', 'Choose a plan to start using your account.');
+            $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
+            $event->stopPropagation();
+
+            return;
+        }
+
+        // 3. Premium sales-channel gate.
+        if (in_array($route, self::PREMIUM_ROUTES, true) && ! $this->membership->hasSalesChannels($company)) {
+            $this->flash($request, 'warning', 'Marketplace and Online Store are Premium features. Upgrade to Premium to start using them.');
+            $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
+            $event->stopPropagation();
+        }
+    }
+
+    private function flash(\Symfony\Component\HttpFoundation\Request $request, string $type, string $message): void
+    {
         $session = $request->getSession();
 
         if ($session instanceof Session) {
-            $session->getFlashBag()->add(
-                'warning',
-                'Marketplace and Online Store are Premium features. Upgrade to Premium to start using them.',
-            );
+            $session->getFlashBag()->add($type, $message);
         }
-
-        $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
-        $event->stopPropagation();
     }
 }

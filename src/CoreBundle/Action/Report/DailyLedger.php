@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action\Report;
 
-use BackedEnum;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use DateTimeImmutable;
@@ -22,6 +21,7 @@ use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Repository\ExpenseRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
+use SolidInvoice\InvoiceBundle\Twig\Extension\InvoiceTemplateExtension;
 use SolidInvoice\PaymentBundle\Entity\Payment;
 use SolidInvoice\PaymentBundle\Enum\PaymentStatus;
 use Symfony\Bridge\Twig\Attribute\Template;
@@ -48,6 +48,7 @@ final readonly class DailyLedger
         private EntityManagerInterface $entityManager,
         private ExpenseRepository $expenseRepository,
         private CreditNoteRepository $creditNoteRepository,
+        private InvoiceTemplateExtension $invoiceTemplateExtension,
     ) {
     }
 
@@ -262,8 +263,14 @@ final readonly class DailyLedger
      */
     private function invoicesRaised(DateTimeImmutable $start, DateTimeImmutable $end): array
     {
+        // Fetch the full Invoice entities (not scalars) so the ledger can show
+        // the exact same payment-aware status as the invoice list: an invoice
+        // with a deposit reads "Partially Paid", not "Pending". The paid/balance
+        // figures are taken from captured payments too (the stored balance stays
+        // 0 on a not-yet-activated invoice, so it cannot be trusted for a pending
+        // invoice that already has a deposit).
         $rows = $this->entityManager->createQuery(
-            'SELECT inv.invoiceId AS invoiceId, inv.total AS total, inv.balance AS balance, inv.status AS status, c.name AS client
+            'SELECT inv
              FROM ' . Invoice::class . ' inv
              JOIN inv.client c
              WHERE inv.invoiceDate BETWEEN :start AND :end
@@ -275,31 +282,31 @@ final readonly class DailyLedger
 
         $invoices = [];
 
-        foreach ($rows as $row) {
-            $status = $row['status'] ?? null;
-            $statusEnum = $status instanceof InvoiceStatus
-                ? $status
-                : InvoiceStatus::tryFrom((string) ($status instanceof BackedEnum ? $status->value : ($status ?? '')));
+        foreach ($rows as $invoice) {
+            $statusEnum = $invoice->getStatus();
+            $view = $this->invoiceTemplateExtension->invoiceStatusView($invoice);
+            $payment = $this->invoiceTemplateExtension->paymentStatus($invoice);
 
-            $total = $this->toMajor((string) ($row['total'] ?? '0'));
-            $balance = $this->toMajor((string) ($row['balance'] ?? '0'));
+            $total = $this->toMajor((string) $invoice->getTotal());
+            $paid = $this->toMajor((string) $payment['paid']);
 
-            // Paid so far = total billed minus what is still owed. Never let it go
-            // negative if a balance somehow exceeds the total.
-            $paid = BigDecimal::of($total)->minus(BigDecimal::of($balance));
-            if ($paid->isNegative()) {
-                $paid = BigDecimal::zero();
+            // Balance from captured payments, floored at zero (an overpayment
+            // should not show a negative amount owed).
+            $balanceMinor = BigDecimal::of((string) $payment['balance']);
+            if ($balanceMinor->isNegative()) {
+                $balanceMinor = BigDecimal::zero();
             }
+            $balance = $this->toMajor((string) $balanceMinor);
 
             $invoices[] = [
-                'invoiceId' => (string) ($row['invoiceId'] ?? ''),
-                'client' => (string) ($row['client'] ?? '—'),
+                'invoiceId' => (string) $invoice->getInvoiceId(),
+                'client' => (string) ($invoice->getClient()?->getName() ?? '—'),
                 'total' => $total,
                 'balance' => $balance,
-                'paid' => (string) $paid->toScale(2),
-                'status' => $statusEnum?->value ?? '',
-                'statusLabel' => $statusEnum?->getLabel() ?? '—',
-                'statusColor' => $statusEnum?->getColor() ?? 'secondary',
+                'paid' => $paid,
+                'status' => $statusEnum instanceof InvoiceStatus ? $statusEnum->value : '',
+                'statusLabel' => $view->name,
+                'statusColor' => $view->color,
             ];
         }
 

@@ -78,7 +78,7 @@ final class UnlockCodeImporter
             throw new RuntimeException('No column of IMEI numbers was found in this file.');
         }
 
-        $codeColumn = $imeiColumn + 1;
+        $codeColumn = $this->detectCodeColumn($rows, $imeiColumn);
 
         // Collapse the file to the single best answer per IMEI first. A real code
         // beats any error message, so a supplier log where an IMEI has one good
@@ -172,14 +172,56 @@ final class UnlockCodeImporter
      */
     private function evaluateCode(string $imei, string $raw): array
     {
-        $value = trim($raw);
+        // Trim whitespace AND surrounding quote characters. Several supplier
+        // exports wrap the code in an apostrophe/quote to force Excel to keep it
+        // as text and preserve leading zeros (e.g. 02868079' or '02868079'), and
+        // those stray quotes would otherwise fail the code check and the whole
+        // row would be dropped as "not a real code".
+        $trimChars = " \t\n\r\0\x0B'\"`";
+        $value = trim($raw, $trimChars);
 
         // Drop a leading copy of the IMEI, e.g. "353674070701631 3073350715757498".
         if ($value !== '' && str_starts_with($value, $imei)) {
-            $value = trim(substr($value, strlen($imei)));
+            $value = trim(substr($value, strlen($imei)), $trimChars);
         }
 
         return [$value, $this->isRealCode($value)];
+    }
+
+    /**
+     * Find the column that holds the unlock code.
+     *
+     * Older sheets put the code in the column immediately to the RIGHT of the
+     * IMEI, and that remains the default. But some suppliers slip an extra column
+     * in between (e.g. an "Unlocking fee" column sitting between IMEI and code),
+     * which would make the naive "IMEI + 1" land on the wrong column and read the
+     * fee as the code. So first honour an explicit header: if a header cell names
+     * the code column ("code" / "key" / "unlock..."), use it; otherwise fall back
+     * to the historic IMEI + 1.
+     *
+     * @param array<int, array<int, mixed>> $rows
+     */
+    private function detectCodeColumn(array $rows, int $imeiColumn): int
+    {
+        $header = $rows[0] ?? [];
+
+        foreach ($header as $index => $value) {
+            if ($index === $imeiColumn) {
+                continue;
+            }
+
+            $label = strtolower(trim((string) ($value ?? '')));
+
+            if ($label === '' || str_contains($label, 'imei')) {
+                continue;
+            }
+
+            if (str_contains($label, 'code') || str_contains($label, 'key')) {
+                return (int) $index;
+            }
+        }
+
+        return $imeiColumn + 1;
     }
 
     /**

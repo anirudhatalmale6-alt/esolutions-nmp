@@ -7,9 +7,24 @@
  # with this source code in the file LICENSE.
  #}
 
+<style>
+    /* Clickable stat cards jump straight to the matching invoice list */
+    .dashboard-hero-stats a.stat-card{text-decoration:none;color:inherit;display:block}
+    .dashboard-hero-stats a.stat-card:hover{box-shadow:var(--swp-shadow-md);transform:translateY(-2px)}
+    .stat-card-hint{color:var(--swp-primary);font-size:var(--swp-text-xs);font-weight:var(--swp-font-semibold);margin-top:2px;display:inline-block}
+    /* Shrink so the cards stay readable on phones and small tablets */
+    @media (max-width:768px){
+        .dashboard-hero-stats .stat-value{font-size:1.15rem;line-height:1.15}
+        .dashboard-hero-stats .stat-subvalue{font-size:.72rem}
+        .dashboard-hero-stats .stat-label{font-size:.62rem}
+        .dashboard-hero-stats .stat-icon{width:38px;height:38px}
+        .dashboard-hero-stats .stat-card{padding:var(--swp-space-4)}
+        .dashboard-hero-stats .stat-card-content{gap:var(--swp-space-3)}
+    }
+</style>
 <div class="col-12">
     <div class="dashboard-hero-stats">
-        <div class="stat-card">
+        <a class="stat-card" href="{{ path('_invoices_index') }}?status=pending">
             <div class="stat-card-content">
                 <div class="stat-icon stat-icon--primary">
                     {{ ux_icon('tabler:file-invoice', {width: 24, height: 24}) }}
@@ -23,9 +38,10 @@
                             {{ 0|formatCurrency }}
                         {% endfor %}
                     </span>
+                    <span class="stat-card-hint">{{ ux_icon('tabler:arrow-right', {width: 13, height: 13}) }} View unpaid</span>
                 </div>
             </div>
-        </div>
+        </a>
 
         <div class="stat-card stat-card--danger">
             <div class="stat-card-content">

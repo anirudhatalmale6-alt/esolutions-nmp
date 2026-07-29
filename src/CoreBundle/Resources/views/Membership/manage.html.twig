@@ -14,134 +14,178 @@
 {% block content %}
     <twig:Ui:Card>
         <p class="text-secondary">
-            {{ 'Every company on the portal. New sign-ups appear here as "Not verified" - tick Verified to approve them into the portal. A company with No plan cannot use anything until you put it on Basic or Premium (or later, they pay). Basic gives invoicing and internal tools; Premium also unlocks the Marketplace and Online Store. You can also grant a plan complimentary (free). Under Account you can reset any account\'s password, or delete a company and its account - handy for clearing duplicate or test sign-ups (your own company can\'t be deleted here).'|trans }}
+            {{ 'Every company on the portal, one per line. Click Manage to set its plan, verify it, reset a password or remove it. A company on No plan cannot use anything until you put it on Basic or Premium. Basic gives invoicing and internal tools; Premium also unlocks the Marketplace and Online Store.'|trans }}
         </p>
 
         <div class="table-responsive">
-            <table class="table table-vcenter">
+            <table class="table table-vcenter card-table">
                 <thead>
                     <tr>
-                        <th>{{ 'Company'|trans }}</th>
-                        <th>{{ 'Current status'|trans }}</th>
-                        <th style="min-width: 360px;">{{ 'Set membership'|trans }}</th>
-                        <th style="min-width: 240px;">{{ 'Account'|trans }}</th>
+                        <th>{{ 'Business'|trans }}</th>
+                        <th>{{ 'Plan'|trans }}</th>
+                        <th>{{ 'Status'|trans }}</th>
+                        <th>{{ 'Accounts'|trans }}</th>
+                        <th class="w-1"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in rows %}
-                        {% set isLifetime = row.plan.isPaid and row.expiresAt is null %}
                         <tr>
                             <td>
-                                <div class="fw-bold">{{ row.company.name }}</div>
-                                {% if row.verified %}
-                                    <span class="badge bg-green-lt">{{ ux_icon('tabler:rosette-discount-check', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
-                                {% else %}
-                                    <span class="badge bg-secondary-lt">{{ 'Not verified'|trans }}</span>
-                                {% endif %}
+                                <div class="d-flex align-items-center">
+                                    <span class="avatar avatar-sm me-2 rounded bg-blue-lt">{{ row.company.name|slice(0, 1)|upper }}</span>
+                                    <div>
+                                        <div class="fw-bold">{{ row.company.name }}</div>
+                                        {% if row.verified %}
+                                            <span class="badge bg-green-lt">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary-lt">{{ 'Not verified'|trans }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </td>
 
                             <td>
                                 {% if row.plan.value == 'premium' %}
-                                    <span class="badge bg-yellow-lt">{{ ux_icon('tabler:crown', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Premium'|trans }}</span>
+                                    <span class="badge bg-yellow-lt">{{ ux_icon('tabler:crown', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Premium'|trans }}</span>
                                 {% elseif row.plan.value == 'basic' %}
                                     <span class="badge bg-blue-lt">{{ 'Basic'|trans }}</span>
                                 {% else %}
                                     <span class="badge bg-secondary-lt">{{ 'No plan'|trans }}</span>
                                 {% endif %}
+                                {% if row.complimentary %}
+                                    <span class="badge bg-purple-lt ms-1">{{ 'Free'|trans }}</span>
+                                {% endif %}
+                            </td>
 
+                            <td>
                                 {% if row.plan.isPaid %}
                                     {% if not row.active %}
-                                        <span class="badge bg-red-lt ms-1">{{ 'Lapsed'|trans }}</span>
+                                        <span class="badge bg-red-lt">{{ 'Lapsed'|trans }}</span>
+                                    {% elseif row.expiresAt is null %}
+                                        <span class="text-secondary small">{{ 'No expiry'|trans }}</span>
+                                    {% else %}
+                                        <span class="text-secondary small">{{ 'Expires'|trans }} {{ row.expiresAt|date('d M Y') }}</span>
                                     {% endif %}
-                                    {% if row.complimentary %}
-                                        <span class="badge bg-purple-lt ms-1">{{ 'Complimentary'|trans }}</span>
-                                    {% endif %}
-                                    <div class="small text-secondary mt-1">
-                                        {% if row.expiresAt is null %}
-                                            {{ 'No expiry'|trans }}
-                                        {% else %}
-                                            {{ 'Expires'|trans }}: {{ row.expiresAt|date('d M Y') }}
-                                        {% endif %}
-                                    </div>
+                                {% else %}
+                                    <span class="text-secondary small">—</span>
                                 {% endif %}
                             </td>
 
                             <td>
-                                <form method="post" action="{{ path('_membership_manage') }}">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
-                                    <input type="hidden" name="company" value="{{ row.company.id }}">
-                                    <div class="row g-2 align-items-center">
-                                        <div class="col-auto">
-                                            <select name="plan" class="form-select form-select-sm">
-                                                {% for plan in plans %}
-                                                    <option value="{{ plan.value }}"{{ row.plan.value == plan.value ? ' selected' }}>{{ plan.label|trans }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="col-auto">
-                                            <select name="term" class="form-select form-select-sm" title="{{ 'Term (only applies to a paid plan)'|trans }}">
-                                                <option value="annual"{{ not isLifetime ? ' selected' }}>{{ 'Annual (1 year)'|trans }}</option>
-                                                <option value="lifetime"{{ isLifetime ? ' selected' }}>{{ 'Lifetime (no expiry)'|trans }}</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-auto">
-                                            <button type="submit" class="btn btn-sm btn-primary">
-                                                {{ ux_icon('tabler:device-floppy', {width: 16, height: 16}) }}
-                                                {{ 'Save'|trans }}
-                                            </button>
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" name="verified" value="1"{{ row.verified ? ' checked' }}>
-                                                <span class="form-check-label">{{ 'Verified'|trans }}</span>
-                                            </label>
-                                            <label class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" name="complimentary" value="1"{{ row.complimentary ? ' checked' }}>
-                                                <span class="form-check-label">{{ 'Complimentary (free)'|trans }}</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </form>
+                                <span class="text-secondary">{{ row.users|length }}</span>
                             </td>
 
                             <td>
-                                {% for u in row.users %}
-                                    <div class="mb-2">
-                                        <div class="small fw-bold text-truncate" style="max-width: 230px;" title="{{ u.email }}">{{ u.email }}</div>
-                                        <form method="post" action="{{ path('_membership_manage') }}" class="d-flex gap-1 mt-1">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
-                                            <input type="hidden" name="intent" value="reset_password">
-                                            <input type="hidden" name="email" value="{{ u.email }}">
-                                            <input type="password" name="password" class="form-control form-control-sm" placeholder="{{ 'New password'|trans }}" minlength="6" required style="max-width: 150px;">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="{{ 'Set a new password for this account'|trans }}">{{ 'Set'|trans }}</button>
-                                        </form>
-                                    </div>
-                                {% else %}
-                                    <div class="small text-secondary">{{ 'No account'|trans }}</div>
-                                {% endfor %}
-
-                                {% if row.canDelete %}
-                                    <form method="post" action="{{ path('_membership_manage') }}" class="mt-2"
-                                          onsubmit="return confirm('{{ 'Delete %name% and its account(s)? This cannot be undone.'|trans({'%name%': row.company.name})|e('js') }}');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
-                                        <input type="hidden" name="intent" value="delete_company">
-                                        <input type="hidden" name="company" value="{{ row.company.id }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            {{ ux_icon('tabler:trash', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Delete'|trans }}
-                                        </button>
-                                    </form>
-                                {% else %}
-                                    <div class="small text-secondary mt-2">{{ ux_icon('tabler:lock', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Your company'|trans }}</div>
-                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#manage-{{ row.company.id }}">
+                                    {{ ux_icon('tabler:settings', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Manage'|trans }}
+                                </button>
                             </td>
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="4" class="text-center text-secondary py-4">{{ 'No companies yet.'|trans }}</td>
+                            <td colspan="5" class="text-center text-secondary py-4">{{ 'No companies yet.'|trans }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </twig:Ui:Card>
+
+    {# One modal per company - all the controls, nicely grouped. #}
+    {% for row in rows %}
+        {% set isLifetime = row.plan.isPaid and row.expiresAt is null %}
+        <twig:Ui:Modal id="manage-{{ row.company.id }}" size="lg" centered>
+            <twig:block name="header">
+                <h5 class="modal-title">
+                    {{ ux_icon('tabler:building-store', {width: 20, height: 20, class: 'me-2'}) }}{{ row.company.name }}
+                    {% if row.verified %}
+                        <span class="badge bg-green-lt ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
+                    {% endif %}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </twig:block>
+
+                        {# --- Membership --- #}
+                        <h4 class="mb-2">{{ ux_icon('tabler:crown', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Membership'|trans }}</h4>
+                        <form method="post" action="{{ path('_membership_manage') }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                            <input type="hidden" name="intent" value="save">
+                            <input type="hidden" name="company" value="{{ row.company.id }}">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ 'Plan'|trans }}</label>
+                                    <select name="plan" class="form-select">
+                                        {% for plan in plans %}
+                                            <option value="{{ plan.value }}"{{ row.plan.value == plan.value ? ' selected' }}>{{ plan.label|trans }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">{{ 'Term'|trans }}</label>
+                                    <select name="term" class="form-select" title="{{ 'Only applies to a paid plan'|trans }}">
+                                        <option value="annual"{{ not isLifetime ? ' selected' }}>{{ 'Annual (1 year)'|trans }}</option>
+                                        <option value="lifetime"{{ isLifetime ? ' selected' }}>{{ 'Lifetime (no expiry)'|trans }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="verified" value="1"{{ row.verified ? ' checked' }}>
+                                        <span class="form-check-label">{{ 'Verified'|trans }} <span class="text-secondary">— {{ 'required before Premium can be set'|trans }}</span></span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="complimentary" value="1"{{ row.complimentary ? ' checked' }}>
+                                        <span class="form-check-label">{{ 'Complimentary (free)'|trans }} <span class="text-secondary">— {{ 'no charge'|trans }}</span></span>
+                                    </label>
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary">
+                                        {{ ux_icon('tabler:device-floppy', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Save membership'|trans }}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <hr class="my-4">
+
+                        {# --- Accounts --- #}
+                        <h4 class="mb-2">{{ ux_icon('tabler:users', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Accounts'|trans }}</h4>
+                        {% for u in row.users %}
+                            <div class="mb-3">
+                                <div class="small fw-bold">{{ u.email }}</div>
+                                <form method="post" action="{{ path('_membership_manage') }}" class="d-flex gap-2 mt-1">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                                    <input type="hidden" name="intent" value="reset_password">
+                                    <input type="hidden" name="email" value="{{ u.email }}">
+                                    <input type="password" name="password" class="form-control" placeholder="{{ 'New password (min 6 chars)'|trans }}" minlength="6" required style="max-width: 280px;">
+                                    <button type="submit" class="btn btn-outline-primary">{{ ux_icon('tabler:key', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Reset password'|trans }}</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <div class="text-secondary small">{{ 'No account linked to this company.'|trans }}</div>
+                        {% endfor %}
+
+                        {% if row.canDelete %}
+                            <hr class="my-4">
+                            <h4 class="mb-2 text-danger">{{ ux_icon('tabler:alert-triangle', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Danger zone'|trans }}</h4>
+                            <p class="text-secondary small mb-2">{{ 'Permanently delete this company and any account that belongs only to it. Handy for clearing duplicate or test sign-ups.'|trans }}</p>
+                            <form method="post" action="{{ path('_membership_manage') }}"
+                                  onsubmit="return confirm('{{ 'Delete %name% and its account(s)? This cannot be undone.'|trans({'%name%': row.company.name})|e('js') }}');">
+                                <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                                <input type="hidden" name="intent" value="delete_company">
+                                <input type="hidden" name="company" value="{{ row.company.id }}">
+                                <button type="submit" class="btn btn-outline-danger">
+                                    {{ ux_icon('tabler:trash', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Delete company'|trans }}
+                                </button>
+                            </form>
+                        {% else %}
+                            <hr class="my-4">
+                            <div class="text-secondary small">{{ ux_icon('tabler:lock', {width: 14, height: 14, class: 'me-1'}) }}{{ 'This is your own company, so it can\'t be deleted here.'|trans }}</div>
+                        {% endif %}
+
+            <twig:block name="footer">
+                <button type="button" class="btn" data-bs-dismiss="modal">{{ 'Close'|trans }}</button>
+            </twig:block>
+        </twig:Ui:Modal>
+    {% endfor %}
 {% endblock content %}

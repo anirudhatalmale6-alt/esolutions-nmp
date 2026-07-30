@@ -9,6 +9,30 @@
 
 {% set currency = invoice.client.currency %}
 
+{# Mobile fit-to-screen fixes for the customer-facing invoice link.
+   Long amounts (e.g. big outstanding balances) were forcing the page
+   wider than a phone screen and pushing the item-table columns off the
+   right margin. Keep everything within the viewport and let big numbers
+   wrap/shrink instead of bleeding off-screen. #}
+<style>
+    @media (max-width: 640px) {
+        .ext-doc-page,
+        .ext-doc-page .container-xl { overflow-x: hidden; }
+
+        /* Totals: allow long amounts to wrap and shrink so they stay on-screen */
+        .ext-doc-totals-row { flex-wrap: wrap; gap: .15rem .5rem; }
+        .ext-doc-totals-value { white-space: normal; word-break: break-word; text-align: right; }
+        .ext-doc-totals-final .ext-doc-totals-label { font-size: 1.05rem; }
+        .ext-doc-totals-final .ext-doc-totals-value { font-size: 1.35rem; }
+        .ext-doc-metadata-total { font-size: 1.3rem; word-break: break-word; }
+        .ext-doc-number { font-size: 1.4rem; }
+
+        /* Line items: scroll inside their own box, never widen the page */
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .ext-doc-items-table { min-width: 460px; }
+    }
+</style>
+
 <div class="ext-doc-page">
     <div class="container-xl pb-4">
         <div class="row justify-content-center">

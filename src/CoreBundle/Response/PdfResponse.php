@@ -30,5 +30,14 @@ class PdfResponse extends Response
         $this->headers->add(['Content-Type' => 'application/pdf']);
         $sanitizedFileName = str_replace(['/', '\\'], '_', $fileName);
         $this->headers->add(['Content-Disposition' => $this->headers->makeDisposition($contentDisposition, $sanitizedFileName)]);
+
+        // Invoice/quote PDFs must always reflect the latest data (and the correct
+        // company branding in a multi-company setup). Without this, browsers and
+        // front-end caches (e.g. LiteSpeed) happily serve a stale PDF for the same
+        // URL - so a regenerated invoice can still show the old company/logo.
+        $this->headers->add([
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 }

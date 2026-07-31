@@ -19,6 +19,7 @@ use Brick\Math\RoundingMode;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Mpdf\MpdfException;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\CoreBundle\Pdf\Generator;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
@@ -46,7 +47,8 @@ final readonly class View
         private Generator $pdfGenerator,
         private Environment $twig,
         private CreditNoteRepository $creditNoteRepository,
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
+        private CompanySelector $companySelector
     ) {
     }
 
@@ -60,6 +62,13 @@ final readonly class View
     #[Template('@SolidInvoiceInvoice/Default/view.html.twig')]
     public function __invoke(Request $request, Invoice $invoice): array | Response
     {
+        // Render the invoice under ITS OWN company, not whichever company the
+        // logged-in user currently has active. Otherwise the branded PDF/print
+        // picks up the ambient company's name + logo (e.g. an "Unlocking Experts"
+        // invoice printing with the "NMP" logo). The public/external view already
+        // does this same switch (see CoreBundle\Action\ViewBilling).
+        $this->companySelector->switchCompany($invoice->getCompany()->getId());
+
         if ('pdf' === $request->getRequestFormat() && $this->pdfGenerator->canPrintPdf()) {
             // Any refunds / credit notes raised against this invoice, so the PDF the
             // customer receives shows the deducted (net) amount instead of the full

@@ -59,7 +59,7 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --ink:#0d1220; --ink-2:#1b2436; --muted:#6b7688; --line:#e7eaf0; --paper:#f6f7fb;
@@ -156,6 +156,42 @@
         .foot-col a{color:var(--muted);transition:color .15s}
         .foot-col a:hover{color:var(--brand)}
         .foot-bottom{border-top:1px solid var(--line);max-width:1180px;margin:0 auto;padding:14px 22px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+        /* per-product share */
+        .buy-actions{display:flex;align-items:center;gap:8px}
+        .share-btn{border:1px solid var(--line);background:#fff;color:var(--ink-2);cursor:pointer;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;transition:.15s;flex:none}
+        .share-btn:hover{border-color:var(--brand);color:var(--brand);background:#fbf4fb}
+        #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 12px 30px -12px rgba(13,18,32,.5)}
+        #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        /* single-product (shareable) view */
+        .single{display:none;max-width:520px;margin:20px auto 44px;padding:0 18px}
+        .single.on{display:block}
+        body.single-mode .hero,body.single-mode .rail,body.single-mode .sec-head,body.single-mode #grid,body.single-mode #no-results,body.single-mode .search-wrap{display:none!important}
+        .single-back{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--muted);margin:6px 0 14px}
+        .single-back:hover{color:var(--brand)}
+        .single-card{background:#fff;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:var(--shadow)}
+        .single-shot{position:relative;background:linear-gradient(170deg,#f2f4fa,#e9edf6);aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden}
+        .single-shot img{width:100%;height:100%;object-fit:contain;padding:22px}
+        .single-shot .badge-grade{top:16px;left:16px}
+        .single-shot .sale-flag{bottom:16px;left:16px}
+        .single-body{padding:22px 24px 26px}
+        .single-price{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+        .single-price .num{font-family:"Bricolage Grotesque";font-size:46px;font-weight:800;line-height:1;color:var(--ink)}
+        .single-price .cur{font-family:"Bricolage Grotesque";font-size:22px;font-weight:800;color:var(--green)}
+        .single-price .was{font-size:15px;color:var(--muted);text-decoration:line-through;font-weight:600}
+        .single-model{font-family:"Playfair Display",Georgia,serif;font-size:34px;font-weight:800;line-height:1.06;margin:12px 0 2px;color:var(--ink)}
+        .single-keyspecs{font-size:13.5px;color:var(--muted);margin-top:9px}
+        .single-specs{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0 0}
+        .single-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+        .cod-pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;color:#c0392b;background:#fdecea;border:1px solid #f7c9c4;padding:5px 11px;border-radius:8px;text-transform:uppercase;letter-spacing:.02em}
+        .stock-line{font-size:13px;font-weight:700}
+        .stock-line.in{color:var(--green)} .stock-line.out{color:var(--slate)}
+        .single-order{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:20px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#c8961f,#e0a93a);color:#fff;font-weight:800;font-size:16px;border:0;cursor:pointer;letter-spacing:.02em}
+        .single-order:hover{filter:brightness(1.04)}
+        .single-order.disabled{background:#cbd5e1;color:#fff;pointer-events:none}
+        .single-share{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:12px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--ink-2);font-weight:700;font-size:14px;cursor:pointer}
+        .single-share:hover{border-color:var(--brand);color:var(--brand)}
+        .single-foot{text-align:center;margin-top:18px;font-size:12.5px;color:var(--muted)}
+        @media (max-width:560px){.single-model{font-size:28px}.single-price .num{font-size:40px}}
         @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.search-wrap{display:none}.hero-card h1{font-size:28px}}
         /* Phones: drop to a single full-width column so every card gets the whole
            screen width - the title, spec chips and key-specs line read clearly
@@ -240,7 +276,19 @@
             <article class="prod"
                      data-search="{{ (product.make ~ ' ' ~ product.model ~ ' ' ~ (product.storage ?: '') ~ ' ' ~ (product.condition ?: ''))|lower }}"
                      data-make="{{ product.make|lower }}"
-                     data-sale="{{ product.onSale ? '1' : '0' }}">
+                     data-sale="{{ product.onSale ? '1' : '0' }}"
+                     data-sku="{{ product.sku }}"
+                     data-name="{{ product }}"
+                     data-storage="{{ product.storage }}"
+                     data-condition="{{ product.condition }}"
+                     data-color="{{ product.color }}"
+                     data-keyspecs="{{ product.keySpecs }}"
+                     data-price="{{ eff }}"
+                     data-regular="{{ product.regularPrice }}"
+                     data-img="{{ product.imagePath ? asset(product.imagePath) : '' }}"
+                     data-instock="{{ product.inStock ? '1' : '0' }}"
+                     data-grade="{{ product.condition ? gradeLabel : '' }}"
+                     data-gradeclass="{{ gradeClass }}">
                 <div class="shot">
                     {% if product.condition %}<span class="badge-grade {{ gradeClass }}">{{ gradeLabel }}</span>{% endif %}
                     {% if product.inStock %}
@@ -268,6 +316,10 @@
                             {% if product.onSale %}<span class="was">AED {{ product.regularPrice|number_format(0) }}</span>{% endif %}
                             <b>AED {{ eff|number_format(0) }}</b>
                         </div>
+                        <div class="buy-actions">
+                        <button class="share-btn" type="button" title="{{ 'Share this phone'|trans }}" aria-label="{{ 'Share this phone'|trans }}">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+                        </button>
                         <button class="add"
                                 {{ product.inStock ? '' : 'disabled' }}
                                 data-sku="{{ product.sku }}"
@@ -278,6 +330,7 @@
                                 title="{{ 'Add to order'|trans }}">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
                         </button>
+                        </div>
                     </div>
                 </div>
             </article>
@@ -285,6 +338,9 @@
     </div>
     <div id="no-results">{{ 'No matching phones found.'|trans }}</div>
 {% endif %}
+
+<section class="single" id="single"></section>
+<div id="toast"></div>
 
 <footer>
     <div class="foot-in">
@@ -454,6 +510,125 @@
             applyFilters();
         });
     }
+
+    // ---- single-product shareable link + deep-link view ----
+    var STORE_BASE = {{ store.canonicalUrl|json_encode|raw }}; // e.g. https://mobilesonline.ae/store
+
+    function slugify(s) { return (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+    function cardKey(c) { var sku = (c.getAttribute('data-sku') || '').trim(); return sku !== '' ? sku : slugify(c.getAttribute('data-name')); }
+    function shareUrl(c) { return STORE_BASE + '?p=' + encodeURIComponent(cardKey(c)); }
+    function money0(n) { return 'AED ' + Math.round(n || 0).toLocaleString('en-US'); }
+
+    var toastEl = document.getElementById('toast');
+    function toast(msg) {
+        if (!toastEl) { return; }
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastEl._h);
+        toastEl._h = setTimeout(function () { toastEl.classList.remove('show'); }, 2400);
+    }
+
+    function doShare(c) {
+        var url = shareUrl(c);
+        var name = c.getAttribute('data-name');
+        var priceTxt = money0(parseFloat(c.getAttribute('data-price')));
+        if (navigator.share) {
+            navigator.share({ title: name, text: name + ' — ' + priceTxt, url: url }).catch(function () {});
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(
+                function () { toast('Link copied — paste it into WhatsApp'); },
+                function () { window.prompt('Copy this link:', url); }
+            );
+        } else {
+            window.prompt('Copy this link:', url);
+        }
+    }
+
+    document.querySelectorAll('#grid .prod .share-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var c = btn.closest('.prod');
+            if (c) { doShare(c); }
+        });
+    });
+
+    function orderUrlFor(name, detail, price, url) {
+        var lines = [
+            '*Order — ' + COMPANY + '*', '',
+            '• ' + name + (detail ? (' (' + detail + ')') : '') + ' — ' + money0(price),
+            url, '',
+            'Please confirm availability and delivery. Thank you!'
+        ];
+        var text = encodeURIComponent(lines.join('\n'));
+        return WHATSAPP ? ('https://wa.me/' + WHATSAPP + '?text=' + text) : ('https://wa.me/?text=' + text);
+    }
+
+    function esc(s) { return (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    function renderSingle(c) {
+        var img = c.getAttribute('data-img');
+        var name = c.getAttribute('data-name');
+        var storage = c.getAttribute('data-storage');
+        var condition = c.getAttribute('data-condition');
+        var color = c.getAttribute('data-color');
+        var keyspecs = c.getAttribute('data-keyspecs');
+        var eff = parseFloat(c.getAttribute('data-price')) || 0;
+        var regular = parseFloat(c.getAttribute('data-regular')) || 0;
+        var onSale = c.getAttribute('data-sale') === '1';
+        var inStock = c.getAttribute('data-instock') === '1';
+        var grade = c.getAttribute('data-grade');
+        var gradeClass = c.getAttribute('data-gradeclass');
+
+        var specParts = [storage, condition, color].filter(Boolean);
+        var chips = specParts.map(function (v) { return '<span class="spec">' + esc(v) + '</span>'; }).join('');
+        var detail = specParts.join(' · ');
+
+        var shot = '<div class="single-shot">' +
+            (grade ? '<span class="badge-grade ' + gradeClass + '">' + esc(grade) + '</span>' : '') +
+            (onSale ? '<span class="sale-flag">SALE</span>' : '') +
+            (img ? '<img src="' + esc(img) + '" alt="' + esc(name) + '">' : '<div class="phone"></div>') +
+            '</div>';
+
+        var priceHtml = '<div class="single-price"><span class="num">' + Math.round(eff).toLocaleString('en-US') + '</span><span class="cur">AED</span>' +
+            (onSale && regular > eff ? '<span class="was">AED ' + Math.round(regular).toLocaleString('en-US') + '</span>' : '') + '</div>';
+
+        var stockHtml = inStock ? '<span class="stock-line in">● In stock</span>' : '<span class="stock-line out">● Sold out</span>';
+        var waUrl = orderUrlFor(name, detail, eff, shareUrl(c));
+
+        var html = '<a class="single-back" href="' + esc(STORE_BASE) + '">‹ All phones</a>' +
+            '<div class="single-card">' + shot +
+                '<div class="single-body">' +
+                    priceHtml +
+                    '<h1 class="single-model">' + esc(name) + '</h1>' +
+                    (keyspecs ? '<div class="single-keyspecs">' + esc(keyspecs) + '</div>' : '') +
+                    (chips ? '<div class="single-specs">' + chips + '</div>' : '') +
+                    '<div class="single-meta"><span class="cod-pill">Cash on Delivery</span>' + stockHtml + '</div>' +
+                    (inStock
+                        ? '<a class="single-order" href="' + waUrl + '" target="_blank" rel="noopener">Order on WhatsApp ›</a>'
+                        : '<button class="single-order disabled" disabled>Currently sold out</button>') +
+                    '<button class="single-share" type="button" id="single-share-btn">Share this phone</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="single-foot">' + esc(COMPANY) + ' · Order easily on WhatsApp</div>';
+
+        var host = document.getElementById('single');
+        host.innerHTML = html;
+        host.classList.add('on');
+        document.body.classList.add('single-mode');
+        window.scrollTo(0, 0);
+        var sb = document.getElementById('single-share-btn');
+        if (sb) { sb.addEventListener('click', function () { doShare(c); }); }
+    }
+
+    (function initSingle() {
+        var p;
+        try { p = new URLSearchParams(window.location.search).get('p'); } catch (e) { p = null; }
+        if (!p) { return; }
+        p = p.toString().trim().toLowerCase();
+        for (var i = 0; i < cards.length; i++) {
+            if (cardKey(cards[i]).toLowerCase() === p) { renderSingle(cards[i]); return; }
+        }
+    })();
 })();
 </script>
 </body>

@@ -135,6 +135,9 @@
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    {% if product.sku %}
+                                        <a href="https://mobilesonline.ae/store?p={{ product.sku|url_encode }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="{{ 'Open shareable product page'|trans }}">{{ ux_icon('tabler:share', {width: 16, height: 16}) }}</a>
+                                    {% endif %}
                                     <form method="post" action="{{ path('_store_image', {id: product.id}) }}" enctype="multipart/form-data" class="store-photo-form d-flex align-items-center gap-1">
                                         <input type="file" name="image" class="form-control form-control-sm" accept=".jpg,.jpeg,.png,.webp" required>
                                         <input type="hidden" name="_token" value="{{ csrf_token('store.product') }}">

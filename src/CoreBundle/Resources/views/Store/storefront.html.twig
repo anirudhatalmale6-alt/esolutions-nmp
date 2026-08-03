@@ -305,9 +305,9 @@
                 <div class="info">
                     <div class="title">{{ product }}</div>
                     <div class="chips">
-                        {% if product.storage %}<span class="spec">{{ product.storage }}</span>{% endif %}
+                        {% if product.storage and product.storage|lower != 'standard' %}<span class="spec">{{ product.storage }}</span>{% endif %}
                         {% if product.condition and product.condition|lower != 'standard' %}<span class="spec">{{ product.condition }}</span>{% endif %}
-                        {% if product.color %}<span class="spec">{{ product.color }}</span>{% endif %}
+                        {% if product.color and product.color|lower != 'standard' %}<span class="spec">{{ product.color }}</span>{% endif %}
                     </div>
                     {% if product.keySpecs %}<div class="text-muted" style="font-size:12px;color:var(--muted)">{{ product.keySpecs }}</div>{% endif %}
                     <div class="buy">

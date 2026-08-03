@@ -19,6 +19,7 @@ use Brick\Math\RoundingMode;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Entity\Line;
 use Symfony\Bridge\Twig\Attribute\Template;
@@ -99,6 +100,16 @@ final readonly class MonthlySales
             $totalReceived = BigDecimal::zero();
         }
 
+        // Refunds / credit notes raised in the same month, so the report shows a
+        // net sales figure (billed minus refunds) that actually ties out — the
+        // same treatment the Daily Ledger gives cash refunds.
+        $refunds = $this->refundsForMonth($start, $end);
+        $refundsTotal = BigDecimal::zero();
+        foreach ($refunds as $refund) {
+            $refundsTotal = $refundsTotal->plus(BigDecimal::of($refund['amount']));
+        }
+        $netSales = $totalBilled->minus($refundsTotal);
+
         return [
             'month' => $month,
             'thisMonth' => (new DateTimeImmutable('today'))->format('Y-m'),
@@ -107,7 +118,53 @@ final readonly class MonthlySales
             'totalBilled' => (string) $totalBilled->toScale(2),
             'totalReceived' => (string) $totalReceived->toScale(2),
             'totalOutstanding' => (string) $totalOutstanding->toScale(2),
+            'refunds' => $refunds,
+            'refundsTotal' => (string) $refundsTotal->toScale(2),
+            'netSales' => (string) $netSales->toScale(2),
         ];
+    }
+
+    /**
+     * Refunds / credit notes dated within the month (both cash and store-credit),
+     * company-scoped by the same Doctrine filter as the invoices above. Amounts
+     * are stored in MAJOR units already, so no /100 here.
+     *
+     * @return list<array{date: ?DateTimeInterface, invoiceId: string, client: string, reason: string, type: string, amount: string}>
+     */
+    private function refundsForMonth(DateTimeImmutable $start, DateTimeImmutable $end): array
+    {
+        $rows = $this->entityManager->createQuery(
+            'SELECT cn.creditDate AS creditDate, cn.amount AS amount, cn.reason AS reason,
+                    cn.refundType AS refundType, inv.invoiceId AS invoiceId, c.name AS client
+             FROM ' . CreditNote::class . ' cn
+             JOIN cn.invoice inv
+             JOIN cn.client c
+             WHERE cn.creditDate BETWEEN :start AND :end
+             ORDER BY cn.creditDate ASC'
+        )
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getResult();
+
+        $refunds = [];
+
+        foreach ($rows as $row) {
+            $amount = (string) ($row['amount'] ?? '0');
+            if (! is_numeric($amount)) {
+                $amount = '0';
+            }
+
+            $refunds[] = [
+                'date' => $row['creditDate'] ?? null,
+                'invoiceId' => (string) ($row['invoiceId'] ?? ''),
+                'client' => (string) ($row['client'] ?? '—'),
+                'reason' => (string) ($row['reason'] ?? ''),
+                'type' => ($row['refundType'] ?? '') === CreditNote::TYPE_CREDIT ? 'Store credit' : 'Cash',
+                'amount' => (string) BigDecimal::of($amount)->toScale(2),
+            ];
+        }
+
+        return $refunds;
     }
 
     private function resolveMonth(string $raw): DateTimeImmutable

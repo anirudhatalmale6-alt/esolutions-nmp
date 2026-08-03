@@ -185,7 +185,7 @@
         .cod-pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;color:#c0392b;background:#fdecea;border:1px solid #f7c9c4;padding:5px 11px;border-radius:8px;text-transform:uppercase;letter-spacing:.02em}
         .stock-line{font-size:13px;font-weight:700}
         .stock-line.in{color:var(--green)} .stock-line.out{color:var(--slate)}
-        .single-order{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:20px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#c8961f,#e0a93a);color:#fff;font-weight:800;font-size:16px;border:0;cursor:pointer;letter-spacing:.02em}
+        .single-order{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:20px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#12a150,#25d366);color:#fff;font-weight:800;font-size:16px;border:0;cursor:pointer;letter-spacing:.02em}
         .single-order:hover{filter:brightness(1.04)}
         .single-order.disabled{background:#cbd5e1;color:#fff;pointer-events:none}
         .single-share{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:12px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--ink-2);font-weight:700;font-size:14px;cursor:pointer}
@@ -290,7 +290,6 @@
                      data-grade="{{ product.condition ? gradeLabel : '' }}"
                      data-gradeclass="{{ gradeClass }}">
                 <div class="shot">
-                    {% if product.condition %}<span class="badge-grade {{ gradeClass }}">{{ gradeLabel }}</span>{% endif %}
                     {% if product.inStock %}
                         <span class="stock-dot"><i></i>{{ 'In stock'|trans }}</span>
                     {% else %}
@@ -307,7 +306,7 @@
                     <div class="title">{{ product }}</div>
                     <div class="chips">
                         {% if product.storage %}<span class="spec">{{ product.storage }}</span>{% endif %}
-                        {% if product.condition %}<span class="spec">{{ product.condition }}</span>{% endif %}
+                        {% if product.condition and product.condition|lower != 'standard' %}<span class="spec">{{ product.condition }}</span>{% endif %}
                         {% if product.color %}<span class="spec">{{ product.color }}</span>{% endif %}
                     </div>
                     {% if product.keySpecs %}<div class="text-muted" style="font-size:12px;color:var(--muted)">{{ product.keySpecs }}</div>{% endif %}
@@ -328,7 +327,7 @@
                                 data-price="{{ eff }}"
                                 data-img="{{ product.imagePath ? asset(product.imagePath) : '' }}"
                                 title="{{ 'Add to order'|trans }}">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3h2.2l2.3 12.3a1.6 1.6 0 0 0 1.6 1.3h8.5a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg>
                         </button>
                         </div>
                     </div>
@@ -579,15 +578,16 @@
         var grade = c.getAttribute('data-grade');
         var gradeClass = c.getAttribute('data-gradeclass');
 
-        var specParts = [storage, condition, color].filter(Boolean);
+        var specParts = [storage, condition, color].filter(function (v) { return v && v.toString().toLowerCase() !== 'standard'; });
         var chips = specParts.map(function (v) { return '<span class="spec">' + esc(v) + '</span>'; }).join('');
         var detail = specParts.join(' · ');
 
         var shot = '<div class="single-shot">' +
-            (grade ? '<span class="badge-grade ' + gradeClass + '">' + esc(grade) + '</span>' : '') +
             (onSale ? '<span class="sale-flag">SALE</span>' : '') +
             (img ? '<img src="' + esc(img) + '" alt="' + esc(name) + '">' : '<div class="phone"></div>') +
             '</div>';
+
+        var waIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.4A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6a9.6 9.6 0 0 1-3.6-3.2c-.3-.4-.7-1-.7-1.9 0-.9.5-1.3.6-1.5.2-.2.4-.2.6-.2h.4c.1 0 .3 0 .5.4l.7 1.6c0 .1.1.3 0 .4l-.3.5-.3.3c-.1.1-.2.2-.1.4.1.2.6 1 1.3 1.6.9.8 1.6 1 1.8 1.1.2.1.3.1.4-.1l.6-.7c.2-.2.3-.2.5-.1l1.5.7c.2.1.4.2.4.3.1.1.1.5 0 .7Z"/></svg>';
 
         var priceHtml = '<div class="single-price"><span class="num">' + Math.round(eff).toLocaleString('en-US') + '</span><span class="cur">AED</span>' +
             (onSale && regular > eff ? '<span class="was">AED ' + Math.round(regular).toLocaleString('en-US') + '</span>' : '') + '</div>';
@@ -604,7 +604,7 @@
                     (chips ? '<div class="single-specs">' + chips + '</div>' : '') +
                     '<div class="single-meta"><span class="cod-pill">Cash on Delivery</span>' + stockHtml + '</div>' +
                     (inStock
-                        ? '<a class="single-order" href="' + waUrl + '" target="_blank" rel="noopener">Order on WhatsApp ›</a>'
+                        ? '<a class="single-order" href="' + waUrl + '" target="_blank" rel="noopener">' + waIcon + 'Order on WhatsApp</a>'
                         : '<button class="single-order disabled" disabled>Currently sold out</button>') +
                     '<button class="single-share" type="button" id="single-share-btn">Share this phone</button>' +
                 '</div>' +

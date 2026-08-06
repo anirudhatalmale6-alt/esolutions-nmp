@@ -22,6 +22,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
 use function in_array;
+use function str_starts_with;
 
 /**
  * The membership access funnel for the whole portal. In order, a signed-in user
@@ -76,11 +77,14 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
         '_store_front',
         '_stock_public',
         '_unlock_public',
-        '_unlock_lookup',
     ];
 
     /**
      * The "use it" routes that require an active Premium membership specifically.
+     * The Online Store, the Orders queue behind it, the Marketplace share and the
+     * Unlock-Code tools are all Premium sales-channel features. (Every order route
+     * is caught by the "_order" prefix check below, so new ones stay gated too.)
+     * The public customer IMEI lookup (_unlock_public) stays free and open.
      */
     private const PREMIUM_ROUTES = [
         '_marketplace_settings',
@@ -88,6 +92,9 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
         '_store_import',
         '_store_image',
         '_store_delete',
+        '_unlock_list',
+        '_unlock_import',
+        '_unlock_lookup',
     ];
 
     public function __construct(
@@ -156,9 +163,11 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
             return;
         }
 
-        // 3. Premium sales-channel gate.
-        if (in_array($route, self::PREMIUM_ROUTES, true) && ! $this->membership->hasSalesChannels($company)) {
-            $this->flash($request, 'warning', 'Marketplace and Online Store are Premium features. Upgrade to Premium to start using them.');
+        // 3. Premium sales-channel gate. Covers the explicit routes above plus
+        // every Orders route (_order… prefix), which lives behind the store.
+        if ((in_array($route, self::PREMIUM_ROUTES, true) || str_starts_with($route, '_order'))
+            && ! $this->membership->hasSalesChannels($company)) {
+            $this->flash($request, 'warning', 'The Online Store, Orders, Marketplace and Unlock Codes are Premium features. Upgrade to Premium to start using them.');
             $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
             $event->stopPropagation();
         }

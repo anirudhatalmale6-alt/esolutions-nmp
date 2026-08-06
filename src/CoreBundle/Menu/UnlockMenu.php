@@ -14,19 +14,40 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Menu;
 
 use Knp\Menu\ItemInterface;
+use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidWorx\Platform\PlatformBundle\Attributes\Menu\MenuBuilder;
 
 final class UnlockMenu
 {
-    #[MenuBuilder(name: 'sidebar', priority: 38, role: 'ROLE_MANAGER')]
+    public function __construct(
+        private readonly MembershipManager $membership,
+    ) {
+    }
+
+    // Priority 4 keeps it in the bottom premium group, alongside the Online store
+    // (5) and Marketplace (6) - the three Premium sales-channel tools together.
+    #[MenuBuilder(name: 'sidebar', priority: 4, role: 'ROLE_MANAGER')]
     public function sidebar(ItemInterface $menu): void
     {
+        $extras = [
+            // Gold crown = the premium marker (styled in Layout/base.html.twig).
+            'icon' => 'crown',
+        ];
+
+        // Unlock Codes is a Premium tool. Non-Premium companies see it with an
+        // "Upgrade to Premium" badge; the admin pages are blocked server-side
+        // (MembershipGateListener). The public customer IMEI lookup stays free.
+        if (! $this->membership->currentHasSalesChannels()) {
+            $extras['plan_label'] = 'Premium';
+        }
+
         $menu->addChild('unlock', [
             'route' => '_unlock_list',
             'label' => 'Unlock codes',
-            'extras' => [
-                'icon' => 'key',
+            'attributes' => [
+                'class' => 'premium-feature',
             ],
+            'extras' => $extras,
         ]);
     }
 }

@@ -20,6 +20,13 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Send the www host to the bare apex. The app only recognises the apex
+    # (b2bnetwork.ae) as its canonical host, so www.b2bnetwork.ae would otherwise
+    # 404. Kept here in the repo so it survives every deploy (deploy.sh overwrites
+    # this file). Must run before the front-controller rules below.
+    RewriteCond %{HTTP_HOST} ^www\.b2bnetwork\.ae$ [NC]
+    RewriteRule ^ https://b2bnetwork.ae%{REQUEST_URI} [L,R=301]
+
     # Determine the RewriteBase automatically and set it as environment variable.
     # If you are using Apache aliases to do mass virtual hosting or installed the
     # project in a subdirectory, the base path will be prepended to allow proper

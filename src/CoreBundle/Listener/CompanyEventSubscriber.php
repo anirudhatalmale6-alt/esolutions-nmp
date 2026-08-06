@@ -76,8 +76,26 @@ final readonly class CompanyEventSubscriber implements EventSubscriberInterface
         }
 
         if ($session->has('company')) {
-            $this->companySelector->switchCompany($session->get('company'));
-        } elseif (! $this->isOnCompanySelectionRoute($request) && ($user = $this->security->getUser()) instanceof UserInterface) {
+            $sessionCompany = $session->get('company');
+            $user = $this->security->getUser();
+
+            // Only honour the company stored in the session if the signed-in user
+            // is actually a member of it. Otherwise a previous user's company can
+            // bleed through on a shared browser (they log out, the next user logs
+            // in on the same session and would inherit the old company's name,
+            // logo and data). If it doesn't belong to them, drop it and fall
+            // through to pick one of THEIR own companies below.
+            if (! $user instanceof User || $this->userInCompany($user, $sessionCompany)) {
+                $this->companySelector->switchCompany($sessionCompany);
+
+                return;
+            }
+
+            $session->remove('company');
+            $this->companySelector->reset();
+        }
+
+        if (! $this->isOnCompanySelectionRoute($request) && ($user = $this->security->getUser()) instanceof UserInterface) {
             assert($user instanceof User);
 
             if (count($user->getCompanies()) === 1) {
@@ -89,6 +107,23 @@ final readonly class CompanyEventSubscriber implements EventSubscriberInterface
             $event->setResponse(new RedirectResponse($this->router->generate('_select_company')));
             $event->stopPropagation();
         }
+    }
+
+    /**
+     * Whether the user is a member of the given company (id may be a Ulid or its
+     * string form as pulled from the session).
+     */
+    private function userInCompany(User $user, mixed $companyId): bool
+    {
+        $companyId = (string) $companyId;
+
+        foreach ($user->getCompanies() as $company) {
+            if ((string) $company->getId() === $companyId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isOnCompanySelectionRoute(Request $request): bool

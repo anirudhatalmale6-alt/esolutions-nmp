@@ -19,6 +19,9 @@ use SolidInvoice\CoreBundle\Action\DeleteCompany;
 use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
+use SolidInvoice\CoreBundle\Action\Receipt\DeleteReceipt;
+use SolidInvoice\CoreBundle\Action\Receipt\ListReceipts;
+use SolidInvoice\CoreBundle\Action\Receipt\ManageReceipt;
 use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
 use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
 use SolidInvoice\CoreBundle\Action\Membership\Pending as MembershipPending;
@@ -195,6 +198,22 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_expense_delete', '/expenses/{id}/delete')
         ->controller(DeleteExpense::class);
+
+    $routingConfigurator
+        ->add('_receipts_list', '/receipts')
+        ->controller(ListReceipts::class);
+
+    $routingConfigurator
+        ->add('_receipt_new', '/receipts/new')
+        ->controller(ManageReceipt::class);
+
+    $routingConfigurator
+        ->add('_receipt_edit', '/receipts/{id}/edit')
+        ->controller(ManageReceipt::class);
+
+    $routingConfigurator
+        ->add('_receipt_delete', '/receipts/{id}/delete')
+        ->controller(DeleteReceipt::class);
 
     $routingConfigurator
         ->add('_sales_analysis', '/sales')

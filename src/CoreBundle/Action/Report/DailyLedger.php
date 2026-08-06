@@ -18,6 +18,7 @@ use Brick\Math\RoundingMode;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
+use SolidInvoice\CoreBundle\Repository\CustomerReceiptRepository;
 use SolidInvoice\CoreBundle\Repository\ExpenseRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
@@ -48,6 +49,7 @@ final readonly class DailyLedger
         private EntityManagerInterface $entityManager,
         private ExpenseRepository $expenseRepository,
         private CreditNoteRepository $creditNoteRepository,
+        private CustomerReceiptRepository $receiptRepository,
         private InvoiceTemplateExtension $invoiceTemplateExtension,
     ) {
     }
@@ -63,6 +65,7 @@ final readonly class DailyLedger
         $end = new DateTimeImmutable($date->format('Y-m-d') . ' 23:59:59');
 
         $payments = $this->paymentsReceived($start, $end);
+        $receipts = $this->receiptRepository->findBetween($start, $end);
         $suppliers = $this->supplierPayments($start, $end);
         $expenses = $this->expenseRepository->findBetween($start, $end);
         $refunds = $this->creditNoteRepository->findCashBetween($start, $end);
@@ -72,6 +75,15 @@ final readonly class DailyLedger
         foreach ($payments as $payment) {
             $moneyIn = $moneyIn->plus(BigDecimal::of($payment['amount']));
         }
+
+        // Standalone customer payments (debtors clearing balances / counter cash)
+        // are money in too - the whole point of recording them here instead of on
+        // paper is that they land in the day's cash.
+        $receiptsIn = BigDecimal::zero();
+        foreach ($receipts as $receipt) {
+            $receiptsIn = $receiptsIn->plus(BigDecimal::of($receipt->getAmount()));
+        }
+        $moneyIn = $moneyIn->plus($receiptsIn);
 
         $supplierOut = BigDecimal::zero();
         foreach ($suppliers as $supplier) {
@@ -113,6 +125,8 @@ final readonly class DailyLedger
             'date' => $date,
             'today' => (new DateTimeImmutable('today'))->format('Y-m-d'),
             'payments' => $payments,
+            'receipts' => $receipts,
+            'receiptsIn' => (string) $receiptsIn->toScale(2),
             'suppliers' => $suppliers,
             'expenses' => $expenses,
             'refunds' => $refunds,

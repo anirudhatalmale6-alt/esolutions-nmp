@@ -167,6 +167,7 @@ return static function (SecurityConfig $config): void {
     $config->accessControl()->path('^/daily-ledger')->roles(['ROLE_ACCOUNTANT']);
     $config->accessControl()->path('^/sales')->roles(['ROLE_ACCOUNTANT']);
     $config->accessControl()->path('^/expenses')->roles(['ROLE_ACCOUNTANT']);
+    $config->accessControl()->path('^/receipts')->roles(['ROLE_ACCOUNTANT']);
     // Manager surfaces:
     $config->accessControl()->path('^/clients')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/quotes')->roles(['ROLE_MANAGER']);

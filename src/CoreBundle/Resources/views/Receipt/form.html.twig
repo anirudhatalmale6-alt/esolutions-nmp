@@ -1,0 +1,78 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% set isEdit = receipt is not null %}
+
+{% block title %}{{ ux_icon('tabler:cash', {width: 24, height: 24, class: 'me-2'}) }}{{ (isEdit ? 'Edit Payment' : 'Receive Payment')|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_receipts_list') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <form method="post" action="{{ isEdit ? path('_receipt_edit', {id: receipt.id}) : path('_receipt_new') }}">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="r-date" class="form-label">{{ 'Date'|trans }} <span class="text-danger">*</span></label>
+                    <input type="date" name="receipt_date" id="r-date" class="form-control" value="{{ data.receipt_date }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="r-amount" class="form-label">{{ 'Amount (AED)'|trans }} <span class="text-danger">*</span></label>
+                    <input type="number" step="0.01" min="0" name="amount" id="r-amount" class="form-control" value="{{ data.amount }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="r-method" class="form-label">{{ 'Method'|trans }}</label>
+                    <select name="method" id="r-method" class="form-select">
+                        {% for method in methods %}
+                            <option value="{{ method }}" {{ data.method == method ? 'selected' : '' }}>{{ method|trans }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="r-client" class="form-label">{{ 'Customer'|trans }}</label>
+                    <select name="client_id" id="r-client" class="form-select">
+                        <option value="">{{ '— select a customer —'|trans }}</option>
+                        {% for client in clients %}
+                            <option value="{{ client.id }}" {{ data.client_id == client.id ~ '' ? 'selected' : '' }}>{{ client.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">{{ 'The payment is credited against this customer\'s balance.'|trans }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="r-payer" class="form-label">{{ 'Or type who paid (if not in the list)'|trans }}</label>
+                    <input type="text" name="payer_name" id="r-payer" class="form-control" value="{{ data.payer_name }}" maxlength="191" placeholder="{{ 'e.g. walk-in customer'|trans }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="r-ref" class="form-label">{{ 'Reference (optional)'|trans }}</label>
+                    <input type="text" name="reference" id="r-ref" class="form-control" value="{{ data.reference }}" maxlength="128" placeholder="{{ 'e.g. cheque no., transfer ref'|trans }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="r-note" class="form-label">{{ 'Note (optional)'|trans }}</label>
+                    <input type="text" name="note" id="r-note" class="form-control" value="{{ data.note }}">
+                </div>
+            </div>
+
+            <input type="hidden" name="_token" value="{{ csrf_token('receipt.save') }}">
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:device-floppy', {width: 18, height: 18}) }}
+                    {{ 'Save payment'|trans }}
+                </button>
+                <a href="{{ path('_receipts_list') }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+            </div>
+        </form>
+    </twig:Ui:Card>
+{% endblock content %}

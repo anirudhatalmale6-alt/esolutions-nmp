@@ -25,7 +25,13 @@ use SolidInvoice\CoreBundle\Pdf\Generator;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Response\PdfResponse;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
+use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
+use SolidInvoice\InvoiceBundle\Model\Graph;
+use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use SolidInvoice\PaymentBundle\Repository\PaymentRepository;
+use Symfony\Component\Workflow\WorkflowInterface;
+use Throwable;
+use function in_array;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,7 +54,9 @@ final readonly class View
         private Environment $twig,
         private CreditNoteRepository $creditNoteRepository,
         private EntityManagerInterface $entityManager,
-        private CompanySelector $companySelector
+        private CompanySelector $companySelector,
+        private InvoiceRepository $invoiceRepository,
+        private WorkflowInterface $invoiceStateMachine,
     ) {
     }
 
@@ -68,6 +76,14 @@ final readonly class View
         // invoice printing with the "NMP" logo). The public/external view already
         // does this same switch (see CoreBundle\Action\ViewBilling).
         $this->companySelector->switchCompany($invoice->getCompany()->getId());
+
+        // Self-heal a paid-but-still-Pending invoice. When an invoice is EDITED
+        // after payment (e.g. a discount is added, or the total otherwise drops so
+        // the captured payments now cover it), nothing re-runs the "pay" step, so
+        // it can sit on Pending even though it is fully paid. If the captured
+        // payments cover the total and it is still Pending/Overdue, mark it Paid
+        // the normal way. Wrapped so a reconcile can never break the invoice view.
+        $this->reconcilePaidStatus($invoice);
 
         if ('pdf' === $request->getRequestFormat() && $this->pdfGenerator->canPrintPdf()) {
             // Any refunds / credit notes raised against this invoice, so the PDF the
@@ -123,6 +139,28 @@ final readonly class View
      *
      * @return array{0: list<array{label: ?string, storeCredit: bool, amountMinor: string}>, 1: string, 2: string}
      */
+    /**
+     * Mark an invoice Paid if its captured payments already cover the total but it
+     * is still showing Pending/Overdue (typically after an edit changed the total
+     * post-payment). Uses the normal state transition so paidDate and any credit
+     * for an overpayment are handled exactly as a live payment would. Never throws.
+     */
+    private function reconcilePaidStatus(Invoice $invoice): void
+    {
+        try {
+            if (! in_array($invoice->getStatus(), [InvoiceStatus::Pending, InvoiceStatus::Overdue], true)) {
+                return;
+            }
+
+            if ($this->invoiceRepository->isFullyPaid($invoice)
+                && $this->invoiceStateMachine->can($invoice, Graph::TRANSITION_PAY)) {
+                $this->invoiceStateMachine->apply($invoice, Graph::TRANSITION_PAY);
+            }
+        } catch (Throwable) {
+            // A status reconcile must never break viewing the invoice.
+        }
+    }
+
     private function refundTotals(Invoice $invoice, array $creditNotes): array
     {
         $refunds = [];

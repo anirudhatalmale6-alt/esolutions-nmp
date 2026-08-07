@@ -90,7 +90,14 @@ final class Register extends AbstractController
         }
 
         if (! $invitation instanceof UserInvitation && ! $referral instanceof ReferralLink) {
-            throw $this->createNotFoundException('Registration is disabled');
+            // Not a 404 - show a friendly, on-brand "invite only" page telling the
+            // visitor to contact the B2B Network Team for activation, rather than a
+            // bare "not found" error.
+            return $this->render(
+                '@SolidInvoiceUser/Security/registration_closed.html.twig',
+                [],
+                new Response('', Response::HTTP_FORBIDDEN),
+            );
         }
 
         if ($invitation instanceof UserInvitation) {

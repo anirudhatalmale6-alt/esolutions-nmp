@@ -22,7 +22,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  * The friendly public entry point a sales rep shares, e.g.
  * https://b2bnetwork.ae/join/RASHID. It validates the rep's code and forwards to
  * the registration form with the referral attached (?ref=CODE). An unknown or
- * disabled code is a 404 - there is no open signup without a live link.
+ * disabled code falls through to the registration page, which shows a friendly
+ * "invitation only - contact the B2B Network Team" message (never a bare 404).
  */
 final class JoinReferral extends AbstractController
 {
@@ -36,7 +37,10 @@ final class JoinReferral extends AbstractController
         $link = $this->referralRepository->findActiveByCode($code);
 
         if (! $link instanceof ReferralLink) {
-            throw $this->createNotFoundException('This invite link is not valid or is no longer active.');
+            // Unknown or paused link - send them to the registration page without a
+            // referral, where they get the friendly "invitation only" message asking
+            // them to contact the B2B Network Team, instead of a bare 404.
+            return $this->redirectToRoute('_register');
         }
 
         return $this->redirectToRoute('_register', ['ref' => $link->getCode()]);

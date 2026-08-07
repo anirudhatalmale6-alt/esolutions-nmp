@@ -120,6 +120,22 @@ class Company implements Stringable, SubscribableInterface
     #[ORM\Column(name: 'verified', type: Types::BOOLEAN, options: ['default' => false])]
     private bool $verified = false;
 
+    /**
+     * The referral / sales link code that brought this company onto the platform
+     * (see ReferralLink). NULL for companies that predate the referral system or
+     * were created directly by the platform owner. Used to attribute a signup to
+     * a sales rep and to count how many businesses each rep referred.
+     */
+    #[ORM\Column(name: 'referred_by_code', type: Types::STRING, length: 64, nullable: true)]
+    private ?string $referredByCode = null;
+
+    /**
+     * Snapshot of the rep's display name at signup time, so the super-user panel
+     * can show "Referred by: Rashid" even if the link is later renamed or removed.
+     */
+    #[ORM\Column(name: 'referred_by_name', type: Types::STRING, length: 191, nullable: true)]
+    private ?string $referredByName = null;
+
     // Related entities: Only added here to enable orphan removal
     /**
      * @var Collection<int, ApiTokenHistory>
@@ -365,6 +381,30 @@ class Company implements Stringable, SubscribableInterface
     public function setVerified(bool $verified): self
     {
         $this->verified = $verified;
+
+        return $this;
+    }
+
+    public function getReferredByCode(): ?string
+    {
+        return $this->referredByCode;
+    }
+
+    public function setReferredByCode(?string $referredByCode): self
+    {
+        $this->referredByCode = $referredByCode;
+
+        return $this;
+    }
+
+    public function getReferredByName(): ?string
+    {
+        return $this->referredByName;
+    }
+
+    public function setReferredByName(?string $referredByName): self
+    {
+        $this->referredByName = $referredByName;
 
         return $this;
     }

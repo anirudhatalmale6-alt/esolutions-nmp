@@ -1,0 +1,143 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:users-group', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Referral Links'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <p class="text-secondary">
+            {{ 'Give each sales rep their own join link. A new business can ONLY sign up through a live link — there is no open public registration. Every business that joins is stamped with the rep who brought it in, and lands in Memberships as Not Verified for you to review and approve. Pause a link to stop new signups without losing its history.'|trans }}
+        </p>
+
+        {# --- Create a new rep link --- #}
+        <form method="post" action="{{ path('_referral_manage') }}" class="mb-4">
+            <input type="hidden" name="_token" value="{{ csrf_token('referral.manage') }}">
+            <input type="hidden" name="intent" value="create">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">{{ 'Sales rep name'|trans }}</label>
+                    <input type="text" name="rep_name" class="form-control" placeholder="{{ 'e.g. Rashid'|trans }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ 'Link code'|trans }} <span class="text-secondary small">({{ 'optional'|trans }})</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">/join/</span>
+                        <input type="text" name="code" class="form-control" placeholder="{{ 'RASHID'|trans }}" pattern="[A-Za-z0-9_-]*" title="{{ 'Letters, numbers, dash or underscore'|trans }}">
+                    </div>
+                    <div class="form-text">{{ 'Leave blank to build it from the name.'|trans }}</div>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        {{ ux_icon('tabler:plus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Create link'|trans }}
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>{{ 'Sales rep'|trans }}</th>
+                        <th>{{ 'Join link'|trans }}</th>
+                        <th class="text-center">{{ 'Businesses'|trans }}</th>
+                        <th>{{ 'Status'|trans }}</th>
+                        <th class="w-1"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="avatar avatar-sm me-2 rounded bg-blue-lt">{{ row.link.repName|slice(0, 1)|upper }}</span>
+                                    <span class="fw-bold">{{ row.link.repName }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center" style="gap: 6px; max-width: 360px;">
+                                    <input type="text" class="form-control form-control-sm referral-url" readonly value="{{ row.url }}" onclick="this.select();">
+                                    <button type="button" class="btn btn-sm btn-outline-primary referral-copy" data-url="{{ row.url }}" title="{{ 'Copy link'|trans }}">
+                                        {{ ux_icon('tabler:copy', {width: 15, height: 15}) }}
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-blue-lt">{{ row.count }}</span>
+                            </td>
+                            <td>
+                                {% if row.link.active %}
+                                    <span class="badge bg-green-lt">{{ 'Active'|trans }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-lt">{{ 'Paused'|trans }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex" style="gap: 6px;">
+                                    <form method="post" action="{{ path('_referral_manage') }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('referral.manage') }}">
+                                        <input type="hidden" name="intent" value="toggle">
+                                        <input type="hidden" name="link" value="{{ row.link.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="{{ row.link.active ? 'Pause new signups'|trans : 'Resume signups'|trans }}">
+                                            {% if row.link.active %}
+                                                {{ ux_icon('tabler:player-pause', {width: 15, height: 15}) }}
+                                            {% else %}
+                                                {{ ux_icon('tabler:player-play', {width: 15, height: 15}) }}
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{{ path('_referral_manage') }}"
+                                          onsubmit="return confirm('{{ 'Delete %name%\'s referral link? Businesses already referred keep their history.'|trans({'%name%': row.link.repName})|e('js') }}');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('referral.manage') }}">
+                                        <input type="hidden" name="intent" value="delete">
+                                        <input type="hidden" name="link" value="{{ row.link.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'Delete'|trans }}">
+                                            {{ ux_icon('tabler:trash', {width: 15, height: 15}) }}
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-secondary py-4">{{ 'No referral links yet. Create one above to start onboarding businesses.'|trans }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </twig:Ui:Card>
+
+    <script>
+        (function () {
+            document.querySelectorAll('.referral-copy').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var url = btn.getAttribute('data-url') || '';
+                    var flash = function () {
+                        var original = btn.innerHTML;
+                        btn.innerHTML = '{{ 'Copied!'|trans|e('js') }}';
+                        setTimeout(function () { btn.innerHTML = original; }, 1200);
+                    };
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(url).then(flash, function () {});
+                    } else {
+                        var tmp = document.createElement('input');
+                        tmp.value = url;
+                        document.body.appendChild(tmp);
+                        tmp.select();
+                        try { document.execCommand('copy'); flash(); } catch (e) {}
+                        document.body.removeChild(tmp);
+                    }
+                });
+            });
+        })();
+    </script>
+{% endblock %}

@@ -48,6 +48,7 @@ class MainMenu
         self::settings($section);
         self::models($section);
         self::memberships($section);
+        self::referrals($section);
         $this->addCustomFields($section);
     }
 
@@ -144,6 +145,20 @@ class MainMenu
                 'route' => '_membership_manage',
                 'label' => 'Memberships',
                 'extras' => ['icon' => 'crown', 'role' => 'ROLE_SUPER_ADMIN'],
+            ],
+        );
+    }
+
+    // Sales / referral links console (super-user only). Same visibility rule as
+    // memberships; the action is also #[IsGranted('ROLE_SUPER_ADMIN')].
+    public static function referrals(ItemInterface $item): ItemInterface
+    {
+        return $item->addChild(
+            'menu.top.referrals',
+            [
+                'route' => '_referral_manage',
+                'label' => 'Referral Links',
+                'extras' => ['icon' => 'users-group', 'role' => 'ROLE_SUPER_ADMIN'],
             ],
         );
     }

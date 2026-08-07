@@ -21,6 +21,7 @@ use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\ClientBundle\Entity\Contact;
 use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Entity\Line;
@@ -103,10 +104,25 @@ final readonly class OnboardingManager
     /**
      * Complete onboarding process
      */
-    public function completeOnboarding(User $user, OnboardingData $data): ?Invoice
+    public function completeOnboarding(User $user, OnboardingData $data, ?string $referralCode = null, ?string $referralName = null): ?Invoice
     {
         // 1. Create company
         $company = $this->createCompany($data);
+
+        // A business that signed up through a sales / referral link is put on the
+        // Basic plan right away (invoicing + internal tools) and stamped with the
+        // rep who brought it in. It stays Not Verified, so the membership gate holds
+        // it on the pending page until the platform owner reviews and approves it -
+        // that approval is what actually activates the Basic access.
+        if ($referralCode !== null && $referralCode !== '') {
+            $company
+                ->setReferredByCode($referralCode)
+                ->setReferredByName($referralName)
+                ->setMembershipPlan(MembershipPlan::Basic->value)
+                ->setMembershipExpiresAt(null)
+                ->setVerified(false);
+        }
+
         $user->addCompany($company);
         $this->entityManager->persist($user);
 

@@ -151,6 +151,17 @@
                     <div class="text-secondary small">{{ 'Custom domain'|trans }}</div>
                     <div class="fw-bold">{{ row.company.customDomain ?: '—' }}</div>
                 </div>
+                <div class="col-sm-6">
+                    <div class="text-secondary small">{{ 'Referred by'|trans }}</div>
+                    <div class="fw-bold">
+                        {% if row.company.referredByName %}
+                            {{ ux_icon('tabler:users-group', {width: 14, height: 14, class: 'me-1'}) }}{{ row.company.referredByName }}
+                            <span class="text-secondary small">({{ row.company.referredByCode }})</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <hr class="my-4">

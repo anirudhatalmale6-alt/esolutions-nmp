@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\Action;
 
+use SolidInvoice\CoreBundle\Entity\ReferralLink;
+use SolidInvoice\CoreBundle\Repository\ReferralLinkRepository;
 use SolidInvoice\UserBundle\DTO\Registration;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Entity\UserInvitation;
@@ -29,15 +31,22 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Uid\Ulid;
 use function assert;
+use function is_string;
 
 final class Register extends AbstractController
 {
+    /** Session keys that carry a referral from the join link through to onboarding. */
+    public const string SESSION_REFERRAL_CODE = '_referral_code';
+
+    public const string SESSION_REFERRAL_NAME = '_referral_name';
+
     public function __construct(
         private readonly UserPasswordHasherInterface $userPasswordHasher,
         private readonly UserInvitationRepository $invitationRepository,
         private readonly UserRepository $userRepository,
         private readonly Security $security,
         private readonly ToggleInterface $toggle,
+        private readonly ReferralLinkRepository $referralRepository,
         #[Autowire('%env(SOLIDINVOICE_TURNSTILE_SITE_KEY)%')]
         private readonly ?string $turnstileSiteKey = null,
     ) {
@@ -67,8 +76,32 @@ final class Register extends AbstractController
             }
         }
 
-        if (! $request->query->has('invitation') && ! $this->toggle->isActive('allow_registration')) {
+        // Open public registration is CLOSED. A brand-new business can only sign up
+        // through a valid, active sales / referral link (see ReferralLink); existing
+        // companies still add staff through a UserInvitation. Anything else is a 404.
+        // This is enforced in code so a flipped env toggle can never reopen the hole.
+        $session = $request->getSession();
+        $referral = null;
+
+        $refCode = $request->query->get('ref') ?? $session->get(self::SESSION_REFERRAL_CODE);
+
+        if (is_string($refCode) && $refCode !== '') {
+            $referral = $this->referralRepository->findActiveByCode($refCode);
+        }
+
+        if (! $invitation instanceof UserInvitation && ! $referral instanceof ReferralLink) {
             throw $this->createNotFoundException('Registration is disabled');
+        }
+
+        if ($invitation instanceof UserInvitation) {
+            // Joining an existing company via a staff invite - never a referral signup.
+            $session->remove(self::SESSION_REFERRAL_CODE);
+            $session->remove(self::SESSION_REFERRAL_NAME);
+        } elseif ($referral instanceof ReferralLink) {
+            // Remember the rep for the onboarding step, which is where the new company
+            // is actually created and gets stamped + put on Basic.
+            $session->set(self::SESSION_REFERRAL_CODE, $referral->getCode());
+            $session->set(self::SESSION_REFERRAL_NAME, $referral->getRepName());
         }
 
         $form =

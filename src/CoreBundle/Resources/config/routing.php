@@ -16,6 +16,8 @@ use SolidInvoice\CoreBundle\Action\CreditNote\DeleteCreditNote;
 use SolidInvoice\CoreBundle\Action\CreditNote\ListCreditNotes;
 use SolidInvoice\CoreBundle\Action\CreditNote\ManageCreditNote;
 use SolidInvoice\CoreBundle\Action\DeleteCompany;
+use SolidInvoice\CoreBundle\Action\JoinReferral;
+use SolidInvoice\CoreBundle\Action\ManageReferralLinks;
 use SolidInvoice\CoreBundle\Action\Expense\DeleteExpense;
 use SolidInvoice\CoreBundle\Action\Expense\ListExpenses;
 use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
@@ -241,6 +243,18 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_membership_upgrade', '/membership/upgrade')
         ->controller(MembershipUpgrade::class)
+        ->methods(['GET']);
+
+    // Super-user referral / sales-link console + the public "join via rep link" URL.
+    $routingConfigurator
+        ->add('_referral_manage', '/settings/referrals')
+        ->controller(ManageReferralLinks::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_referral_join', '/join/{code}')
+        ->controller(JoinReferral::class)
+        ->requirements(['code' => '[A-Za-z0-9_-]{1,64}'])
         ->methods(['GET']);
 
     $routingConfigurator

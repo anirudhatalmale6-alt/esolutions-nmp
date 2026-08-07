@@ -137,6 +137,7 @@ return static function (SecurityConfig $config): void {
             '/verify$|' .
             '/logout$|' .
             '/invite/accept/[a-zA-Z0-9-]{26}$|' .
+            '/join/[A-Za-z0-9_-]{1,64}$|' .
             '/nmp-inventory$|' .
             '/imei-unlock$|' .
             '/marketplace$|' .

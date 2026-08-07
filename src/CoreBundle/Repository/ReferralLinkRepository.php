@@ -68,17 +68,16 @@ class ReferralLinkRepository extends EntityRepository
         return $this->findByCode($code) instanceof ReferralLink;
     }
 
-    public function save(ReferralLink $link): void
-    {
-        $em = $this->getEntityManager();
-        $em->persist($link);
-        $em->flush();
-    }
+    // save() is inherited from EntityRepository (save(object $entity, bool $flush = true)):
+    // overriding it here with a narrowed ReferralLink param broke PHP's signature
+    // compatibility and took the whole app down, so we rely on the parent instead.
 
+    /**
+     * Remove a referral link. Named delete() (there is no delete() on the parent, so
+     * this adds a method rather than overriding one); delegates to the parent remove().
+     */
     public function delete(ReferralLink $link): void
     {
-        $em = $this->getEntityManager();
-        $em->remove($link);
-        $em->flush();
+        $this->remove($link);
     }
 }

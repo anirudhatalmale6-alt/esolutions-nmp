@@ -21,9 +21,11 @@
         .nmp-console .text-secondary { color: #64748b !important; }
         .nmp-console thead th { color: #64748b !important; }
         .nmp-console .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
-        /* Verified = a prominent solid-blue badge, matching the marketplace tick. */
-        .nmp-console .nmp-verified { background-color: #1d9bf0 !important; color: #fff !important; font-weight: 600; }
+        /* Verified = the blue scalloped seal + white tick, same mark as the marketplace. */
+        .nmp-console .vtick { display: inline-flex; vertical-align: middle; margin-left: 5px; position: relative; top: -1px; }
+        .nmp-console .vtick svg { width: 16px; height: 16px; display: block; }
     </style>
+    {% set verifiedTick %}<span class="vtick" title="{{ 'Verified business'|trans }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1d9bf0" d="M12 1.8l2.6 1.9 3.2-.2 1 3 2.6 1.8-1 3 1 3-2.6 1.8-1 3-3.2-.2L12 22.2l-2.6-1.9-3.2.2-1-3L2.6 15.7l1-3-1-3 2.6-1.8 1-3 3.2.2z"/><path fill="#fff" d="M10.6 14.6l-2.2-2.2-1.2 1.2 3.4 3.4 6-6-1.2-1.2z"/></svg></span>{% endset %}
     <div class="nmp-console">
     <twig:Ui:Card>
         <p class="text-secondary">
@@ -59,10 +61,8 @@
                                 <div class="d-flex align-items-center">
                                     <span class="avatar avatar-sm me-2 rounded bg-secondary-lt">{{ row.company.name|slice(0, 1)|upper }}</span>
                                     <div>
-                                        <div class="fw-bold">{{ row.company.name }}</div>
-                                        {% if row.verified %}
-                                            <span class="badge nmp-verified">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
-                                        {% else %}
+                                        <div class="fw-bold">{{ row.company.name }}{% if row.verified %}{{ verifiedTick }}{% endif %}</div>
+                                        {% if not row.verified %}
                                             <span class="text-secondary small">{{ 'Not verified'|trans }}</span>
                                         {% endif %}
                                     </div>
@@ -137,10 +137,7 @@
         <twig:Ui:Modal id="manage-{{ row.company.id }}" size="lg" centered>
             <twig:block name="header">
                 <h5 class="modal-title">
-                    {{ ux_icon('tabler:building-store', {width: 20, height: 20, class: 'me-2'}) }}{{ row.company.name }}
-                    {% if row.verified %}
-                        <span class="badge nmp-verified ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
-                    {% endif %}
+                    {{ ux_icon('tabler:building-store', {width: 20, height: 20, class: 'me-2'}) }}{{ row.company.name }}{% if row.verified %}{{ verifiedTick }}{% endif %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </twig:block>

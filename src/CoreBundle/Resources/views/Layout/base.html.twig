@@ -13,24 +13,25 @@
     {{ parent() }}
     {{ encore_entry_link_tags('app') }}
     {# Premium features (e.g. "Marketplace" and "Online store") are flagged with a
-       gold crown icon rather than a full highlight stripe - a lighter, cleaner cue
-       that still reads as "premium" and is reused across every premium item. #}
+       small crown icon rather than a full highlight stripe. The label itself keeps
+       the normal, readable menu colour - gold text on the light sidebar was too low
+       in contrast to read comfortably. A subtly deeper gold on just the icon is the
+       whole premium cue now. #}
     <style>
         /* Left menu text a touch smaller for a tidier, more compact sidebar. */
         .navbar-vertical .navbar-nav .nav-link { font-size: .8125rem; }
 
         .navbar-vertical .navbar-nav .nav-item.premium-feature { margin-top: .35rem; }
-        /* Gold crown icon + gold label = the "premium" cue (no background bar). */
+        /* Small crown icon = the "premium" cue. A deeper amber so it's legible, and
+           only on the icon - the label text stays the normal menu colour. */
         .navbar-vertical .navbar-nav .nav-item.premium-feature > .nav-link .nav-link-icon {
-            color: #f4c430 !important;
+            color: #c99700 !important;
         }
         .navbar-vertical .navbar-nav .nav-item.premium-feature > .nav-link .nav-link-title {
-            color: #f4c430 !important;
             font-weight: 600;
         }
-        .navbar-vertical .navbar-nav .nav-item.premium-feature > .nav-link:hover .nav-link-icon,
-        .navbar-vertical .navbar-nav .nav-item.premium-feature > .nav-link:hover .nav-link-title {
-            color: #ffd966 !important;
+        .navbar-vertical .navbar-nav .nav-item.premium-feature > .nav-link:hover .nav-link-icon {
+            color: #a87f00 !important;
         }
     </style>
 {% endblock stylesheets %}

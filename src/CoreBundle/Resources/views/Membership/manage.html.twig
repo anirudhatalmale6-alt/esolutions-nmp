@@ -21,6 +21,8 @@
         .nmp-console .text-secondary { color: #64748b !important; }
         .nmp-console thead th { color: #64748b !important; }
         .nmp-console .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
+        /* Verified = a prominent solid-blue badge, matching the marketplace tick. */
+        .nmp-console .nmp-verified { background-color: #1d9bf0 !important; color: #fff !important; font-weight: 600; }
     </style>
     <div class="nmp-console">
     <twig:Ui:Card>
@@ -59,7 +61,7 @@
                                     <div>
                                         <div class="fw-bold">{{ row.company.name }}</div>
                                         {% if row.verified %}
-                                            <span class="text-secondary small">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Trusted'|trans }}</span>
+                                            <span class="badge nmp-verified">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
                                         {% else %}
                                             <span class="text-secondary small">{{ 'Not verified'|trans }}</span>
                                         {% endif %}
@@ -137,7 +139,7 @@
                 <h5 class="modal-title">
                     {{ ux_icon('tabler:building-store', {width: 20, height: 20, class: 'me-2'}) }}{{ row.company.name }}
                     {% if row.verified %}
-                        <span class="text-secondary small ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Trusted'|trans }}</span>
+                        <span class="badge nmp-verified ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
                     {% endif %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

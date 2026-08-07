@@ -21,10 +21,11 @@
         <form method="post" action="{{ path('_referral_manage') }}" class="mb-4">
             <input type="hidden" name="_token" value="{{ csrf_token('referral.manage') }}">
             <input type="hidden" name="intent" value="create">
-            <div class="row g-2 align-items-end">
+            <div class="row g-2 align-items-start">
                 <div class="col-md-5">
                     <label class="form-label">{{ 'Sales rep name'|trans }}</label>
                     <input type="text" name="rep_name" class="form-control" placeholder="{{ 'e.g. Rashid'|trans }}" required>
+                    <div class="form-text">&nbsp;</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">{{ 'Link code'|trans }} <span class="text-secondary small">({{ 'optional'|trans }})</span></label>
@@ -35,6 +36,7 @@
                     <div class="form-text">{{ 'Leave blank to build it from the name.'|trans }}</div>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label d-none d-md-block">&nbsp;</label>
                     <button type="submit" class="btn btn-primary w-100">
                         {{ ux_icon('tabler:plus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Create link'|trans }}
                     </button>
@@ -58,7 +60,7 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="avatar avatar-sm me-2 rounded bg-blue-lt">{{ row.link.repName|slice(0, 1)|upper }}</span>
+                                    <span class="avatar avatar-sm me-2 rounded bg-secondary-lt">{{ row.link.repName|slice(0, 1)|upper }}</span>
                                     <span class="fw-bold">{{ row.link.repName }}</span>
                                 </div>
                             </td>
@@ -71,13 +73,13 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-blue-lt">{{ row.count }}</span>
+                                <span class="badge bg-secondary-lt">{{ row.count }}</span>
                             </td>
                             <td>
                                 {% if row.link.active %}
-                                    <span class="badge bg-green-lt">{{ 'Active'|trans }}</span>
+                                    <span class="text-secondary small">{{ ux_icon('tabler:circle-check', {width: 14, height: 14, class: 'me-1'}) }}{{ 'Active'|trans }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary-lt">{{ 'Paused'|trans }}</span>
+                                    <span class="text-secondary small">{{ 'Paused'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>

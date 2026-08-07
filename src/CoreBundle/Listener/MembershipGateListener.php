@@ -28,13 +28,15 @@ use function str_starts_with;
  * The membership access funnel for the whole portal. In order, a signed-in user
  * working inside a company must clear:
  *
- *   1. Approval  - the company must be verified (approved) by the platform owner.
- *                  Until then the user is held on the "pending approval" page.
- *                  This is what keeps the portal to real wholesalers/distributors.
- *   2. A plan    - the company must be on an active Basic or Premium plan. With
- *                  no plan the user can't use anything and is sent to the
- *                  subscribe/upgrade page.
- *   3. Premium   - the two public sales channels (Marketplace share + Online
+ *   1. A plan    - the company must be on an active Basic or Premium plan. A
+ *                  business that joined through a sales rep's referral link is put
+ *                  on Basic automatically, so it has access straight away. A
+ *                  company with no active plan that has never been approved is held
+ *                  on the "pending approval" page; if it was approved but its plan
+ *                  lapsed, it is sent to the subscribe/upgrade page. Verification
+ *                  ("trusted") is a separate manual badge - NOT required for Basic
+ *                  access, only for a Premium upgrade.
+ *   2. Premium   - the two public sales channels (Marketplace share + Online
  *                  Store admin) additionally require Premium.
  *
  * The platform owner (ROLE_SUPER_ADMIN) is never gated. Public shop-window pages,
@@ -146,16 +148,26 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
             return;
         }
 
-        // 1. Approval gate.
-        if (! $this->membership->isVerified($company)) {
-            $event->setResponse(new RedirectResponse($this->router->generate('_membership_pending')));
-            $event->stopPropagation();
-
-            return;
-        }
-
-        // 2. Plan gate - no active plan means no access to the portal at all.
+        // 1 + 2. Plan / approval gate.
+        //
+        // A company on an active paid plan (Basic or Premium) has access, whether
+        // or not it has been marked "verified". Verification is a separate trusted
+        // badge the platform owner grants by hand - and the prerequisite for
+        // Premium - but it is NOT required for Basic access. This lets a business
+        // that joined through a sales rep's referral link (auto Basic for a year)
+        // start working immediately, while the owner still reviews it and can mark
+        // it trusted / upgrade it to Premium later.
         if (! $this->membership->isActive($company)) {
+            // No active plan. If it has never been approved either, hold it on the
+            // pending-approval page. Otherwise it is approved but its plan has
+            // lapsed or is None, so send it to choose / renew a plan.
+            if (! $this->membership->isVerified($company)) {
+                $event->setResponse(new RedirectResponse($this->router->generate('_membership_pending')));
+                $event->stopPropagation();
+
+                return;
+            }
+
             $this->flash($request, 'info', 'Choose a plan to start using your account.');
             $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
             $event->stopPropagation();

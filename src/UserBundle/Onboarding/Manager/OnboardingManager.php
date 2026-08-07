@@ -110,16 +110,19 @@ final readonly class OnboardingManager
         $company = $this->createCompany($data);
 
         // A business that signed up through a sales / referral link is put on the
-        // Basic plan right away (invoicing + internal tools) and stamped with the
-        // rep who brought it in. It stays Not Verified, so the membership gate holds
-        // it on the pending page until the platform owner reviews and approves it -
-        // that approval is what actually activates the Basic access.
+        // Basic plan for one year right away (invoicing + internal tools) and
+        // stamped with the rep who brought it in, so it can start using the portal
+        // immediately - the rep's referral IS the vetting. It stays Not Verified:
+        // "verified" is a separate trusted badge the platform owner grants by hand,
+        // and the prerequisite for a Premium upgrade, but it is NOT required for
+        // Basic access. The owner reviews the business at leisure and can then mark
+        // it trusted / move it to Premium.
         if ($referralCode !== null && $referralCode !== '') {
             $company
                 ->setReferredByCode($referralCode)
                 ->setReferredByName($referralName)
                 ->setMembershipPlan(MembershipPlan::Basic->value)
-                ->setMembershipExpiresAt(null)
+                ->setMembershipExpiresAt(new \DateTimeImmutable('+1 year'))
                 ->setVerified(false);
         }
 

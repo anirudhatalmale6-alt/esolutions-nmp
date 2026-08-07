@@ -66,6 +66,52 @@ final class MembershipManage extends AbstractController
 
         $companies = $this->companyRepository->findBy([], ['name' => 'ASC']);
 
+        // The "company" Doctrine filter scopes User queries to the CURRENT company
+        // (the owner's own company), so lazily loading another company's users comes
+        // back empty - which is why other businesses showed "No account linked" and
+        // no e-mail. This console is super-admin only and legitimately needs to see
+        // every company's accounts, so build the rows with the filter switched off.
+        $rows = $this->withoutCompanyFilter(fn (): array => $this->buildRows($companies));
+
+        return $this->render('@SolidInvoiceCore/Membership/manage.html.twig', [
+            'rows' => $rows,
+            'plans' => MembershipPlan::cases(),
+        ]);
+    }
+
+    /**
+     * Run $callback with the "company" Doctrine filter disabled, then restore it.
+     * The super-admin console must reach every company's accounts, which the
+     * current-company filter would otherwise hide.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
+     */
+    private function withoutCompanyFilter(callable $callback): mixed
+    {
+        $filters = $this->entityManager->getFilters();
+        $wasEnabled = $filters->isEnabled('company');
+
+        if ($wasEnabled) {
+            $filters->disable('company');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            if ($wasEnabled) {
+                $filters->enable('company');
+            }
+        }
+    }
+
+    /**
+     * @param list<Company> $companies
+     * @return list<array<string, mixed>>
+     */
+    private function buildRows(array $companies): array
+    {
         $rows = [];
         foreach ($companies as $company) {
             $users = [];
@@ -97,10 +143,7 @@ final class MembershipManage extends AbstractController
             ];
         }
 
-        return $this->render('@SolidInvoiceCore/Membership/manage.html.twig', [
-            'rows' => $rows,
-            'plans' => MembershipPlan::cases(),
-        ]);
+        return $rows;
     }
 
     private function handleSave(Request $request): Response
@@ -159,7 +202,11 @@ final class MembershipManage extends AbstractController
         $email = trim((string) $request->request->get('email'));
         $password = (string) $request->request->get('password');
 
-        $user = $email === '' ? null : $this->userRepository->findOneBy(['email' => $email]);
+        // Look the account up with the company filter off - it may belong to any
+        // company on the portal, not the owner's current one.
+        $user = $email === '' ? null : $this->withoutCompanyFilter(
+            fn (): ?User => $this->userRepository->findOneBy(['email' => $email]),
+        );
 
         if (! $user instanceof User) {
             $this->addFlash('error', 'That account could not be found.');
@@ -199,15 +246,25 @@ final class MembershipManage extends AbstractController
         }
 
         // Capture the members and whether each belongs ONLY to this company, before
-        // deleting. Refuse if the platform owner (a super-admin) is a member, so the
-        // console can never delete the owner's own company.
-        $soleOwners = [];
+        // deleting. Read them with the company filter off, otherwise another
+        // company's members are invisible and its account would be left orphaned.
+        $members = $this->withoutCompanyFilter(static function () use ($company): array {
+            $out = [];
 
-        foreach ($company->getUsers() as $user) {
-            if (! $user instanceof User) {
-                continue;
+            foreach ($company->getUsers() as $user) {
+                if ($user instanceof User) {
+                    $out[] = $user;
+                }
             }
 
+            return $out;
+        });
+
+        // Refuse if the platform owner (a super-admin) is a member, so the console
+        // can never delete the owner's own company.
+        $soleOwners = [];
+
+        foreach ($members as $user) {
             if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
                 $this->addFlash('error', sprintf('%s can\'t be deleted here because the platform owner is a member of it.', $company->getName()));
 

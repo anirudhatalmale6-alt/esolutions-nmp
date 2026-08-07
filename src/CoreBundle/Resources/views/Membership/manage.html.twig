@@ -44,13 +44,13 @@
                         <tr data-search="{{ haystack|lower }}">
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="avatar avatar-sm me-2 rounded bg-blue-lt">{{ row.company.name|slice(0, 1)|upper }}</span>
+                                    <span class="avatar avatar-sm me-2 rounded bg-secondary-lt">{{ row.company.name|slice(0, 1)|upper }}</span>
                                     <div>
                                         <div class="fw-bold">{{ row.company.name }}</div>
                                         {% if row.verified %}
-                                            <span class="badge bg-green-lt">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
+                                            <span class="text-secondary small">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Trusted'|trans }}</span>
                                         {% else %}
-                                            <span class="badge bg-secondary-lt">{{ 'Not verified'|trans }}</span>
+                                            <span class="text-secondary small">{{ 'Not verified'|trans }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -69,21 +69,21 @@
 
                             <td>
                                 {% if row.plan.value == 'premium' %}
-                                    <span class="badge bg-yellow-lt">{{ ux_icon('tabler:crown', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Premium'|trans }}</span>
+                                    <span class="badge bg-secondary-lt">{{ ux_icon('tabler:crown', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Premium'|trans }}</span>
                                 {% elseif row.plan.value == 'basic' %}
-                                    <span class="badge bg-blue-lt">{{ 'Basic'|trans }}</span>
+                                    <span class="badge bg-secondary-lt">{{ 'Basic'|trans }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary-lt">{{ 'No plan'|trans }}</span>
+                                    <span class="text-secondary small">{{ 'No plan'|trans }}</span>
                                 {% endif %}
                                 {% if row.complimentary %}
-                                    <span class="badge bg-purple-lt ms-1">{{ 'Free'|trans }}</span>
+                                    <span class="text-secondary small ms-1">· {{ 'Free'|trans }}</span>
                                 {% endif %}
                             </td>
 
                             <td>
                                 {% if row.plan.isPaid %}
                                     {% if not row.active %}
-                                        <span class="badge bg-red-lt">{{ 'Lapsed'|trans }}</span>
+                                        <span class="text-danger small">{{ 'Lapsed'|trans }}</span>
                                     {% elseif row.expiresAt is null %}
                                         <span class="text-secondary small">{{ 'No expiry'|trans }}</span>
                                     {% else %}
@@ -126,7 +126,7 @@
                 <h5 class="modal-title">
                     {{ ux_icon('tabler:building-store', {width: 20, height: 20, class: 'me-2'}) }}{{ row.company.name }}
                     {% if row.verified %}
-                        <span class="badge bg-green-lt ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Verified'|trans }}</span>
+                        <span class="text-secondary small ms-2">{{ ux_icon('tabler:rosette-discount-check', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Trusted'|trans }}</span>
                     {% endif %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -140,12 +140,26 @@
                     <div class="fw-bold">{{ row.company.name }}</div>
                 </div>
                 <div class="col-sm-6">
-                    <div class="text-secondary small">{{ 'Primary e-mail'|trans }}</div>
-                    <div class="fw-bold">{{ primaryUser ? primaryUser.email : '—' }}</div>
+                    <div class="text-secondary small">{{ 'Contact e-mail'|trans }}</div>
+                    <div class="fw-bold">
+                        {% if primaryUser %}
+                            <a href="mailto:{{ primaryUser.email }}">{{ primaryUser.email }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="col-sm-6">
-                    <div class="text-secondary small">{{ 'Accounts'|trans }}</div>
-                    <div class="fw-bold">{{ row.users|length }}</div>
+                    <div class="text-secondary small">{{ 'All accounts'|trans }} ({{ row.users|length }})</div>
+                    <div class="fw-bold">
+                        {% if row.users|length > 0 %}
+                            {% for u in row.users %}
+                                <div><a href="mailto:{{ u.email }}">{{ u.email }}</a></div>
+                            {% endfor %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="col-sm-6">
                     <div class="text-secondary small">{{ 'Custom domain'|trans }}</div>

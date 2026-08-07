@@ -12,6 +12,15 @@
 {% block title %}{{ ux_icon('tabler:users-group', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Referral Links'|trans }}{% endblock title %}
 
 {% block content %}
+    {# This theme's "secondary" brand colour is an amber/gold, so muted text and light
+       chips built with text-secondary / bg-secondary-lt render as a blurry light
+       orange. Recolour to the crisp slate greys used elsewhere. Scoped to this page. #}
+    <style>
+        .nmp-console .text-secondary { color: #64748b !important; }
+        .nmp-console thead th { color: #64748b !important; }
+        .nmp-console .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
+    </style>
+    <div class="nmp-console">
     <twig:Ui:Card>
         <p class="text-secondary">
             {{ 'Give each sales rep their own join link. A new business can ONLY sign up through a live link — there is no open public registration. Every business that joins is stamped with the rep who brought it in, and lands in Memberships as Not Verified for you to review and approve. Pause a link to stop new signups without losing its history.'|trans }}
@@ -142,4 +151,5 @@
             });
         })();
     </script>
+    </div>
 {% endblock %}

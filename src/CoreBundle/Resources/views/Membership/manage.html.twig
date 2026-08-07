@@ -12,6 +12,17 @@
 {% block title %}{{ ux_icon('tabler:crown', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Memberships'|trans }}{% endblock title %}
 
 {% block content %}
+    {# This theme's "secondary" brand colour is an amber/gold (#f0a015), so the muted
+       text and light chips built with text-secondary / bg-secondary-lt came out as a
+       blurry light-orange. Recolour them to the crisp slate greys used elsewhere in
+       the app. Scoped to this page only - it only exists in the DOM while this page
+       is open, so no other screen is affected. #}
+    <style>
+        .nmp-console .text-secondary { color: #64748b !important; }
+        .nmp-console thead th { color: #64748b !important; }
+        .nmp-console .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
+    </style>
+    <div class="nmp-console">
     <twig:Ui:Card>
         <p class="text-secondary">
             {{ 'Every company on the portal, one per line. Search by business name or e-mail, then click Manage to set its plan, verify it, reset a password or remove it. A company on No plan cannot use anything until you put it on Basic or Premium. Basic gives invoicing and internal tools; Premium also unlocks the Marketplace and Online Store.'|trans }}
@@ -293,4 +304,5 @@
             });
         })();
     </script>
+    </div>
 {% endblock content %}

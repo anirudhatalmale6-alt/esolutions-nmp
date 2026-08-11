@@ -25,6 +25,11 @@
         .nmp-console .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
         .nmp-console tr.row-skip { background-color: #fafafa; }
         .nmp-console tr.row-skip td { color: #94a3b8; }
+        .nmp-console .match-select { min-width: 260px; }
+        .nmp-console .badge-exact { background-color: #d1fae5 !important; color: #065f46 !important; }
+        .nmp-console .badge-guess { background-color: #fef3c7 !important; color: #92400e !important; }
+        .nmp-console .badge-new { background-color: #e0e7ff !important; color: #3730a3 !important; }
+        .nmp-console tr.row-clash td { background-color: #fee2e2 !important; }
     </style>
     <div class="nmp-console">
     <twig:Ui:Card>
@@ -33,28 +38,40 @@
         </twig:block>
 
         <p class="text-secondary">
-            {{ 'Read %count% line(s) from your file. Tick the ones to carry over as opening balances. The loan, staff, visa, cargo and deposit accounts are unticked already because they are not trading customers - tick any you do want.'|trans({'%count%': rows|length}) }}
+            {{ 'Read %count% line(s) from your file. For each one, choose which customer it belongs to - the names in Tally do not always match the names here, so check the middle column before importing. Loan, staff, visa, cargo and deposit accounts arrive unticked because they are not trading customers.'|trans({'%count%': rows|length}) }}
         </p>
 
         <div class="row g-2 mb-3">
-            <div class="col-sm-4">
+            <div class="col-sm-3">
                 <div class="p-2 rounded bg-secondary-lt">
                     <div class="small">{{ 'Customers owe (Debit)'|trans }}</div>
                     <div class="h3 mb-0">{{ totalOwed }}</div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-3">
                 <div class="p-2 rounded bg-secondary-lt">
                     <div class="small">{{ 'You owe (Credit)'|trans }}</div>
                     <div class="h3 mb-0">{{ totalOwing }}</div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-3">
                 <div class="p-2 rounded bg-secondary-lt">
                     <div class="small">{{ 'Lines pre-ticked'|trans }}</div>
                     <div class="h3 mb-0">{{ suggested }} / {{ rows|length }}</div>
                 </div>
             </div>
+            <div class="col-sm-3">
+                <div class="p-2 rounded bg-secondary-lt">
+                    <div class="small">{{ 'Matched to a customer'|trans }}</div>
+                    <div class="h3 mb-0">{{ matched }} / {{ rows|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-warning" id="clashWarning" style="display: none;">
+            {{ ux_icon('tabler:alert-triangle', {width: 18, height: 18, class: 'me-1'}) }}
+            <span id="clashText"></span>
+            {{ 'That is fine if they really are the same person - their balances will be added together - but check it is what you want.'|trans }}
         </div>
 
         <form method="post" action="{{ path('_debtors_import') }}">
@@ -72,11 +89,11 @@
                     <thead>
                         <tr>
                             <th class="w-1">{{ 'Import'|trans }}</th>
-                            <th>{{ 'Particulars'|trans }}</th>
+                            <th>{{ 'Name in Tally'|trans }}</th>
+                            <th>{{ 'Customer in B2B Network'|trans }}</th>
                             <th class="text-end">{{ 'Debit'|trans }}</th>
                             <th class="text-end">{{ 'Credit'|trans }}</th>
                             <th class="text-end">{{ 'Opening balance'|trans }}</th>
-                            <th>{{ 'On system'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,19 +113,27 @@
                                         <div class="small">{{ 'Looks like a loan / staff / expense account'|trans }}</div>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    <select name="match[{{ index }}]" class="form-select form-select-sm match-select">
+                                        <option value="">{{ '➕ Create new customer "%name%"'|trans({'%name%': row.name}) }}</option>
+                                        {% for client in clients %}
+                                            <option value="{{ client.id }}"{{ row.matchId == client.id ? ' selected' : '' }}>{{ client.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if row.matchExact %}
+                                        <span class="badge badge-exact mt-1">{{ 'Exact name match'|trans }}</span>
+                                    {% elseif row.matchId is not null %}
+                                        <span class="badge badge-guess mt-1">{{ 'My best guess — please check'|trans }}</span>
+                                    {% else %}
+                                        <span class="badge badge-new mt-1">{{ 'No match found — will be created'|trans }}</span>
+                                    {% endif %}
+                                    {% if row.matchBalance is not null and row.matchBalance != '0.00' %}
+                                        <div class="small text-secondary">{{ 'Their opening balance is currently %balance%'|trans({'%balance%': row.matchBalance}) }}</div>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end">{{ row.debit != '0.00' ? row.debit : '' }}</td>
                                 <td class="text-end">{{ row.credit != '0.00' ? row.credit : '' }}</td>
                                 <td class="text-end fw-bold">{{ row.balance }}</td>
-                                <td>
-                                    {% if row.existing %}
-                                        <span class="badge bg-secondary-lt">{{ 'Existing customer'|trans }}</span>
-                                        {% if row.existingBalance is not null and row.existingBalance != '0.00' %}
-                                            <div class="small">{{ 'Currently %balance%'|trans({'%balance%': row.existingBalance}) }}</div>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-secondary small">{{ 'Will be created'|trans }}</span>
-                                    {% endif %}
-                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -129,9 +154,15 @@
     <script>
         (function () {
             var ticks = document.querySelectorAll('.debtor-tick');
+            var table = document.getElementById('debtorTable');
+            var warning = document.getElementById('clashWarning');
+            var warningText = document.getElementById('clashText');
+
             var setAll = function (fn) {
                 ticks.forEach(function (t) { t.checked = fn(t); });
+                flagClashes();
             };
+
             document.getElementById('tickAll').addEventListener('click', function () {
                 setAll(function () { return true; });
             });
@@ -141,6 +172,52 @@
             document.getElementById('tickCustomers').addEventListener('click', function () {
                 setAll(function (t) { return t.getAttribute('data-customer') === '1'; });
             });
+
+            // Two ticked lines pointing at the same customer are allowed - the
+            // balances get added - but the user should see it happening.
+            function flagClashes() {
+                var counts = {};
+                var rows = table.querySelectorAll('tbody tr');
+
+                rows.forEach(function (tr) {
+                    tr.classList.remove('row-clash');
+
+                    var tick = tr.querySelector('.debtor-tick');
+                    var select = tr.querySelector('.match-select');
+
+                    if (!tick || !select || !tick.checked || select.value === '') {
+                        return;
+                    }
+
+                    counts[select.value] = (counts[select.value] || 0) + 1;
+                });
+
+                var clashing = 0;
+
+                rows.forEach(function (tr) {
+                    var tick = tr.querySelector('.debtor-tick');
+                    var select = tr.querySelector('.match-select');
+
+                    if (!tick || !select || !tick.checked || select.value === '') {
+                        return;
+                    }
+
+                    if (counts[select.value] > 1) {
+                        tr.classList.add('row-clash');
+                        clashing++;
+                    }
+                });
+
+                if (clashing > 0) {
+                    warningText.textContent = clashing + ' lines (highlighted below) point at the same customer.';
+                    warning.style.display = '';
+                } else {
+                    warning.style.display = 'none';
+                }
+            }
+
+            table.addEventListener('change', flagClashes);
+            flagClashes();
         })();
     </script>
 {% endblock content %}

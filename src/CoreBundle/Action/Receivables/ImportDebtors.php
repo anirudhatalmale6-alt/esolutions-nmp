@@ -140,9 +140,11 @@ final class ImportDebtors extends AbstractController
 
         return $this->render('@SolidInvoiceCore/Receivables/preview.html.twig', [
             'rows' => $rows,
+            'clients' => $this->debtorImporter->clients($company),
             'totalOwed' => (string) $owed->toScale(2),
             'totalOwing' => (string) $owing->toScale(2),
             'suggested' => count(array_filter($rows, static fn (array $row): bool => $row['isCustomer'])),
+            'matched' => count(array_filter($rows, static fn (array $row): bool => $row['matchId'] !== null)),
         ]);
     }
 
@@ -168,6 +170,7 @@ final class ImportDebtors extends AbstractController
         $names = $request->request->all('name');
         $balances = $request->request->all('balance');
         $selected = $request->request->all('import');
+        $matches = $request->request->all('match');
 
         if (! is_array($names) || $names === []) {
             $this->addFlash('error', 'Nothing to import - please upload the file again.');
@@ -191,7 +194,14 @@ final class ImportDebtors extends AbstractController
                 continue;
             }
 
-            $rows[] = ['name' => $name, 'balance' => $balance];
+            // Empty match = "create a new customer under the Tally name"; a hex
+            // id links the line to a customer already on the system, whatever
+            // that customer happens to be called here.
+            $rows[] = [
+                'name' => $name,
+                'balance' => $balance,
+                'clientId' => trim((string) ($matches[$index] ?? '')),
+            ];
         }
 
         if ($rows === []) {

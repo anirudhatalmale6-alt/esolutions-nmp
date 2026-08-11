@@ -21,9 +21,15 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Entity\Company;
+use function bin2hex;
 use function is_numeric;
+use function max;
+use function min;
 use function preg_replace;
+use function similar_text;
 use function str_contains;
+use function strlen;
+use function strtolower;
 use function strtoupper;
 use function trim;
 
@@ -60,6 +66,13 @@ final class DebtorImporter
         'RENT',
     ];
 
+    /**
+     * How close two names must be before a match is offered as the default.
+     * Below this the row falls back to "create a new customer" rather than
+     * putting a wrong guess in front of the user.
+     */
+    private const int MATCH_THRESHOLD = 72;
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ClientRepository $clientRepository,
@@ -70,7 +83,12 @@ final class DebtorImporter
     /**
      * Parse the spreadsheet into preview rows, without touching the database.
      *
-     * @return list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, existing: bool, existingBalance: ?string}>
+     * Each row also carries a suggested match against the customers already on
+     * the system, because the names in Tally rarely match the names here
+     * exactly. The suggestion is only ever a default for the preview dropdown -
+     * the user picks the real match before anything is written.
+     *
+     * @return list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, matchId: ?string, matchName: ?string, matchScore: int, matchExact: bool, matchBalance: ?string}>
      */
     public function parse(string $filePath, Company $company): array
     {
@@ -79,7 +97,7 @@ final class DebtorImporter
         $spreadsheet = $reader->load($filePath);
         $rows = $spreadsheet->getActiveSheet()->toArray(null, true, false, false);
 
-        $existing = $this->existingClientNames($company);
+        $existing = $this->clients($company);
         $parsed = [];
 
         foreach ($rows as $row) {
@@ -103,7 +121,7 @@ final class DebtorImporter
             }
 
             $balance = BigDecimal::of($debit ?? '0')->minus(BigDecimal::of($credit ?? '0'));
-            $key = $this->normalise($name);
+            $match = $this->bestMatch($name, $existing);
 
             $parsed[] = [
                 'name' => $name,
@@ -111,8 +129,11 @@ final class DebtorImporter
                 'credit' => $credit ?? '0.00',
                 'balance' => (string) $balance->toScale(2),
                 'isCustomer' => ! $this->looksLikeNonCustomer($name),
-                'existing' => isset($existing[$key]),
-                'existingBalance' => $existing[$key] ?? null,
+                'matchId' => $match['id'],
+                'matchName' => $match['name'],
+                'matchScore' => $match['score'],
+                'matchExact' => $match['exact'],
+                'matchBalance' => $match['balance'],
             ];
         }
 
@@ -120,24 +141,140 @@ final class DebtorImporter
     }
 
     /**
-     * Apply the chosen rows: match each name to a customer (creating one if it
-     * does not exist yet) and write the carried-over balance onto it.
+     * Every customer on the system for this company, for the preview dropdown.
      *
-     * @param list<array{name: string, balance: string}> $rows
+     * @return list<array{id: string, name: string, balance: string}>
+     */
+    public function clients(Company $company): array
+    {
+        $companyId = $company->getId();
+
+        if ($companyId === null) {
+            return [];
+        }
+
+        $rows = $this->connection->executeQuery(
+            'SELECT LOWER(HEX(id)) AS id, name, opening_balance AS balance
+             FROM clients
+             WHERE company_id = :companyId
+               AND (archived IS NULL OR archived = 0)
+             ORDER BY name ASC',
+            ['companyId' => $companyId->toBinary()],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
+
+        $clients = [];
+
+        foreach ($rows as $row) {
+            $clients[] = [
+                'id' => (string) $row['id'],
+                'name' => (string) $row['name'],
+                'balance' => (string) ($row['balance'] ?? '0.00'),
+            ];
+        }
+
+        return $clients;
+    }
+
+    /**
+     * Find the customer a Tally ledger name most likely refers to.
+     *
+     * An exact match (ignoring case, spaces and punctuation) always wins. After
+     * that it looks for one name containing the other - "SAYED BHAI" against
+     * "Sayed Bhai Mobile Trading" - and finally falls back to a similarity
+     * score. Anything below the threshold returns no suggestion rather than a
+     * bad guess, so the row defaults to "create a new customer".
+     *
+     * @param list<array{id: string, name: string, balance: string}> $clients
+     *
+     * @return array{id: ?string, name: ?string, score: int, exact: bool, balance: ?string}
+     */
+    private function bestMatch(string $name, array $clients): array
+    {
+        $needle = $this->normalise($name);
+
+        if ($needle === '') {
+            return ['id' => null, 'name' => null, 'score' => 0, 'exact' => false, 'balance' => null];
+        }
+
+        $best = null;
+        $bestScore = 0;
+
+        foreach ($clients as $client) {
+            $candidate = $this->normalise($client['name']);
+
+            if ($candidate === '') {
+                continue;
+            }
+
+            if ($candidate === $needle) {
+                return [
+                    'id' => $client['id'],
+                    'name' => $client['name'],
+                    'score' => 100,
+                    'exact' => true,
+                    'balance' => $client['balance'],
+                ];
+            }
+
+            // One name sitting inside the other is a strong signal, but only
+            // when the shorter side is long enough that it is not a coincidence.
+            $contains = (str_contains($candidate, $needle) || str_contains($needle, $candidate))
+                && min(strlen($candidate), strlen($needle)) >= 4;
+
+            $percent = 0.0;
+            similar_text($needle, $candidate, $percent);
+            $score = $contains ? max(90, (int) $percent) : (int) $percent;
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $client;
+            }
+        }
+
+        if ($best === null || $bestScore < self::MATCH_THRESHOLD) {
+            return ['id' => null, 'name' => null, 'score' => $bestScore, 'exact' => false, 'balance' => null];
+        }
+
+        return [
+            'id' => $best['id'],
+            'name' => $best['name'],
+            'score' => $bestScore,
+            'exact' => false,
+            'balance' => $best['balance'],
+        ];
+    }
+
+    /**
+     * Apply the chosen rows and write the carried-over balance onto each one.
+     *
+     * Every row states which customer it belongs to: a clientId picked on the
+     * preview links the Tally line to an existing customer whatever their name
+     * is here, and an empty clientId means "create a new customer under the
+     * Tally name". Nothing is guessed at this stage - the choice was already
+     * made and shown on screen.
+     *
+     * @param list<array{name: string, balance: string, clientId: string}> $rows
      *
      * @return array{updated: int, created: int, total: string}
      */
     public function import(array $rows, Company $company): array
     {
-        $byName = [];
+        $byId = [];
 
         foreach ($this->clientRepository->findBy(['company' => $company]) as $client) {
-            $byName[$this->normalise((string) $client->getName())] = $client;
+            $id = $client->getId();
+
+            if ($id !== null) {
+                $byId[bin2hex($id->toBinary())] = $client;
+            }
         }
 
-        $updated = 0;
-        $created = 0;
-        $total = BigDecimal::zero();
+        // Two Tally lines can legitimately point at one customer here (an old
+        // and a current account, say), so collect by target first and add the
+        // balances up. Writing them one after another would silently keep only
+        // the last line's figure.
+        $targets = [];
 
         foreach ($rows as $row) {
             $name = trim($row['name']);
@@ -146,19 +283,32 @@ final class DebtorImporter
                 continue;
             }
 
-            $balance = BigDecimal::of($row['balance'])->toScale(2);
-            $key = $this->normalise($name);
-            $client = $byName[$key] ?? null;
+            $clientId = strtolower(trim($row['clientId']));
+            $key = $clientId !== '' ? 'id:' . $clientId : 'new:' . $this->normalise($name);
 
-            if (! $client instanceof Client) {
+            if (! isset($targets[$key])) {
+                $targets[$key] = ['name' => $name, 'clientId' => $clientId, 'balance' => BigDecimal::zero()];
+            }
+
+            $targets[$key]['balance'] = $targets[$key]['balance']->plus(BigDecimal::of($row['balance']));
+        }
+
+        $updated = 0;
+        $created = 0;
+        $total = BigDecimal::zero();
+
+        foreach ($targets as $target) {
+            $balance = $target['balance']->toScale(2);
+            $client = $target['clientId'] !== '' ? ($byId[$target['clientId']] ?? null) : null;
+
+            if ($client instanceof Client) {
+                ++$updated;
+            } else {
                 $client = new Client();
-                $client->setName($name);
+                $client->setName($target['name']);
                 $client->setCompany($company);
                 $this->entityManager->persist($client);
-                $byName[$key] = $client;
                 ++$created;
-            } else {
-                ++$updated;
             }
 
             $client->setOpeningBalance((string) $balance);
@@ -172,35 +322,6 @@ final class DebtorImporter
             'created' => $created,
             'total' => (string) $total->toScale(2),
         ];
-    }
-
-    /**
-     * Existing customers of this company, keyed by normalised name, with their
-     * current opening balance - so the preview can show what a row would change.
-     *
-     * @return array<string, string>
-     */
-    private function existingClientNames(Company $company): array
-    {
-        $companyId = $company->getId();
-
-        if ($companyId === null) {
-            return [];
-        }
-
-        $rows = $this->connection->executeQuery(
-            'SELECT name, opening_balance FROM clients WHERE company_id = :companyId',
-            ['companyId' => $companyId->toBinary()],
-            ['companyId' => ParameterType::BINARY]
-        )->fetchAllAssociative();
-
-        $names = [];
-
-        foreach ($rows as $row) {
-            $names[$this->normalise((string) $row['name'])] = (string) ($row['opening_balance'] ?? '0.00');
-        }
-
-        return $names;
     }
 
     /**

@@ -1,0 +1,200 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:users-group', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Debtors'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_debtors_import') }}" class="btn btn-outline-secondary no-print me-2">
+        {{ ux_icon('tabler:file-import', {width: 18, height: 18}) }}
+        {{ 'Import old ledger'|trans }}
+    </a>
+    <button type="button" class="btn btn-primary no-print" onclick="printDebtors();">
+        {{ ux_icon('tabler:printer', {width: 18, height: 18}) }}
+        {{ 'Print / Save as PDF'|trans }}
+    </button>
+    <script>
+        // Browsers use document.title as the default "Save as PDF" filename, so
+        // swap in a dated report name for the print and restore it afterwards.
+        (function () {
+            var fileName = {{ ('nmp-debtors-' ~ 'now'|date('d-m-y'))|json_encode|raw }};
+            var originalTitle = document.title;
+
+            window.printDebtors = function () {
+                document.title = fileName;
+                window.print();
+            };
+
+            window.addEventListener('afterprint', function () {
+                document.title = originalTitle;
+            });
+        })();
+    </script>
+{% endblock %}
+
+{% block content %}
+    <style>
+        .ledger-banner { background: linear-gradient(135deg, #206bc4 0%, #4299e1 100%); color: #fff; border: 0; }
+        .ledger-banner .text-muted { color: rgba(255,255,255,.85) !important; }
+        .debtors .text-secondary { color: #64748b !important; }
+        .debtors thead th { color: #64748b !important; }
+        .debtors .bg-secondary-lt { background-color: #f1f5f9 !important; color: #475569 !important; }
+        .debtors .amount-debit { color: #d63939; }
+        .debtors .amount-credit { color: #2fb344; }
+        .debtors tfoot td { border-top: 2px solid #cbd5e1; font-weight: 700; }
+
+        @media print {
+            @page { size: A4 portrait; margin: 8mm; }
+            .no-print, .navbar, .sidebar, aside, footer, .page-header .btn, .app-header, .navbar-vertical { display: none !important; }
+            body { background: #fff !important; font-size: 10px !important; }
+            .ledger-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .card { border: 1px solid #ccc !important; box-shadow: none !important; margin-bottom: .4rem !important; }
+            .card-body { padding: .4rem .6rem !important; }
+            h2, .h2, .h3 { font-size: 1rem !important; margin-bottom: .3rem !important; }
+            table { font-size: 9px !important; }
+            .table td, .table th { padding: .12rem .3rem !important; }
+            .table-responsive { overflow: visible !important; }
+        }
+    </style>
+
+    <div class="debtors">
+
+    {# ---------------- Pro banner header ---------------- #}
+    <div class="card mb-3 ledger-banner">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="h2 mb-1">{{ company_name() }}</div>
+                <div class="text-muted text-uppercase" style="letter-spacing: .08em;">{{ 'Debtors — what customers owe'|trans }}</div>
+            </div>
+            <div class="text-end">
+                <div class="h3 mb-0">{{ 'now'|date('d M Y') }}</div>
+                <div class="text-muted">{{ 'Closing balance'|trans }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# ---------------- Summary ---------------- #}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-secondary small">{{ 'Customers owe us (Debit)'|trans }}</div>
+                    <div class="h2 mb-0 amount-debit">{{ totalDebit }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-secondary small">{{ 'We owe customers (Credit)'|trans }}</div>
+                    <div class="h2 mb-0 amount-credit">{{ totalCredit }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-secondary small">{{ 'Net receivable'|trans }}</div>
+                    <div class="h2 mb-0">{{ net }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ---------------- The ledger ---------------- #}
+    <twig:Ui:Card>
+        <twig:block name="header">
+            <h3 class="card-title mb-0">{{ 'Sundry Debtors'|trans }}</h3>
+        </twig:block>
+
+        <div class="mb-3 no-print d-flex gap-2 align-items-center flex-wrap">
+            <input type="text" id="debtorSearch" class="form-control" style="max-width: 320px;" placeholder="{{ 'Search customer…'|trans }}" autocomplete="off">
+            {% if showSettled %}
+                <a href="{{ path('_debtors_report') }}" class="btn btn-sm btn-outline-secondary">{{ 'Hide settled customers'|trans }}</a>
+            {% else %}
+                <a href="{{ path('_debtors_report', {all: 1}) }}" class="btn btn-sm btn-outline-secondary">
+                    {{ 'Show all customers'|trans }}{% if settledCount > 0 %} ({{ settledCount }} {{ 'settled'|trans }}){% endif %}
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table" id="debtorsTable">
+                <thead>
+                    <tr>
+                        <th>{{ 'Particulars'|trans }}</th>
+                        <th class="text-end">{{ 'Opening'|trans }}</th>
+                        <th class="text-end">{{ 'Unpaid invoices'|trans }}</th>
+                        <th class="text-end">{{ 'Payments in'|trans }}</th>
+                        <th class="text-end">{{ 'Debit'|trans }}</th>
+                        <th class="text-end">{{ 'Credit'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr data-search="{{ row.client|lower }}">
+                            <td>
+                                <a href="{{ path('_sales_by_client', {client: row.clientId}) }}" class="fw-bold">{{ row.client }}</a>
+                            </td>
+                            <td class="text-end text-secondary">{{ row.opening != '0.00' ? row.opening : '' }}</td>
+                            <td class="text-end text-secondary">{{ row.invoiced != '0.00' ? row.invoiced : '' }}</td>
+                            <td class="text-end text-secondary">{{ row.receipts != '0.00' ? row.receipts : '' }}</td>
+                            <td class="text-end fw-bold amount-debit">{{ row.debit }}</td>
+                            <td class="text-end fw-bold amount-credit">{{ row.credit }}</td>
+                        </tr>
+                    {% else %}
+                        <tr id="debtorsEmpty">
+                            <td colspan="6" class="text-center text-secondary py-4">
+                                {{ 'No outstanding customer balances. Import your old Tally ledger to bring the previous balances across.'|trans }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                {% if rows|length > 0 %}
+                    <tfoot>
+                        <tr>
+                            <td>{{ 'Grand Total'|trans }}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end amount-debit">{{ totalDebit }}</td>
+                            <td class="text-end amount-credit">{{ totalCredit }}</td>
+                        </tr>
+                    </tfoot>
+                {% endif %}
+            </table>
+        </div>
+
+        <p class="text-secondary small mt-3 mb-0">
+            {{ 'Balance = opening balance carried over from Tally + what is still unpaid on their invoices here − payments recorded against them. A Credit balance means they are in advance, or you owe them.'|trans }}
+        </p>
+    </twig:Ui:Card>
+    </div>
+
+    <script>
+        (function () {
+            var box = document.getElementById('debtorSearch');
+            var table = document.getElementById('debtorsTable');
+
+            if (!box || !table) {
+                return;
+            }
+
+            box.addEventListener('input', function () {
+                var term = box.value.trim().toLowerCase();
+
+                table.querySelectorAll('tbody tr[data-search]').forEach(function (tr) {
+                    var hit = term === '' || (tr.getAttribute('data-search') || '').indexOf(term) !== -1;
+                    tr.style.display = hit ? '' : 'none';
+                });
+            });
+        })();
+    </script>
+{% endblock content %}

@@ -116,6 +116,16 @@ class Client implements Stringable
     #[Serialize\Groups(['client_api:read', 'client_api:write', 'searchable'])]
     private ?string $whatsapp = null;
 
+    /**
+     * What this customer already owed before they were ever invoiced here - the
+     * balance carried over from the old Tally ledger. Stored in MAJOR units.
+     * Positive = the customer owes us, negative = we owe them / paid in advance.
+     * It is added on top of their unpaid invoices on the debtors report.
+     */
+    #[ORM\Column(name: 'opening_balance', type: Types::DECIMAL, precision: 15, scale: 2, options: ['default' => '0.00'])]
+    #[Serialize\Groups(['client_api:read', 'client_api:write'])]
+    private string $openingBalance = '0.00';
+
     #[ORM\Column(name: 'currency', type: Types::STRING, length: 3, nullable: true)]
     #[Serialize\Groups(['client_api:read', 'client_api:write', 'searchable'])]
     #[ApiProperty(
@@ -290,6 +300,18 @@ class Client implements Stringable
     public function setWhatsapp(?string $whatsapp): self
     {
         $this->whatsapp = $whatsapp;
+
+        return $this;
+    }
+
+    public function getOpeningBalance(): string
+    {
+        return $this->openingBalance;
+    }
+
+    public function setOpeningBalance(string $openingBalance): self
+    {
+        $this->openingBalance = $openingBalance;
 
         return $this;
     }

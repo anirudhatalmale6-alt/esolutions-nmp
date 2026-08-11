@@ -54,7 +54,9 @@ use SolidInvoice\CoreBundle\Action\Purchase\ListPurchases;
 use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\PayPurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
+use SolidInvoice\CoreBundle\Action\Receivables\ImportDebtors;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
+use SolidInvoice\CoreBundle\Action\Report\Debtors;
 use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
 use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\Report\SalesByClient;
@@ -280,6 +282,17 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_daily_ledger', '/daily-ledger')
         ->controller(DailyLedger::class);
+
+    // Receivables: who owes us what, plus the one-off carry-over of the old
+    // Tally debtor ledger into customer opening balances.
+    $routingConfigurator
+        ->add('_debtors_report', '/debtors')
+        ->controller(Debtors::class);
+
+    $routingConfigurator
+        ->add('_debtors_import', '/debtors/import')
+        ->controller(ImportDebtors::class)
+        ->methods(['GET', 'POST']);
 
     $routingConfigurator
         ->add('_monthly_sales', '/sales-monthly')

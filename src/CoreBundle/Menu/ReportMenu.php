@@ -36,6 +36,14 @@ final class ReportMenu
             ],
         ]);
 
+        $section->addChild('debtors', [
+            'route' => '_debtors_report',
+            'label' => 'Debtors',
+            'extras' => [
+                'icon' => 'user-dollar',
+            ],
+        ]);
+
         $section->addChild('monthly_sales', [
             'route' => '_monthly_sales',
             'label' => 'Monthly Sales Report',

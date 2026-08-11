@@ -145,6 +145,11 @@ final class ImportDebtors extends AbstractController
             'totalOwing' => (string) $owing->toScale(2),
             'suggested' => count(array_filter($rows, static fn (array $row): bool => $row['isCustomer'])),
             'matched' => count(array_filter($rows, static fn (array $row): bool => $row['matchId'] !== null)),
+            'basis' => $this->basis($request),
+            // Lets the preview re-do the "minus what is already in B2B" sum on
+            // screen when a different customer is picked, so the figures shown
+            // always match what will actually be saved.
+            'unpaidByClient' => $this->debtorImporter->unpaidInvoicesByClient($company),
         ]);
     }
 
@@ -210,22 +215,43 @@ final class ImportDebtors extends AbstractController
             return $this->redirectToRoute('_debtors_import');
         }
 
+        $basis = $this->basis($request);
+
         try {
-            $summary = $this->debtorImporter->import($rows, $company);
+            $summary = $this->debtorImporter->import($rows, $company, $basis);
         } catch (Throwable $e) {
             $this->addFlash('error', sprintf('Could not save the balances: %s', $e->getMessage()));
 
             return $this->redirectToRoute('_debtors_import');
         }
 
-        $this->addFlash('success', sprintf(
+        $message = sprintf(
             'Opening balances carried over: %d existing customer(s) updated, %d new customer(s) created, net %s.',
             $summary['updated'],
             $summary['created'],
             $summary['total'],
-        ));
+        );
+
+        if ($basis === 'total' && $summary['adjusted'] > 0) {
+            $message .= sprintf(
+                ' On %d customer(s) the unpaid B2B invoices were taken off the sheet figure, so nothing is counted twice.',
+                $summary['adjusted'],
+            );
+        }
+
+        $this->addFlash('success', $message);
 
         return $this->redirectToRoute('_debtors_report');
+    }
+
+    /**
+     * What the figures in the uploaded sheet mean. 'total' (the default) treats
+     * them as the customer's full current balance, invoices raised here
+     * included; 'old_only' treats them as pre-B2B debt to carry over as-is.
+     */
+    private function basis(Request $request): string
+    {
+        return $request->request->get('basis') === 'old_only' ? 'old_only' : 'total';
     }
 
     private function activeCompany(): ?Company

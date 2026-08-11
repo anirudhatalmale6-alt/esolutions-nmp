@@ -28,11 +28,28 @@
             {{ 'This carries your old Tally ledger across, so every customer starts here with what they already owed you. Export the Sundry Debtors group summary from Tally and upload it below. Nothing is saved yet - you get a full preview first and choose exactly which lines to bring in.'|trans }}
         </p>
 
-        <form method="post" action="{{ path('_debtors_import') }}" enctype="multipart/form-data" class="d-flex align-items-end gap-3 flex-wrap">
-            <div>
+        <form method="post" action="{{ path('_debtors_import') }}" enctype="multipart/form-data">
+            <div class="mb-3">
                 <label for="debtor-file" class="form-label">{{ 'Debtors file (.xlsx / .xls)'|trans }}</label>
-                <input type="file" name="debtor_file" id="debtor-file" class="form-control" accept=".xlsx,.xls" required>
+                <input type="file" name="debtor_file" id="debtor-file" class="form-control" style="max-width: 420px;" accept=".xlsx,.xls" required>
             </div>
+
+            <div class="mb-3">
+                <label class="form-label">{{ 'What do the figures in this file mean?'|trans }}</label>
+
+                <label class="form-selectgroup-item d-block mb-2">
+                    <input type="radio" name="basis" value="total" class="form-check-input me-2" checked>
+                    <span class="fw-bold">{{ 'The full current balance, including invoices already raised in B2B Network'|trans }}</span>
+                    <div class="text-muted small ms-4">{{ 'Pick this if your Tally ledger is fully up to date. Whatever is still unpaid on their B2B invoices is taken off the figure, so the debtors report lands on exactly the number in your sheet.'|trans }}</div>
+                </label>
+
+                <label class="form-selectgroup-item d-block">
+                    <input type="radio" name="basis" value="old_only" class="form-check-input me-2">
+                    <span class="fw-bold">{{ 'Only the old debt from before B2B Network'|trans }}</span>
+                    <div class="text-muted small ms-4">{{ 'Pick this if the file stops at the point you started invoicing here. The figures are carried over exactly as they are.'|trans }}</div>
+                </label>
+            </div>
+
             <input type="hidden" name="_token" value="{{ csrf_token('debtors.import') }}">
             <input type="hidden" name="intent" value="preview">
             <button type="submit" class="btn btn-primary">
@@ -50,8 +67,8 @@
         <ul class="mb-0 text-muted">
             <li class="mb-2">{{ 'A Debit balance means the customer owes you, and a Credit balance means you owe them - both are carried over correctly.'|trans }}</li>
             <li class="mb-2">{{ 'Staff loans, visa costs, cargo payables and shop deposits are not customers, so those lines arrive unticked. Tick them only if you want them on the debtors report.'|trans }}</li>
-            <li class="mb-2">{{ 'Customers already on the system are matched by name; anyone new is created for you.'|trans }}</li>
-            <li>{{ 'Only include what they owed BEFORE you started invoicing them here. If an old invoice has already been raised in B2B Network, leave it out of the opening balance or it will be counted twice.'|trans }}</li>
+            <li class="mb-2">{{ 'You choose which existing customer each line belongs to on the next screen, so a different spelling in Tally will not create a duplicate.'|trans }}</li>
+            <li>{{ 'Running this again simply overwrites the previous figures - it never adds to them. You can also clear everything from the Debtors page and start fresh.'|trans }}</li>
         </ul>
     </twig:Ui:Card>
 {% endblock content %}

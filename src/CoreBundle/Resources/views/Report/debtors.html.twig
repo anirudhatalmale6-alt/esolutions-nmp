@@ -123,6 +123,16 @@
                     {{ 'Show all customers'|trans }}{% if settledCount > 0 %} ({{ settledCount }} {{ 'settled'|trans }}){% endif %}
                 </a>
             {% endif %}
+
+            {# Undo a mis-run ledger import. Clears the carried-over opening
+               balances only - invoices, payments and customers are untouched. #}
+            <form method="post" action="{{ path('_debtors_reset') }}" class="ms-auto"
+                  onsubmit="return confirm('{{ 'Clear the carried-over opening balance on every customer? Invoices and payments are not affected, and you can import the ledger again afterwards.'|trans|e('js') }}');">
+                <input type="hidden" name="_token" value="{{ csrf_token('debtors.reset') }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                    {{ ux_icon('tabler:eraser', {width: 15, height: 15, class: 'me-1'}) }}{{ 'Clear imported balances'|trans }}
+                </button>
+            </form>
         </div>
 
         <div class="table-responsive">

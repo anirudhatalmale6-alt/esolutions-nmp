@@ -74,9 +74,22 @@
             {{ 'That is fine if they really are the same person - their balances will be added together - but check it is what you want.'|trans }}
         </div>
 
+        {% if basis == 'total' %}
+            <div class="alert alert-info">
+                {{ ux_icon('tabler:info-circle', {width: 18, height: 18, class: 'me-1'}) }}
+                {{ 'You said this sheet is the full current balance. So for each matched customer, whatever is still unpaid on their B2B invoices is taken off before saving - the "Already in B2B" column below. The last column is what the debtors report will show, and it should equal your sheet figure.'|trans }}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                {{ ux_icon('tabler:info-circle', {width: 18, height: 18, class: 'me-1'}) }}
+                {{ 'You said this sheet is old debt only, so the figures are carried over exactly as they are and their B2B invoices are added on top.'|trans }}
+            </div>
+        {% endif %}
+
         <form method="post" action="{{ path('_debtors_import') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('debtors.import') }}">
             <input type="hidden" name="intent" value="confirm">
+            <input type="hidden" name="basis" value="{{ basis }}">
 
             <div class="mb-2 d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="tickAll">{{ 'Tick all'|trans }}</button>
@@ -91,9 +104,13 @@
                             <th class="w-1">{{ 'Import'|trans }}</th>
                             <th>{{ 'Name in Tally'|trans }}</th>
                             <th>{{ 'Customer in B2B Network'|trans }}</th>
-                            <th class="text-end">{{ 'Debit'|trans }}</th>
-                            <th class="text-end">{{ 'Credit'|trans }}</th>
-                            <th class="text-end">{{ 'Opening balance'|trans }}</th>
+                            <th class="text-end">{{ 'Sheet balance'|trans }}</th>
+                            {% if basis == 'total' %}
+                                <th class="text-end">{{ 'Already in B2B'|trans }}</th>
+                                <th class="text-end">{{ 'Opening to save'|trans }}</th>
+                            {% else %}
+                                <th class="text-end">{{ 'Opening to save'|trans }}</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -131,9 +148,13 @@
                                         <div class="small text-secondary">{{ 'Their opening balance is currently %balance%'|trans({'%balance%': row.matchBalance}) }}</div>
                                     {% endif %}
                                 </td>
-                                <td class="text-end">{{ row.debit != '0.00' ? row.debit : '' }}</td>
-                                <td class="text-end">{{ row.credit != '0.00' ? row.credit : '' }}</td>
-                                <td class="text-end fw-bold">{{ row.balance }}</td>
+                                <td class="text-end fw-bold sheet-balance" data-balance="{{ row.balance }}">{{ row.balance }}</td>
+                                {% if basis == 'total' %}
+                                    <td class="text-end text-secondary cell-unpaid">{{ row.b2bUnpaid != '0.00' ? '− ' ~ row.b2bUnpaid : '' }}</td>
+                                    <td class="text-end fw-bold cell-opening">{{ row.opening }}</td>
+                                {% else %}
+                                    <td class="text-end fw-bold">{{ row.balance }}</td>
+                                {% endif %}
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -155,6 +176,8 @@
         (function () {
             var ticks = document.querySelectorAll('.debtor-tick');
             var table = document.getElementById('debtorTable');
+            var basis = {{ basis|json_encode|raw }};
+            var unpaid = {{ unpaidByClient|json_encode|raw }};
             var warning = document.getElementById('clashWarning');
             var warningText = document.getElementById('clashText');
 
@@ -216,8 +239,39 @@
                 }
             }
 
-            table.addEventListener('change', flagClashes);
+            // Redo the "sheet balance minus what is already open in B2B" sum
+            // whenever a different customer is picked, so what is on screen is
+            // always what will be saved.
+            function recalc() {
+                if (basis !== 'total') {
+                    return;
+                }
+
+                table.querySelectorAll('tbody tr').forEach(function (tr) {
+                    var select = tr.querySelector('.match-select');
+                    var sheet = tr.querySelector('.sheet-balance');
+                    var unpaidCell = tr.querySelector('.cell-unpaid');
+                    var openingCell = tr.querySelector('.cell-opening');
+
+                    if (!select || !sheet || !unpaidCell || !openingCell) {
+                        return;
+                    }
+
+                    var balance = parseFloat(sheet.getAttribute('data-balance')) || 0;
+                    var open = select.value === '' ? 0 : (parseFloat(unpaid[select.value]) || 0);
+
+                    unpaidCell.textContent = open === 0 ? '' : '− ' + open.toFixed(2);
+                    openingCell.textContent = (balance - open).toFixed(2);
+                });
+            }
+
+            table.addEventListener('change', function () {
+                flagClashes();
+                recalc();
+            });
+
             flagClashes();
+            recalc();
         })();
     </script>
 {% endblock content %}

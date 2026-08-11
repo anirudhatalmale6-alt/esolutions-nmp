@@ -55,6 +55,7 @@ use SolidInvoice\CoreBundle\Action\Purchase\ManagePurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\PayPurchase;
 use SolidInvoice\CoreBundle\Action\Purchase\ViewPurchase;
 use SolidInvoice\CoreBundle\Action\Receivables\ImportDebtors;
+use SolidInvoice\CoreBundle\Action\Receivables\ResetDebtors;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
 use SolidInvoice\CoreBundle\Action\Report\Debtors;
 use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
@@ -293,6 +294,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_debtors_import', '/debtors/import')
         ->controller(ImportDebtors::class)
         ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_debtors_reset', '/debtors/reset')
+        ->controller(ResetDebtors::class)
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_monthly_sales', '/sales-monthly')

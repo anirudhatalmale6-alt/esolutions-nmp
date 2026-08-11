@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Receivables;
 
 use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -88,7 +89,7 @@ final class DebtorImporter
      * exactly. The suggestion is only ever a default for the preview dropdown -
      * the user picks the real match before anything is written.
      *
-     * @return list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, matchId: ?string, matchName: ?string, matchScore: int, matchExact: bool, matchBalance: ?string}>
+     * @return list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, matchId: ?string, matchName: ?string, matchScore: int, matchExact: bool, matchBalance: ?string, b2bUnpaid: string, opening: string}>
      */
     public function parse(string $filePath, Company $company): array
     {
@@ -98,6 +99,7 @@ final class DebtorImporter
         $rows = $spreadsheet->getActiveSheet()->toArray(null, true, false, false);
 
         $existing = $this->clients($company);
+        $unpaid = $this->unpaidInvoicesByClient($company);
         $parsed = [];
 
         foreach ($rows as $row) {
@@ -123,6 +125,12 @@ final class DebtorImporter
             $balance = BigDecimal::of($debit ?? '0')->minus(BigDecimal::of($credit ?? '0'));
             $match = $this->bestMatch($name, $existing);
 
+            // What is already open on that customer's B2B invoices. When the
+            // Tally figure is their FULL current balance it already includes
+            // these invoices, so this much has to come back off the opening
+            // balance or the customer is counted twice.
+            $alreadyOpen = BigDecimal::of($match['id'] !== null ? ($unpaid[$match['id']] ?? '0.00') : '0.00');
+
             $parsed[] = [
                 'name' => $name,
                 'debit' => $debit ?? '0.00',
@@ -134,6 +142,8 @@ final class DebtorImporter
                 'matchScore' => $match['score'],
                 'matchExact' => $match['exact'],
                 'matchBalance' => $match['balance'],
+                'b2bUnpaid' => (string) $alreadyOpen->toScale(2),
+                'opening' => (string) $balance->minus($alreadyOpen)->toScale(2),
             ];
         }
 
@@ -174,6 +184,68 @@ final class DebtorImporter
         }
 
         return $clients;
+    }
+
+    /**
+     * What is still unpaid on each customer's issued invoices, in major units,
+     * keyed by the customer's hex id. Mirrors the debtors report exactly, so the
+     * figure taken off an opening balance is the same one the report adds back.
+     *
+     * @return array<string, string>
+     */
+    public function unpaidInvoicesByClient(Company $company): array
+    {
+        $companyId = $company->getId();
+
+        if ($companyId === null) {
+            return [];
+        }
+
+        $rows = $this->connection->executeQuery(
+            "SELECT LOWER(HEX(client_id)) AS id, SUM(balance_amount) AS balance
+             FROM invoices
+             WHERE company_id = :companyId
+               AND (archived IS NULL OR archived = 0)
+               AND status NOT IN ('draft', 'cancelled', 'archived')
+             GROUP BY client_id",
+            ['companyId' => $companyId->toBinary()],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
+
+        $totals = [];
+
+        foreach ($rows as $row) {
+            $minor = (string) ($row['balance'] ?? '0');
+
+            // Invoice amounts are stored in MINOR units (fils).
+            $totals[(string) $row['id']] = is_numeric($minor)
+                ? (string) BigDecimal::of($minor)->dividedBy(100, 2, RoundingMode::HalfUp)
+                : '0.00';
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Clear every carried-over opening balance for this company, putting the
+     * debtors report back to invoices-and-payments only. This is the undo for a
+     * mis-run import, and it touches nothing except the opening balance.
+     */
+    public function reset(Company $company): int
+    {
+        $companyId = $company->getId();
+
+        if ($companyId === null) {
+            return 0;
+        }
+
+        return (int) $this->connection->executeStatement(
+            "UPDATE clients SET opening_balance = '0.00'
+             WHERE company_id = :companyId
+               AND opening_balance <> '0.00'",
+            ['companyId' => $companyId->toBinary()],
+            ['companyId' => ParameterType::BINARY]
+        );
     }
 
     /**
@@ -254,12 +326,22 @@ final class DebtorImporter
      * Tally name". Nothing is guessed at this stage - the choice was already
      * made and shown on screen.
      *
+     * $basis says what the figures in the sheet actually mean:
+     *
+     *   'total'    the Tally balance is the customer's FULL current balance and
+     *              already includes the invoices raised here, so whatever is
+     *              still unpaid on those invoices is taken back off - otherwise
+     *              the report adds the same debt twice.
+     *   'old_only' the sheet holds only what predates B2B Network, so it is
+     *              carried over as-is.
+     *
      * @param list<array{name: string, balance: string, clientId: string}> $rows
      *
-     * @return array{updated: int, created: int, total: string}
+     * @return array{updated: int, created: int, total: string, adjusted: int}
      */
-    public function import(array $rows, Company $company): array
+    public function import(array $rows, Company $company, string $basis = 'total'): array
     {
+        $unpaid = $basis === 'total' ? $this->unpaidInvoicesByClient($company) : [];
         $byId = [];
 
         foreach ($this->clientRepository->findBy(['company' => $company]) as $client) {
@@ -295,11 +377,23 @@ final class DebtorImporter
 
         $updated = 0;
         $created = 0;
+        $adjusted = 0;
         $total = BigDecimal::zero();
 
         foreach ($targets as $target) {
             $balance = $target['balance']->toScale(2);
             $client = $target['clientId'] !== '' ? ($byId[$target['clientId']] ?? null) : null;
+
+            // Take back off what is already open on their B2B invoices, so
+            // opening + unpaid invoices lands exactly on the Tally figure.
+            if ($target['clientId'] !== '' && isset($unpaid[$target['clientId']])) {
+                $open = BigDecimal::of($unpaid[$target['clientId']]);
+
+                if (! $open->isZero()) {
+                    $balance = $balance->minus($open)->toScale(2);
+                    ++$adjusted;
+                }
+            }
 
             if ($client instanceof Client) {
                 ++$updated;
@@ -321,6 +415,7 @@ final class DebtorImporter
             'updated' => $updated,
             'created' => $created,
             'total' => (string) $total->toScale(2),
+            'adjusted' => $adjusted,
         ];
     }
 

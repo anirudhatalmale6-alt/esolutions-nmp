@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Receivables;
 
 use Brick\Math\BigDecimal;
+use DateTimeImmutable;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Receivables\DebtorImporter;
@@ -108,7 +109,9 @@ final class ImportDebtors extends AbstractController
 
         try {
             $movedFile = $file->move(sys_get_temp_dir(), uniqid('debtor_import_', true) . '.' . $extension);
-            $rows = $this->debtorImporter->parse($movedFile->getPathname(), $company);
+            $parsed = $this->debtorImporter->parse($movedFile->getPathname(), $company, $this->asOf($request));
+            $rows = $parsed['rows'];
+            $asOf = $parsed['asOf'];
         } catch (Throwable $e) {
             $this->addFlash('error', sprintf('Could not read that file. Please upload the Tally Sundry Debtors Excel export. (%s)', $e->getMessage()));
 
@@ -146,10 +149,11 @@ final class ImportDebtors extends AbstractController
             'suggested' => count(array_filter($rows, static fn (array $row): bool => $row['isCustomer'])),
             'matched' => count(array_filter($rows, static fn (array $row): bool => $row['matchId'] !== null)),
             'basis' => $this->basis($request),
-            // Lets the preview re-do the "minus what is already in B2B" sum on
-            // screen when a different customer is picked, so the figures shown
-            // always match what will actually be saved.
-            'unpaidByClient' => $this->debtorImporter->unpaidInvoicesByClient($company),
+            'asOf' => $asOf,
+            // Lets the preview re-do the unwind sum on screen when a different
+            // customer is picked, so the figures shown always match what will
+            // actually be saved.
+            'positionByClient' => $this->debtorImporter->positionAsOf($company, new DateTimeImmutable($asOf)),
         ]);
     }
 
@@ -218,7 +222,7 @@ final class ImportDebtors extends AbstractController
         $basis = $this->basis($request);
 
         try {
-            $summary = $this->debtorImporter->import($rows, $company, $basis);
+            $summary = $this->debtorImporter->import($rows, $company, $basis, $this->asOf($request));
         } catch (Throwable $e) {
             $this->addFlash('error', sprintf('Could not save the balances: %s', $e->getMessage()));
 
@@ -252,6 +256,26 @@ final class ImportDebtors extends AbstractController
     private function basis(Request $request): string
     {
         return $request->request->get('basis') === 'old_only' ? 'old_only' : 'total';
+    }
+
+    /**
+     * The date the sheet's balances are true as at. Read from the Tally period
+     * heading on upload, then carried through the preview so the confirm step
+     * unwinds against exactly the same position the preview showed.
+     */
+    private function asOf(Request $request): ?DateTimeImmutable
+    {
+        $value = trim((string) $request->request->get('as_of', ''));
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function activeCompany(): ?Company

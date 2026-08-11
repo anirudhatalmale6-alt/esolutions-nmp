@@ -15,6 +15,8 @@ namespace SolidInvoice\CoreBundle\Receivables;
 
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,10 +24,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Entity\Company;
+use Throwable;
 use function bin2hex;
 use function is_numeric;
 use function max;
 use function min;
+use function preg_match;
 use function preg_replace;
 use function similar_text;
 use function str_contains;
@@ -89,17 +93,22 @@ final class DebtorImporter
      * exactly. The suggestion is only ever a default for the preview dropdown -
      * the user picks the real match before anything is written.
      *
-     * @return list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, matchId: ?string, matchName: ?string, matchScore: int, matchExact: bool, matchBalance: ?string, b2bUnpaid: string, opening: string}>
+     * @return array{rows: list<array{name: string, debit: string, credit: string, balance: string, isCustomer: bool, matchId: ?string, matchName: ?string, matchScore: int, matchExact: bool, matchBalance: ?string, b2bUnpaid: string, b2bReceipts: string, opening: string}>, asOf: string}
      */
-    public function parse(string $filePath, Company $company): array
+    public function parse(string $filePath, Company $company, ?DateTimeInterface $asOf = null): array
     {
         $reader = IOFactory::createReaderForFile($filePath);
         $reader->setReadDataOnly(true);
         $spreadsheet = $reader->load($filePath);
         $rows = $spreadsheet->getActiveSheet()->toArray(null, true, false, false);
 
+        // Tally prints the period across the top ("1-Jan-26 to 10-Aug-26"). The
+        // closing date is what the balances are true as at, so read it rather
+        // than making the user retype it.
+        $asOf ??= $this->detectAsOfDate($rows) ?? new DateTimeImmutable('today');
+
         $existing = $this->clients($company);
-        $unpaid = $this->unpaidInvoicesByClient($company);
+        $position = $this->positionAsOf($company, $asOf);
         $parsed = [];
 
         foreach ($rows as $row) {
@@ -125,11 +134,16 @@ final class DebtorImporter
             $balance = BigDecimal::of($debit ?? '0')->minus(BigDecimal::of($credit ?? '0'));
             $match = $this->bestMatch($name, $existing);
 
-            // What is already open on that customer's B2B invoices. When the
-            // Tally figure is their FULL current balance it already includes
-            // these invoices, so this much has to come back off the opening
-            // balance or the customer is counted twice.
-            $alreadyOpen = BigDecimal::of($match['id'] !== null ? ($unpaid[$match['id']] ?? '0.00') : '0.00');
+            // What B2B Network already knew about this customer on the sheet's
+            // date. The sheet's closing balance already contains both, so both
+            // have to be unwound or the same money is counted twice - the
+            // invoices double-charged, the receipts double-credited.
+            $known = $match['id'] !== null
+                ? ($position[$match['id']] ?? ['unpaid' => '0.00', 'receipts' => '0.00'])
+                : ['unpaid' => '0.00', 'receipts' => '0.00'];
+
+            $alreadyOpen = BigDecimal::of($known['unpaid']);
+            $alreadyPaid = BigDecimal::of($known['receipts']);
 
             $parsed[] = [
                 'name' => $name,
@@ -143,11 +157,45 @@ final class DebtorImporter
                 'matchExact' => $match['exact'],
                 'matchBalance' => $match['balance'],
                 'b2bUnpaid' => (string) $alreadyOpen->toScale(2),
-                'opening' => (string) $balance->minus($alreadyOpen)->toScale(2),
+                'b2bReceipts' => (string) $alreadyPaid->toScale(2),
+                'opening' => (string) $balance->minus($alreadyOpen)->plus($alreadyPaid)->toScale(2),
             ];
         }
 
-        return $parsed;
+        return [
+            'rows' => $parsed,
+            'asOf' => $asOf->format('Y-m-d'),
+        ];
+    }
+
+    /**
+     * Pull the closing date out of the Tally period heading, e.g.
+     * "1-Jan-26 to 10-Aug-26" -> 2026-08-10. Returns null if it is not there,
+     * in which case the caller falls back to today and the user can correct it.
+     */
+    private function detectAsOfDate(array $rows): ?DateTimeImmutable
+    {
+        foreach ($rows as $row) {
+            foreach ($row as $cell) {
+                if ($cell === null) {
+                    continue;
+                }
+
+                $text = trim((string) $cell);
+
+                if ($text === '' || ! preg_match('/(\d{1,2}-[A-Za-z]{3}-\d{2,4})\s*to\s*(\d{1,2}-[A-Za-z]{3}-\d{2,4})/i', $text, $matches)) {
+                    continue;
+                }
+
+                try {
+                    return new DateTimeImmutable($matches[2]);
+                } catch (Throwable) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -187,13 +235,24 @@ final class DebtorImporter
     }
 
     /**
-     * What is still unpaid on each customer's issued invoices, in major units,
-     * keyed by the customer's hex id. Mirrors the debtors report exactly, so the
-     * figure taken off an opening balance is the same one the report adds back.
+     * Rebuild what B2B Network knew about each customer AS AT a given date - the
+     * date the Tally sheet was run.
      *
-     * @return array<string, string>
+     * This has to be the position on that date, not today's, because the sheet's
+     * closing balance already contains everything that had happened by then. Two
+     * figures per customer, both in major units:
+     *
+     *   unpaid    invoices raised on or before the date, less the payments
+     *             captured against them on or before the date
+     *   receipts  standalone "Payment In" receipts dated on or before the date
+     *
+     * Today's balances are deliberately not used: a payment taken after the
+     * sheet was run must still count against the customer, not be swallowed
+     * into the opening balance.
+     *
+     * @return array<string, array{unpaid: string, receipts: string}>
      */
-    public function unpaidInvoicesByClient(Company $company): array
+    public function positionAsOf(Company $company, DateTimeInterface $asOf): array
     {
         $companyId = $company->getId();
 
@@ -201,29 +260,82 @@ final class DebtorImporter
             return [];
         }
 
-        $rows = $this->connection->executeQuery(
-            "SELECT LOWER(HEX(client_id)) AS id, SUM(balance_amount) AS balance
+        $binaryCompanyId = $companyId->toBinary();
+        $date = $asOf->format('Y-m-d');
+        $position = [];
+
+        $add = function (string $id, string $key, string $value) use (&$position): void {
+            if (! isset($position[$id])) {
+                $position[$id] = ['unpaid' => '0.00', 'receipts' => '0.00'];
+            }
+
+            $position[$id][$key] = (string) BigDecimal::of($position[$id][$key])->plus(BigDecimal::of($value))->toScale(2);
+        };
+
+        // What they had been billed by that date.
+        $invoices = $this->connection->executeQuery(
+            "SELECT LOWER(HEX(client_id)) AS id, SUM(total_amount) AS total
              FROM invoices
              WHERE company_id = :companyId
                AND (archived IS NULL OR archived = 0)
                AND status NOT IN ('draft', 'cancelled', 'archived')
+               AND invoice_date <= :asOf
              GROUP BY client_id",
-            ['companyId' => $companyId->toBinary()],
+            ['companyId' => $binaryCompanyId, 'asOf' => $date],
             ['companyId' => ParameterType::BINARY]
         )->fetchAllAssociative();
 
-        $totals = [];
-
-        foreach ($rows as $row) {
-            $minor = (string) ($row['balance'] ?? '0');
-
-            // Invoice amounts are stored in MINOR units (fils).
-            $totals[(string) $row['id']] = is_numeric($minor)
-                ? (string) BigDecimal::of($minor)->dividedBy(100, 2, RoundingMode::HalfUp)
-                : '0.00';
+        foreach ($invoices as $row) {
+            $add((string) $row['id'], 'unpaid', $this->fromMinor((string) ($row['total'] ?? '0')));
         }
 
-        return $totals;
+        // ...less what they had paid against those invoices by that date.
+        $payments = $this->connection->executeQuery(
+            "SELECT LOWER(HEX(client)) AS id, SUM(total_amount) AS total
+             FROM payments
+             WHERE company_id = :companyId
+               AND status = 'captured'
+               AND client IS NOT NULL
+               AND completed IS NOT NULL
+               AND DATE(completed) <= :asOf
+             GROUP BY client",
+            ['companyId' => $binaryCompanyId, 'asOf' => $date],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
+
+        foreach ($payments as $row) {
+            $paid = $this->fromMinor((string) ($row['total'] ?? '0'));
+            $add((string) $row['id'], 'unpaid', (string) BigDecimal::of($paid)->negated());
+        }
+
+        // Standalone receipts already reflected in the sheet's closing balance.
+        $receipts = $this->connection->executeQuery(
+            'SELECT LOWER(HEX(client_id)) AS id, SUM(amount) AS total
+             FROM customer_receipt
+             WHERE company_id = :companyId
+               AND client_id IS NOT NULL
+               AND receipt_date <= :asOf
+             GROUP BY client_id',
+            ['companyId' => $binaryCompanyId, 'asOf' => $date],
+            ['companyId' => ParameterType::BINARY]
+        )->fetchAllAssociative();
+
+        foreach ($receipts as $row) {
+            $total = (string) ($row['total'] ?? '0');
+            $add((string) $row['id'], 'receipts', is_numeric($total) ? $total : '0.00');
+        }
+
+        return $position;
+    }
+
+    /**
+     * Minor units (fils, as an integer string) -> major units with 2 decimals.
+     */
+    private function fromMinor(string $minor): string
+    {
+        return is_numeric($minor)
+            ? (string) BigDecimal::of($minor)->dividedBy(100, 2, RoundingMode::HalfUp)
+            : '0.00';
     }
 
     /**
@@ -328,10 +440,12 @@ final class DebtorImporter
      *
      * $basis says what the figures in the sheet actually mean:
      *
-     *   'total'    the Tally balance is the customer's FULL current balance and
-     *              already includes the invoices raised here, so whatever is
-     *              still unpaid on those invoices is taken back off - otherwise
-     *              the report adds the same debt twice.
+     *   'total'    the Tally balance is the customer's FULL balance as at the
+     *              sheet's date, so everything B2B Network already knew on that
+     *              date is unwound: unpaid invoices come off, and receipts
+     *              already taken go back on. What is left is the genuinely old
+     *              debt, and opening + invoices - receipts then lands back on
+     *              the sheet figure.
      *   'old_only' the sheet holds only what predates B2B Network, so it is
      *              carried over as-is.
      *
@@ -339,9 +453,11 @@ final class DebtorImporter
      *
      * @return array{updated: int, created: int, total: string, adjusted: int}
      */
-    public function import(array $rows, Company $company, string $basis = 'total'): array
+    public function import(array $rows, Company $company, string $basis = 'total', ?DateTimeInterface $asOf = null): array
     {
-        $unpaid = $basis === 'total' ? $this->unpaidInvoicesByClient($company) : [];
+        $position = $basis === 'total'
+            ? $this->positionAsOf($company, $asOf ?? new DateTimeImmutable('today'))
+            : [];
         $byId = [];
 
         foreach ($this->clientRepository->findBy(['company' => $company]) as $client) {
@@ -384,13 +500,16 @@ final class DebtorImporter
             $balance = $target['balance']->toScale(2);
             $client = $target['clientId'] !== '' ? ($byId[$target['clientId']] ?? null) : null;
 
-            // Take back off what is already open on their B2B invoices, so
-            // opening + unpaid invoices lands exactly on the Tally figure.
-            if ($target['clientId'] !== '' && isset($unpaid[$target['clientId']])) {
-                $open = BigDecimal::of($unpaid[$target['clientId']]);
+            // Unwind whatever B2B Network already knew on the sheet's date, so
+            // that opening + invoices - receipts lands exactly on the Tally
+            // figure instead of charging or crediting the same money twice.
+            if ($target['clientId'] !== '' && isset($position[$target['clientId']])) {
+                $known = $position[$target['clientId']];
+                $open = BigDecimal::of($known['unpaid']);
+                $paid = BigDecimal::of($known['receipts']);
 
-                if (! $open->isZero()) {
-                    $balance = $balance->minus($open)->toScale(2);
+                if (! $open->isZero() || ! $paid->isZero()) {
+                    $balance = $balance->minus($open)->plus($paid)->toScale(2);
                     ++$adjusted;
                 }
             }

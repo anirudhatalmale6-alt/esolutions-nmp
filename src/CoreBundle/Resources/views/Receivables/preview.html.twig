@@ -77,8 +77,12 @@
         {% if basis == 'total' %}
             <div class="alert alert-info">
                 {{ ux_icon('tabler:info-circle', {width: 18, height: 18, class: 'me-1'}) }}
-                {{ 'You said this sheet is the full current balance. So for each matched customer, whatever is still unpaid on their B2B invoices is taken off before saving - the "Already in B2B" column below. The last column is what the debtors report will show, and it should equal your sheet figure.'|trans }}
+                {{ 'You said this sheet is the full balance as at %date%. So for each matched customer everything B2B Network already knew on that date is unwound before saving: unpaid invoices come off, and Payments In already recorded go back on. The "Opening to save" column is what is left as genuinely old debt - and the debtors report will then show your sheet figure again.'|trans({'%date%': asOf}) }}
             </div>
+
+            <p class="text-secondary">
+                {{ 'The date was read from the period printed on your Tally sheet. If it is wrong, go back and set it yourself on the upload screen before importing.'|trans }}
+            </p>
         {% else %}
             <div class="alert alert-info">
                 {{ ux_icon('tabler:info-circle', {width: 18, height: 18, class: 'me-1'}) }}
@@ -86,10 +90,11 @@
             </div>
         {% endif %}
 
-        <form method="post" action="{{ path('_debtors_import') }}">
+        <form method="post" action="{{ path('_debtors_import') }}" id="debtorForm">
             <input type="hidden" name="_token" value="{{ csrf_token('debtors.import') }}">
             <input type="hidden" name="intent" value="confirm">
             <input type="hidden" name="basis" value="{{ basis }}">
+            <input type="hidden" name="as_of" value="{{ asOf }}">
 
             <div class="mb-2 d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="tickAll">{{ 'Tick all'|trans }}</button>
@@ -106,11 +111,10 @@
                             <th>{{ 'Customer in B2B Network'|trans }}</th>
                             <th class="text-end">{{ 'Sheet balance'|trans }}</th>
                             {% if basis == 'total' %}
-                                <th class="text-end">{{ 'Already in B2B'|trans }}</th>
-                                <th class="text-end">{{ 'Opening to save'|trans }}</th>
-                            {% else %}
-                                <th class="text-end">{{ 'Opening to save'|trans }}</th>
+                                <th class="text-end">{{ 'Unpaid invoices'|trans }}</th>
+                                <th class="text-end">{{ 'Payments In'|trans }}</th>
                             {% endif %}
+                            <th class="text-end">{{ 'Opening to save'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -151,6 +155,7 @@
                                 <td class="text-end fw-bold sheet-balance" data-balance="{{ row.balance }}">{{ row.balance }}</td>
                                 {% if basis == 'total' %}
                                     <td class="text-end text-secondary cell-unpaid">{{ row.b2bUnpaid != '0.00' ? '− ' ~ row.b2bUnpaid : '' }}</td>
+                                    <td class="text-end text-secondary cell-receipts">{{ row.b2bReceipts != '0.00' ? '+ ' ~ row.b2bReceipts : '' }}</td>
                                     <td class="text-end fw-bold cell-opening">{{ row.opening }}</td>
                                 {% else %}
                                     <td class="text-end fw-bold">{{ row.balance }}</td>
@@ -177,7 +182,7 @@
             var ticks = document.querySelectorAll('.debtor-tick');
             var table = document.getElementById('debtorTable');
             var basis = {{ basis|json_encode|raw }};
-            var unpaid = {{ unpaidByClient|json_encode|raw }};
+            var position = {{ positionByClient|json_encode|raw }};
             var warning = document.getElementById('clashWarning');
             var warningText = document.getElementById('clashText');
 
@@ -251,17 +256,25 @@
                     var select = tr.querySelector('.match-select');
                     var sheet = tr.querySelector('.sheet-balance');
                     var unpaidCell = tr.querySelector('.cell-unpaid');
+                    var receiptsCell = tr.querySelector('.cell-receipts');
                     var openingCell = tr.querySelector('.cell-opening');
 
                     if (!select || !sheet || !unpaidCell || !openingCell) {
                         return;
                     }
 
+                    var known = select.value === '' ? null : position[select.value];
                     var balance = parseFloat(sheet.getAttribute('data-balance')) || 0;
-                    var open = select.value === '' ? 0 : (parseFloat(unpaid[select.value]) || 0);
+                    var open = known ? (parseFloat(known.unpaid) || 0) : 0;
+                    var paid = known ? (parseFloat(known.receipts) || 0) : 0;
 
                     unpaidCell.textContent = open === 0 ? '' : '− ' + open.toFixed(2);
-                    openingCell.textContent = (balance - open).toFixed(2);
+
+                    if (receiptsCell) {
+                        receiptsCell.textContent = paid === 0 ? '' : '+ ' + paid.toFixed(2);
+                    }
+
+                    openingCell.textContent = (balance - open + paid).toFixed(2);
                 });
             }
 

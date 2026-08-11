@@ -50,6 +50,12 @@
                 </label>
             </div>
 
+            <div class="mb-3" id="asOfBlock">
+                <label for="as-of" class="form-label">{{ 'These balances are true as at'|trans }}</label>
+                <input type="date" name="as_of" id="as-of" class="form-control" style="max-width: 220px;">
+                <div class="form-text">{{ 'Leave blank and I will read the closing date off the period printed on your Tally sheet. Only set it if your sheet does not show one.'|trans }}</div>
+            </div>
+
             <input type="hidden" name="_token" value="{{ csrf_token('debtors.import') }}">
             <input type="hidden" name="intent" value="preview">
             <button type="submit" class="btn btn-primary">

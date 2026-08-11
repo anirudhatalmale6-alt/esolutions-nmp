@@ -12,10 +12,12 @@
 {% block title %}{{ ux_icon('tabler:users-group', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Debtors'|trans }}{% endblock title %}
 
 {% block heading %}
-    <a href="{{ path('_debtors_import') }}" class="btn btn-outline-secondary no-print me-2">
-        {{ ux_icon('tabler:file-import', {width: 18, height: 18}) }}
-        {{ 'Import old ledger'|trans }}
-    </a>
+    {% if is_granted('ROLE_ADMIN') %}
+        <a href="{{ path('_debtors_import') }}" class="btn btn-outline-secondary no-print me-2">
+            {{ ux_icon('tabler:file-import', {width: 18, height: 18}) }}
+            {{ 'Import old ledger'|trans }}
+        </a>
+    {% endif %}
     <button type="button" class="btn btn-primary no-print" onclick="printDebtors();">
         {{ ux_icon('tabler:printer', {width: 18, height: 18}) }}
         {{ 'Print / Save as PDF'|trans }}
@@ -125,14 +127,14 @@
             {% endif %}
 
             {# Undo a mis-run ledger import. Clears the carried-over opening
-               balances only - invoices, payments and customers are untouched. #}
-            <form method="post" action="{{ path('_debtors_reset') }}" class="ms-auto"
-                  onsubmit="return confirm('{{ 'Clear the carried-over opening balance on every customer? Invoices and payments are not affected, and you can import the ledger again afterwards.'|trans|e('js') }}');">
-                <input type="hidden" name="_token" value="{{ csrf_token('debtors.reset') }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger">
+               balances only - invoices, payments and customers are untouched.
+               Admins only, and behind a typed confirmation, so a member of
+               staff cannot wipe the balances with a stray click. #}
+            {% if is_granted('ROLE_ADMIN') %}
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-bs-toggle="modal" data-bs-target="#clearBalances">
                     {{ ux_icon('tabler:eraser', {width: 15, height: 15, class: 'me-1'}) }}{{ 'Clear imported balances'|trans }}
                 </button>
-            </form>
+            {% endif %}
         </div>
 
         <div class="table-responsive">
@@ -186,6 +188,32 @@
             {{ 'Balance = opening balance carried over from Tally + what is still unpaid on their invoices here − payments recorded against them. A Credit balance means they are in advance, or you owe them.'|trans }}
         </p>
     </twig:Ui:Card>
+
+    {% if is_granted('ROLE_ADMIN') %}
+        <twig:Ui:Modal id="clearBalances" centered>
+            <twig:block name="header">
+                <h5 class="modal-title">{{ 'Clear imported balances'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </twig:block>
+
+            <form method="post" action="{{ path('_debtors_reset') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('debtors.reset') }}">
+
+                <p>{{ 'This wipes the carried-over opening balance on every customer, putting the debtors report back to invoices and payments only.'|trans }}</p>
+                <p class="text-secondary">{{ 'Your invoices, payments and customers are NOT touched, and you can import the ledger again straight afterwards.'|trans }}</p>
+
+                <div class="mb-2">
+                    <label class="form-label">{{ 'Type CLEAR to confirm'|trans }}</label>
+                    <input type="text" name="confirm" class="form-control" placeholder="CLEAR" autocomplete="off" required>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                    <button type="submit" class="btn btn-danger">{{ 'Clear balances'|trans }}</button>
+                </div>
+            </form>
+        </twig:Ui:Modal>
+    {% endif %}
     </div>
 
     <script>

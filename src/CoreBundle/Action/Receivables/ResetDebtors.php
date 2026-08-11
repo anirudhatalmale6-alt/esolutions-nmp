@@ -22,6 +22,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use function sprintf;
+use function strtoupper;
+use function trim;
 
 /**
  * Undo a carried-over ledger import by clearing every customer's opening
@@ -30,8 +32,12 @@ use function sprintf;
  *
  * Only the opening balance is touched - no customer, invoice or payment is
  * changed or deleted.
+ *
+ * Restricted to admins, and guarded by a typed confirmation, because it rewrites
+ * every customer's carried-over balance in one go - not something a member of
+ * staff should be able to trigger by mis-clicking.
  */
-#[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
+#[IsGranted('ROLE_ADMIN')]
 final class ResetDebtors extends AbstractController
 {
     public function __construct(
@@ -45,6 +51,14 @@ final class ResetDebtors extends AbstractController
     {
         if (! $this->isCsrfTokenValid('debtors.reset', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Your session expired, please try again.');
+
+            return $this->redirectToRoute('_debtors_report');
+        }
+
+        // Typing the word is the real guard - a confirm dialog alone is too easy
+        // to click through on a screen full of live balances.
+        if (strtoupper(trim((string) $request->request->get('confirm'))) !== 'CLEAR') {
+            $this->addFlash('error', 'Nothing was cleared. Type CLEAR in the box to confirm.');
 
             return $this->redirectToRoute('_debtors_report');
         }

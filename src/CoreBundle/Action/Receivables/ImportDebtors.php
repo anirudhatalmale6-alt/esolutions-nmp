@@ -47,7 +47,7 @@ use function uniqid;
  * The parsed rows travel through the preview as hidden fields rather than a
  * session or a temp file, so a half-finished import leaves nothing behind.
  */
-#[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
+#[IsGranted('ROLE_ADMIN')]
 final class ImportDebtors extends AbstractController
 {
     public function __construct(

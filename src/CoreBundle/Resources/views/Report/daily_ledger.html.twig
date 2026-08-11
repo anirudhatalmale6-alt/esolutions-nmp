@@ -47,6 +47,17 @@
         .print-only { display: none; }
         .ledger-note-print { white-space: pre-wrap; }
 
+        /* The scrap box reads as a notepad page - light yellow, faintly ruled. */
+        .ledger-note-box {
+            background-color: #fffbe6;
+            border-color: #f2e3a8;
+        }
+        .ledger-note-box:focus {
+            background-color: #fffdf2;
+            border-color: #e6d074;
+            box-shadow: 0 0 0 .25rem rgba(240, 224, 138, .35);
+        }
+
         @media print {
             @page { size: A4 portrait; margin: 8mm; }
             .print-only { display: block !important; }

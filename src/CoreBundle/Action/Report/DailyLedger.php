@@ -19,6 +19,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
 use SolidInvoice\CoreBundle\Repository\CustomerReceiptRepository;
+use SolidInvoice\CoreBundle\Repository\DailyNoteRepository;
 use SolidInvoice\CoreBundle\Repository\ExpenseRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
@@ -50,6 +51,7 @@ final readonly class DailyLedger
         private ExpenseRepository $expenseRepository,
         private CreditNoteRepository $creditNoteRepository,
         private CustomerReceiptRepository $receiptRepository,
+        private DailyNoteRepository $noteRepository,
         private InvoiceTemplateExtension $invoiceTemplateExtension,
     ) {
     }
@@ -124,6 +126,9 @@ final readonly class DailyLedger
         return [
             'date' => $date,
             'today' => (new DateTimeImmutable('today'))->format('Y-m-d'),
+            // The day's scrap note - the paper pad, kept with the day it belongs to.
+            'note' => $this->noteRepository->findForDate($date),
+            'recentNotes' => $this->noteRepository->findRecent(15),
             'payments' => $payments,
             'receipts' => $receipts,
             'receiptsIn' => (string) $receiptsIn->toScale(2),

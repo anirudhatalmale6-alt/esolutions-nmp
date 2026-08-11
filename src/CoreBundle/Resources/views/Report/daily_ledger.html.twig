@@ -44,8 +44,13 @@
         .ledger-net-positive { color: #2fb344; }
         .ledger-net-negative { color: #d63939; }
 
+        .print-only { display: none; }
+        .ledger-note-print { white-space: pre-wrap; }
+
         @media print {
             @page { size: A4 portrait; margin: 8mm; }
+            .print-only { display: block !important; }
+            .ledger-note-print { font-size: 9px !important; border: 1px solid #ddd; padding: .3rem; }
             .no-print, .navbar, .sidebar, aside, footer, .page-header .btn, .app-header, .navbar-vertical { display: none !important; }
             body { background: #fff !important; font-size: 10px !important; }
             .ledger-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -105,6 +110,53 @@
             </form>
         </div>
     </div>
+
+    {# ---------------- The day's scrap note ---------------- #}
+    {# The paper notepad, kept with the day it belongs to. Free text on purpose:
+       what goes in here is quoted prices, piece counts and running sums, and
+       forcing that into fields would stop it being used. #}
+    <twig:Ui:Card class="mb-3 ledger-note">
+        <twig:block name="header">
+            <h3 class="card-title mb-0">
+                {{ ux_icon('tabler:notes', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Notes for %date%'|trans({'%date%': date|date('d M Y')}) }}
+            </h3>
+        </twig:block>
+
+        <form method="post" action="{{ path('_daily_note_save') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('daily.note') }}">
+            <input type="hidden" name="date" value="{{ date|date('Y-m-d') }}">
+
+            <textarea name="body" class="form-control no-print ledger-note-box" rows="6"
+                      placeholder="{{ 'Anything you would have written on the pad - prices quoted, piece counts, who owes what, reminders…'|trans }}">{{ note ? note.body : '' }}</textarea>
+
+            {# Printing a textarea gives an empty box, so print the text instead. #}
+            {% if note and not note.isEmpty %}
+                <div class="print-only ledger-note-print">{{ note.body|nl2br }}</div>
+            {% endif %}
+
+            <div class="d-flex align-items-center gap-2 mt-2 no-print flex-wrap">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:device-floppy', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Save note'|trans }}
+                </button>
+                {% if note and note.updatedBy %}
+                    <span class="text-muted small">{{ 'Last saved by %who%'|trans({'%who%': note.updatedBy}) }}{% if note.updated %} · {{ note.updated|date('d M Y H:i') }}{% endif %}</span>
+                {% endif %}
+                {% if recentNotes|length > 0 %}
+                    <div class="ms-auto">
+                        <select class="form-select form-select-sm" style="min-width: 220px;"
+                                onchange="if (this.value) { window.location = '{{ path('_daily_ledger') }}?date=' + this.value; }">
+                            <option value="">{{ 'Jump to an earlier note…'|trans }}</option>
+                            {% for past in recentNotes %}
+                                <option value="{{ past.noteDate|date('Y-m-d') }}"{{ past.noteDate|date('Y-m-d') == date|date('Y-m-d') ? ' selected' : '' }}>
+                                    {{ past.noteDate|date('d M Y') }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+            </div>
+        </form>
+    </twig:Ui:Card>
 
     {# ---------------- Summary cards ---------------- #}
     <div class="row g-3 mb-3">

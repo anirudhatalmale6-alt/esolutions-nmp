@@ -59,6 +59,7 @@ use SolidInvoice\CoreBundle\Action\Receivables\ResetDebtors;
 use SolidInvoice\CoreBundle\Action\Report\DailyLedger;
 use SolidInvoice\CoreBundle\Action\Report\Debtors;
 use SolidInvoice\CoreBundle\Action\Report\MonthlySales;
+use SolidInvoice\CoreBundle\Action\Report\SaveDailyNote;
 use SolidInvoice\CoreBundle\Action\Report\SalesAnalysis;
 use SolidInvoice\CoreBundle\Action\Report\SalesByClient;
 use SolidInvoice\CoreBundle\Action\SearchSuggestions;
@@ -283,6 +284,11 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_daily_ledger', '/daily-ledger')
         ->controller(DailyLedger::class);
+
+    $routingConfigurator
+        ->add('_daily_note_save', '/daily-ledger/note')
+        ->controller(SaveDailyNote::class)
+        ->methods(['POST']);
 
     // Receivables: who owes us what, plus the one-off carry-over of the old
     // Tally debtor ledger into customer opening balances.

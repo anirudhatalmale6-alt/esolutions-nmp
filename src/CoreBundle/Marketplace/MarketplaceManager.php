@@ -348,7 +348,7 @@ final class MarketplaceManager
      */
     public function chatUrl(string $whatsapp, string $model): string
     {
-        $text = "Hi, I got your details from eSolutions.\n"
+        $text = "Hi, I got your details from B2BNetwork.ae.\n"
             . 'I am looking for ' . $model . ' - could you please share price and availability?';
 
         return 'https://wa.me/' . $whatsapp . '?text=' . rawurlencode($text);

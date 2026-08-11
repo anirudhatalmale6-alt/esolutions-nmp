@@ -45,7 +45,7 @@ enum PortalRole: string
     public function description(): string
     {
         return match ($this) {
-            self::SuperUser => 'Platform owner — full control of the whole portal, manages admins and every other user. For whoever runs eSolutions itself.',
+            self::SuperUser => 'Platform owner — full control of the whole portal, manages admins and every other user. For whoever runs B2BNetwork.ae itself.',
             self::Admin => 'Business admin — full access to run the business, including users and settings.',
             self::Manager => 'All day-to-day work — invoices, quotes, clients, purchases, refunds, payments and reports. No user management or settings.',
             self::Accountant => 'Financials — payments, daily ledger, reports and expenses, plus invoices and purchases to reconcile. No client management or settings.',

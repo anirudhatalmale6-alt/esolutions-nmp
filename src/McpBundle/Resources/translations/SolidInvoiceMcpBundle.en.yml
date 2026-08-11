@@ -1,7 +1,7 @@
 mcp:
     consent:
         title: "Authorize application"
-        heading: "%client% wants to access your eSolutions account"
+        heading: "%client% wants to access your B2BNetwork.ae account"
         redirect: "Callback: %uri%"
         company: "Company"
         permissions: "Permissions requested"

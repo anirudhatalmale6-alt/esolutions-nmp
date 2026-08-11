@@ -23,7 +23,7 @@ final class SolidInvoiceCoreBundle extends Bundle
 {
     public const string VERSION = '3.0.0';
 
-    public const string APP_NAME = 'eSolutions';
+    public const string APP_NAME = 'B2BNetwork.ae';
 
     public const NAMESPACE = __NAMESPACE__;
 

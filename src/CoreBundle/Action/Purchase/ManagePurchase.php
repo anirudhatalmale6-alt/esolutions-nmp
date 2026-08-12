@@ -23,8 +23,10 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\Purchase;
 use SolidInvoice\CoreBundle\Entity\PurchaseItem;
 use SolidInvoice\CoreBundle\Entity\PurchasePayment;
+use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
+use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,6 +52,7 @@ final class ManagePurchase extends AbstractController
         private readonly ClientRepository $clientRepository,
         private readonly CompanySelector $companySelector,
         private readonly CompanyRepository $companyRepository,
+        private readonly StockModelRepository $stockModelRepository,
     ) {
     }
 
@@ -164,7 +167,8 @@ final class ManagePurchase extends AbstractController
             $item = new PurchaseItem();
             $item->setDescription($row['description'])
                 ->setQty($row['qty'])
-                ->setPrice($row['price']);
+                ->setPrice($row['price'])
+                ->setStockModel($this->resolveStockModel($row['stock_model_id'] ?? ''));
             $item->recalculateTotal();
             $purchase->addItem($item);
         }
@@ -205,17 +209,19 @@ final class ManagePurchase extends AbstractController
     }
 
     /**
-     * Read the parallel item_description[] / item_qty[] / item_price[] arrays into
-     * a clean list of rows, skipping blank lines. Quantities/prices default to
-     * sensible numbers so a half-filled row never breaks the maths.
+     * Read the parallel item_description[] / item_qty[] / item_price[] /
+     * item_stock_model[] arrays into a clean list of rows, skipping blank lines.
+     * Quantities/prices default to sensible numbers so a half-filled row never
+     * breaks the maths.
      *
-     * @return list<array{description: string, qty: string, price: string}>
+     * @return list<array{description: string, qty: string, price: string, stock_model_id: string}>
      */
     private function parseItems(Request $request): array
     {
         $descriptions = $request->request->all('item_description');
         $quantities = $request->request->all('item_qty');
         $prices = $request->request->all('item_price');
+        $stockModels = $request->request->all('item_stock_model');
 
         if (! is_array($descriptions)) {
             return [];
@@ -228,6 +234,7 @@ final class ManagePurchase extends AbstractController
             $description = trim((string) ($descriptions[$i] ?? ''));
             $qtyRaw = trim((string) ($quantities[$i] ?? ''));
             $priceRaw = trim((string) ($prices[$i] ?? ''));
+            $stockModelId = trim((string) (is_array($stockModels) ? ($stockModels[$i] ?? '') : ''));
 
             // Ignore a completely empty row.
             if ($description === '' && $qtyRaw === '' && $priceRaw === '') {
@@ -241,10 +248,27 @@ final class ManagePurchase extends AbstractController
                 'description' => $description !== '' ? $description : 'Item',
                 'qty' => $qty,
                 'price' => $price,
+                'stock_model_id' => Ulid::isValid($stockModelId) ? $stockModelId : '',
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * Resolve the stock item a line was linked to by the model picker.
+     *
+     * Goes through the repository so the company filter applies - an id from
+     * another company, or one that has since been deleted, resolves to nothing
+     * and the line simply saves as non-stock rather than failing.
+     */
+    private function resolveStockModel(string $id): ?StockModel
+    {
+        if ($id === '' || ! Ulid::isValid($id)) {
+            return null;
+        }
+
+        return $this->stockModelRepository->find(Ulid::fromString($id));
     }
 
     /**
@@ -328,6 +352,7 @@ final class ManagePurchase extends AbstractController
                 'description' => $item->getDescription(),
                 'qty' => $item->getQty(),
                 'price' => $item->getPrice(),
+                'stock_model_id' => $item->getStockModel() !== null ? (string) $item->getStockModel()->getId() : '',
             ];
         }
 

@@ -16,6 +16,8 @@ namespace SolidInvoice\InvoiceBundle\Tests\Form\Type;
 use Brick\Math\BigDecimal;
 use Money\Currency;
 use Override;
+use SolidInvoice\CoreBundle\Form\Transformer\StockModelTransformer;
+use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use SolidInvoice\CoreBundle\Tests\FormTestCase;
 use SolidInvoice\InvoiceBundle\Entity\Line;
 use SolidInvoice\InvoiceBundle\Form\Type\ItemType;
@@ -74,7 +76,12 @@ final class ItemTypeTest extends FormTestCase
     #[Override]
     protected function getExtensions(): array
     {
-        $itemType = new ItemType($this->registry);
+        // The stock-item picker only resolves an id the user picked; these cases
+        // submit no stock item, so a repository that is never queried is enough.
+        $itemType = new ItemType(
+            $this->registry,
+            new StockModelTransformer($this->createMock(StockModelRepository::class))
+        );
 
         return [
             // register the type instances with the PreloadedExtension

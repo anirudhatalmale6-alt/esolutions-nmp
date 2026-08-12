@@ -169,6 +169,10 @@
                                     <div class="column-description">
                                         <span class="mobile-label">{{ 'invoice.item.heading.description'|trans }}</span>
                                         {{ form_widget(item.description, {attr: {placeholder: 'invoice.item.description.placeholder'|trans, rows: 2}}) }}
+                                        {# The stock item behind this line, set by the model picker. Sits
+                                           beside the description so the picker can find it as a sibling.
+                                           Empty = a line that is not stock, which moves no quantity. #}
+                                        {{ form_widget(item.stockModel) }}
                                         {{ form_errors(item.description) }}
                                     </div>
                                     <div class="column-price">

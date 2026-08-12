@@ -6,19 +6,32 @@
  # This source file is subject to the MIT license that is bundled
  # with this source code in the file LICENSE.
  #
- # Model-name suggestion box for invoice / quote line items.
+ # Model picker for invoice / quote / purchase line items.
  #
  # The owner types the phone model on LINE 1 of the description and any free
  # detail (US Specs, Dual Sim, Sim Locked, ...) on line 2 onwards. As they type
- # line 1 we suggest from the manufacturer master list (served by _model_catalog)
- # so the same model is always spelled identically and the Sales-by-Model report
- # groups cleanly. Picking a suggestion only rewrites line 1 - any line-2 detail
- # is kept exactly as typed.
+ # line 1 we suggest from two lists:
+ #
+ #   1. THEIR OWN STOCK (_stock_picker) - what this company actually holds, with
+ #      the quantity in hand. Picking one of these writes the stock item's id
+ #      into the hidden field beside the description, which is the hard link
+ #      that lets the quantity move on the right item later. Shown first.
+ #   2. The portal-wide master model list (_model_catalog) - names only, so the
+ #      same model is always spelled identically and the Sales-by-Model report
+ #      groups cleanly. Picking one of these leaves the line un-linked.
+ #
+ # A line with no link is simply not stock (delivery, repair, a one-off charge)
+ # and moves no quantity. If the typed model is edited away from the name that
+ # was picked, the link is dropped - a link pointing at the wrong item would be
+ # worse than no link at all.
+ #
+ # Picking a suggestion only rewrites line 1 - any line-2 detail is kept exactly
+ # as typed.
  #
  # Uses event delegation on document so it keeps working after Live Component
- # re-renders replace the line rows. Rendered once at page level (block
- # javascripts), never inside the component, so the catalogue is not re-sent on
- # every keystroke.
+ # re-renders replace the line rows, and after the purchase form clones a new
+ # row from its template. Rendered once at page level (block javascripts), never
+ # inside the component, so the lists are not re-sent on every keystroke.
  #}
 (function () {
     "use strict";
@@ -27,24 +40,47 @@
     window.__nmpModelAutocomplete = true;
 
     var CATALOG_URL = {{ path('_model_catalog')|json_encode|raw }};
-    var FIELD_SELECTOR = "textarea.invoice-item-name, textarea.quote-item-name";
+    var STOCK_URL = {{ path('_stock_picker')|json_encode|raw }};
+    // Invoice / quote lines are textareas; purchase lines are plain inputs.
+    var FIELD_SELECTOR = "textarea.invoice-item-name, textarea.quote-item-name, input.item-desc";
+    var LINK_SELECTOR = "[data-stock-model-field]";
     var MAX_RESULTS = 12;
 
     var catalog = null;      // array of model-name strings, loaded once
+    var stock = null;        // array of {id, name, qty}, loaded once
+    var stockNames = null;   // Set of lower-cased own-stock names, for de-duping
     var loading = false;
     var box = null;          // the floating suggestion element
-    var field = null;        // the textarea we are currently attached to
-    var items = [];          // current suggestion strings
+    var field = null;        // the description box we are currently attached to
+    var items = [];          // current suggestions: {name, id, qty}
     var active = -1;         // highlighted index, -1 = none
 
-    function loadCatalog() {
-        if (catalog !== null || loading) { return; }
+    function load() {
+        if (loading || (catalog !== null && stock !== null)) { return; }
         loading = true;
-        fetch(CATALOG_URL, { credentials: "same-origin" })
-            .then(function (r) { return r.ok ? r.json() : []; })
-            .then(function (list) { catalog = Array.isArray(list) ? list : []; })
-            .catch(function () { catalog = []; })
-            .finally(function () { loading = false; });
+
+        var wantCatalog = catalog === null
+            ? fetch(CATALOG_URL, { credentials: "same-origin" })
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .catch(function () { return []; })
+            : Promise.resolve(catalog);
+
+        var wantStock = stock === null
+            ? fetch(STOCK_URL, { credentials: "same-origin" })
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .catch(function () { return []; })
+            : Promise.resolve(stock);
+
+        Promise.all([wantCatalog, wantStock]).then(function (both) {
+            catalog = Array.isArray(both[0]) ? both[0] : [];
+            stock = Array.isArray(both[1]) ? both[1] : [];
+            stockNames = new Set();
+            for (var i = 0; i < stock.length; i++) {
+                if (stock[i] && typeof stock[i].name === "string") {
+                    stockNames.add(stock[i].name.toLowerCase());
+                }
+            }
+        }).finally(function () { loading = false; });
     }
 
     function ensureBox() {
@@ -56,14 +92,19 @@
             "box-shadow:0 6px 18px -6px rgba(0,0,0,.35);max-height:260px;overflow-y:auto;" +
             "font-size:.875rem;padding:.25rem 0;margin:0;list-style:none;}" +
             ".nmp-ac li{padding:.35rem .75rem;cursor:pointer;white-space:nowrap;" +
-            "overflow:hidden;text-overflow:ellipsis;}" +
-            ".nmp-ac li.nmp-active,.nmp-ac li:hover{background:var(--tblr-primary,#066fd1);color:#fff;}";
+            "overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:.5rem;}" +
+            ".nmp-ac li.nmp-active,.nmp-ac li:hover{background:var(--tblr-primary,#066fd1);color:#fff;}" +
+            ".nmp-ac .nmp-ac-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;}" +
+            ".nmp-ac .nmp-ac-qty{flex:0 0 auto;font-size:.75rem;font-weight:600;" +
+            "padding:.05rem .4rem;border-radius:10px;background:#e8f5e9;color:#2e7d32;}" +
+            ".nmp-ac .nmp-ac-qty.nmp-ac-out{background:#fdecea;color:#c62828;}" +
+            ".nmp-ac li.nmp-active .nmp-ac-qty,.nmp-ac li:hover .nmp-ac-qty{background:rgba(255,255,255,.25);color:#fff;}";
         document.head.appendChild(style);
 
         box = document.createElement("ul");
         box.className = "nmp-ac";
         box.style.display = "none";
-        // Use mousedown (fires before the textarea blur) so the click registers.
+        // Use mousedown (fires before the blur) so the click registers.
         box.addEventListener("mousedown", function (e) {
             var li = e.target.closest("li");
             if (!li) { return; }
@@ -72,6 +113,46 @@
         });
         document.body.appendChild(box);
         return box;
+    }
+
+    // The hidden input holding this line's stock item id. Looked up within the
+    // line's own cell/column so one row can never write into another's.
+    function linkFieldFor(el) {
+        var scope = el.closest(".column-description, td, .billing-item-row, .purchase-item-row");
+        return scope ? scope.querySelector(LINK_SELECTOR) : null;
+    }
+
+    function setLink(el, id) {
+        var link = linkFieldFor(el);
+        if (!link) { return; }
+        var current = link.value || "";
+        var next = id || "";
+        if (current === next) { return; }
+        var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        setter.call(link, next);
+        // Let the Live Component pick up the change on invoice/quote lines.
+        link.dispatchEvent(new Event("input", { bubbles: true }));
+        link.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function nameForId(id) {
+        if (!id || !stock) { return null; }
+        for (var i = 0; i < stock.length; i++) {
+            if (stock[i] && String(stock[i].id) === String(id)) { return stock[i].name; }
+        }
+        return null;
+    }
+
+    // If the typed model no longer matches the stock item that was picked, drop
+    // the link rather than leave the line pointing at the wrong item.
+    function dropLinkIfRenamed(el) {
+        var link = linkFieldFor(el);
+        if (!link || !link.value) { return; }
+        var linked = nameForId(link.value);
+        // Stock list not loaded yet - leave the link alone, we cannot judge it.
+        if (linked === null) { return; }
+        var typed = splitValue(el.value).first.trim().toLowerCase();
+        if (typed !== linked.toLowerCase()) { setLink(el, ""); }
     }
 
     // Split the value into line 1 (the model) and "the rest" (from the first
@@ -92,19 +173,35 @@
     }
 
     function rank(query) {
-        if (!catalog || catalog.length === 0) { return []; }
         var q = query.trim().toLowerCase();
         if (q.length < 2) { return []; }
+
         var starts = [], contains = [];
-        for (var i = 0; i < catalog.length; i++) {
-            var name = catalog[i];
-            var lc = name.toLowerCase();
-            if (lc === q) { continue; } // already an exact match, nothing to add
-            var at = lc.indexOf(q);
-            if (at === 0) { starts.push(name); }
-            else if (at > 0) { contains.push(name); }
-            if (starts.length >= MAX_RESULTS) { break; }
+
+        // 1. Their own stock first - these are the ones that can move quantity.
+        if (stock) {
+            for (var i = 0; i < stock.length; i++) {
+                var row = stock[i];
+                if (!row || typeof row.name !== "string") { continue; }
+                var at = row.name.toLowerCase().indexOf(q);
+                if (at === 0) { starts.push({ name: row.name, id: row.id, qty: row.qty }); }
+                else if (at > 0) { contains.push({ name: row.name, id: row.id, qty: row.qty }); }
+            }
         }
+
+        // 2. Then master-list names they do not hold, for consistent spelling.
+        if (catalog) {
+            for (var j = 0; j < catalog.length; j++) {
+                var name = catalog[j];
+                if (typeof name !== "string") { continue; }
+                var lc = name.toLowerCase();
+                if (lc === q || (stockNames && stockNames.has(lc))) { continue; }
+                var pos = lc.indexOf(q);
+                if (pos === 0) { starts.push({ name: name, id: null, qty: null }); }
+                else if (pos > 0) { contains.push({ name: name, id: null, qty: null }); }
+            }
+        }
+
         return starts.concat(contains).slice(0, MAX_RESULTS);
     }
 
@@ -113,8 +210,15 @@
         if (items.length === 0) { hide(); return; }
         var html = "";
         for (var i = 0; i < items.length; i++) {
-            html += '<li data-i="' + i + '"' + (i === active ? ' class="nmp-active"' : '') +
-                '>' + escapeHtml(items[i]) + '</li>';
+            var it = items[i];
+            html += '<li data-i="' + i + '"' + (i === active ? ' class="nmp-active"' : '') + '>' +
+                '<span class="nmp-ac-name">' + escapeHtml(it.name) + '</span>';
+            if (it.id) {
+                var out = !(it.qty > 0);
+                html += '<span class="nmp-ac-qty' + (out ? ' nmp-ac-out' : '') + '">' +
+                    (out ? 'none left' : escapeHtml(String(it.qty)) + ' in stock') + '</span>';
+            }
+            html += '</li>';
         }
         box.innerHTML = html;
         position();
@@ -144,20 +248,26 @@
 
     function choose(i) {
         if (!field || i < 0 || i >= items.length) { return; }
+        var picked = items[i];
         var parts = splitValue(field.value);
-        var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-        setter.call(field, items[i] + parts.rest);
+        var proto = field.tagName === "TEXTAREA" ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        var setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+        setter.call(field, picked.name + parts.rest);
+        // Link the line to the stock item, or clear any previous link when the
+        // pick came from the master name list rather than their own stock.
+        setLink(field, picked.id || "");
         // Let the Live Component pick up the new value.
         field.dispatchEvent(new Event("input", { bubbles: true }));
         field.dispatchEvent(new Event("change", { bubbles: true }));
         // Put the caret at the end of line 1.
-        try { field.selectionStart = field.selectionEnd = items[i].length; } catch (e) {}
+        try { field.selectionStart = field.selectionEnd = picked.name.length; } catch (e) {}
         hide();
         field.focus();
     }
 
     function refresh(el) {
         field = el;
+        dropLinkIfRenamed(el);
         if (!caretOnFirstLine(el)) { hide(); return; }
         var first = splitValue(el.value).first;
         items = rank(first);
@@ -169,7 +279,7 @@
 
     document.addEventListener("focusin", function (e) {
         if (e.target.matches && e.target.matches(FIELD_SELECTOR)) {
-            loadCatalog();
+            load();
             field = e.target;
         }
     });

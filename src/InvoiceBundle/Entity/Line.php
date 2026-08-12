@@ -31,6 +31,7 @@ use Doctrine\ORM\Mapping as ORM;
 use SolidInvoice\ApiBundle\State\Processor\InvoiceLinePersistProcessor;
 use SolidInvoice\CoreBundle\Doctrine\Type\BigIntegerType;
 use SolidInvoice\CoreBundle\Entity\LineInterface;
+use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Traits\Entity\CompanyAware;
 use SolidInvoice\CoreBundle\Traits\Entity\TimeStampable;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceLineType;
@@ -134,6 +135,17 @@ class Line implements LineInterface, Stringable
     #[ORM\Column(name: 'imei', type: Types::TEXT, nullable: true)]
     protected ?string $imei = null;
 
+    /**
+     * The stock item this line sells, when it is a stock item at all.
+     *
+     * Set by the model picker on the description box. Null means the line is not
+     * stock (delivery, repair, a one-off charge) and so moves no quantity - the
+     * description is still whatever was typed either way.
+     */
+    #[ORM\ManyToOne(targetEntity: StockModel::class)]
+    #[ORM\JoinColumn(name: 'stock_model_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    protected ?StockModel $stockModel = null;
+
     #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'lines')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(
@@ -185,6 +197,18 @@ class Line implements LineInterface, Stringable
     public function getDescription(): ?string
     {
         return $this->description;
+    }
+
+    public function setStockModel(?StockModel $stockModel): static
+    {
+        $this->stockModel = $stockModel;
+
+        return $this;
+    }
+
+    public function getStockModel(): ?StockModel
+    {
+        return $this->stockModel;
     }
 
     public function setImei(?string $imei): static

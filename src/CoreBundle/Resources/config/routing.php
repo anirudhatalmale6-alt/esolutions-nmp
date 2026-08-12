@@ -35,6 +35,7 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Stock\StockPicker;
 use SolidInvoice\CoreBundle\Action\Unlock\BulkUnlockLookup;
 use SolidInvoice\CoreBundle\Action\Unlock\ImportUnlockCodes;
 use SolidInvoice\CoreBundle\Action\Unlock\ListUnlockCodes;
@@ -86,6 +87,13 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_import', '/stock/import')
         ->controller(ImportStock::class);
+
+    // Feeds the model picker on invoice / purchase lines with this company's own
+    // stock, so a line can be linked to a real item rather than matched by name.
+    $routingConfigurator
+        ->add('_stock_picker', '/stock/picker.json')
+        ->controller(StockPicker::class)
+        ->methods(['GET']);
 
     $routingConfigurator
         ->add('_stock_public', '/nmp-inventory')

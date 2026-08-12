@@ -79,6 +79,9 @@
                                 <tr class="purchase-item-row">
                                     <td>
                                         <input type="text" name="item_description[]" class="form-control item-desc" value="{{ row.description }}" placeholder="{{ 'e.g. iPhone 15 128GB'|trans }}">
+                                        {# The stock item behind this line, set by the model picker.
+                                           Empty = a line that is not stock (freight, customs, a service). #}
+                                        <input type="hidden" name="item_stock_model[]" data-stock-model-field value="{{ row.stock_model_id|default('') }}">
                                     </td>
                                     <td>
                                         <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="{{ row.qty }}">
@@ -195,6 +198,7 @@
             <tr class="purchase-item-row">
                 <td>
                     <input type="text" name="item_description[]" class="form-control item-desc" placeholder="{{ 'e.g. iPhone 15 128GB'|trans }}">
+                    <input type="hidden" name="item_stock_model[]" data-stock-model-field value="">
                 </td>
                 <td>
                     <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="1">
@@ -227,6 +231,13 @@
                 </td>
             </tr>
         </template>
+
+        {# Model picker on the description boxes: suggests from this company's own
+           stock (with quantity in hand) and from the shared model list, and links
+           the line to the stock item so the purchase can add to the right one. #}
+        <script>
+            {% include '@SolidInvoiceCore/Billing/_model_autocomplete.html.twig' %}
+        </script>
 
         <script>
             (function () {

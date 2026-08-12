@@ -45,6 +45,16 @@ class PurchaseItem
     #[ORM\Column(name: 'description', type: Types::STRING, length: 255)]
     private string $description = '';
 
+    /**
+     * The stock item this line buys, when it is a stock item at all.
+     *
+     * Set by the model picker on the description box. Null means the line is not
+     * stock (freight, customs, a service) and so moves no quantity.
+     */
+    #[ORM\ManyToOne(targetEntity: StockModel::class)]
+    #[ORM\JoinColumn(name: 'stock_model_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?StockModel $stockModel = null;
+
     #[ORM\Column(name: 'qty', type: Types::DECIMAL, precision: 15, scale: 2)]
     private string $qty = '1';
 
@@ -81,6 +91,18 @@ class PurchaseItem
         $this->description = $description;
 
         return $this;
+    }
+
+    public function setStockModel(?StockModel $stockModel): self
+    {
+        $this->stockModel = $stockModel;
+
+        return $this;
+    }
+
+    public function getStockModel(): ?StockModel
+    {
+        return $this->stockModel;
     }
 
     public function getQty(): string

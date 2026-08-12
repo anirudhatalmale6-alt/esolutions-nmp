@@ -16,6 +16,7 @@ namespace SolidInvoice\InvoiceBundle\Form\Type;
 use Doctrine\Persistence\ManagerRegistry;
 use Money\Currency;
 use Override;
+use SolidInvoice\CoreBundle\Form\Transformer\StockModelTransformer;
 use SolidInvoice\InvoiceBundle\Entity\Line;
 use SolidInvoice\TaxBundle\Entity\Tax;
 use SolidInvoice\TaxBundle\Form\Type\LineTaxType;
@@ -35,7 +36,8 @@ use Symfony\UX\LiveComponent\Form\Type\LiveCollectionType;
 class ItemType extends AbstractType
 {
     public function __construct(
-        private readonly ManagerRegistry $registry
+        private readonly ManagerRegistry $registry,
+        private readonly StockModelTransformer $stockModelTransformer,
     ) {
     }
 
@@ -72,6 +74,21 @@ class ItemType extends AbstractType
                 ],
             ]
         );
+
+        // The stock item this line sells, set by the model picker on the
+        // description box. Hidden: the user sees the model name they typed, and
+        // this carries the hard link behind it so stock can move on the right
+        // item instead of on a name match. Empty = a non-stock line.
+        $builder->add(
+            'stockModel',
+            HiddenType::class,
+            [
+                'required' => false,
+                'attr' => [
+                    'data-stock-model-field' => true,
+                ],
+            ]
+        )->get('stockModel')->addModelTransformer($this->stockModelTransformer);
 
         // Internal IMEI capture for this line (comma-separated, entered via the
         // per-line IMEI popup). Hidden input; never shown to the customer.

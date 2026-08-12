@@ -66,6 +66,37 @@ class StockModelRepository extends EntityRepository
     }
 
     /**
+     * The lightweight list behind the model picker on invoice / purchase lines:
+     * id, name and quantity in hand, nothing else.
+     *
+     * Deliberately NOT the full entities - this is fetched on every billing page
+     * and a vendor can hold hundreds of models, so it stays a flat array with no
+     * grades joined. Company scoping comes from the CompanyFilter.
+     *
+     * @return list<array{id: string, name: string, qty: int}>
+     */
+    public function pickerList(): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('m.id', 'm.name', 'm.quantity')
+            ->orderBy('m.name', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $list = [];
+
+        foreach ($rows as $row) {
+            $list[] = [
+                'id' => (string) $row['id'],
+                'name' => (string) $row['name'],
+                'qty' => (int) $row['quantity'],
+            ];
+        }
+
+        return $list;
+    }
+
+    /**
      * Remove every stock model, and its grades, belonging to the given company.
      * Used before a re-import so uploading a fresh list REPLACES the previous
      * one instead of stacking duplicates on top of it.

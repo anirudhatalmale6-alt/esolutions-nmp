@@ -122,16 +122,16 @@ final readonly class Debtors
             "SELECT LOWER(HEX(c.id)) AS clientId,
                     c.name AS name,
                     CAST(c.opening_balance AS DECIMAL(18,2)) AS opening,
-                    ROUND(COALESCE(inv.balance, 0) / 100, 2) AS invoiced,
-                    ROUND(COALESCE(rec.total, 0), 2) AS receipts,
+                    ROUND(COALESCE(inv.invoiced_minor, 0) / 100, 2) AS invoiced,
+                    ROUND(COALESCE(rec.receipts_major, 0), 2) AS receipts,
                     ROUND(
                         c.opening_balance
-                        + COALESCE(inv.balance, 0) / 100
-                        - COALESCE(rec.total, 0)
+                        + COALESCE(inv.invoiced_minor, 0) / 100
+                        - COALESCE(rec.receipts_major, 0)
                     , 2) AS balance
              FROM clients c
              LEFT JOIN (
-                 SELECT i.client_id, SUM(i.balance_amount) AS balance
+                 SELECT i.client_id, SUM(i.balance_amount) AS invoiced_minor
                  FROM invoices i
                  WHERE i.company_id = :invoiceCompanyId
                    AND (i.archived IS NULL OR i.archived = 0)
@@ -139,7 +139,7 @@ final readonly class Debtors
                  GROUP BY i.client_id
              ) inv ON inv.client_id = c.id
              LEFT JOIN (
-                 SELECT r.client_id, SUM(r.amount) AS total
+                 SELECT r.client_id, SUM(r.amount) AS receipts_major
                  FROM customer_receipt r
                  WHERE r.company_id = :receiptCompanyId
                    AND r.client_id IS NOT NULL

@@ -104,7 +104,9 @@
                     <label for="cn-disp" class="form-label">{{ 'What happened to the unit? (optional)'|trans }}</label>
                     <select name="disposition" id="cn-disp" class="form-select">
                         <option value="" {{ data.disposition == '' ? 'selected' : '' }}>{{ 'Not specified'|trans }}</option>
-                        <option value="repaired" {{ data.disposition == 'repaired' ? 'selected' : '' }}>{{ 'Repaired — back into stock'|trans }}</option>
+                        {# The stored value stays "repaired" so the credit notes already
+                           recorded keep their condition - only the wording changed. #}
+                        <option value="repaired" {{ data.disposition == 'repaired' ? 'selected' : '' }}>{{ 'Restocked — back into sellable stock'|trans }}</option>
                         <option value="ber" {{ data.disposition == 'ber' ? 'selected' : '' }}>{{ 'BER — beyond economic repair'|trans }}</option>
                     </select>
                     <div class="form-text">{{ 'Just a record — stock stays governed by your Tally import.'|trans }}</div>

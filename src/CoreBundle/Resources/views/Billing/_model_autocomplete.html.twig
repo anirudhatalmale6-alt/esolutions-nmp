@@ -44,6 +44,10 @@
     // Invoice / quote lines are textareas; purchase lines are plain inputs.
     var FIELD_SELECTOR = "textarea.invoice-item-name, textarea.quote-item-name, input.item-desc";
     var LINK_SELECTOR = "[data-stock-model-field]";
+    // Only SELLING can go over stock, so the check is on invoice / quote rows.
+    // A purchase adds stock, so there is nothing to exceed.
+    var QTY_SELECTOR = "input.invoice-item-qty, input.quote-item-qty";
+    var ROW_SELECTOR = ".billing-item-row";
     var MAX_RESULTS = 12;
 
     var catalog = null;      // array of model-name strings, loaded once
@@ -80,6 +84,9 @@
                     stockNames.add(stock[i].name.toLowerCase());
                 }
             }
+            // Quantities are now known, so any line already on the page (an
+            // invoice being edited) can be checked against stock.
+            sweep();
         }).finally(function () { loading = false; });
     }
 
@@ -133,14 +140,102 @@
         // Let the Live Component pick up the change on invoice/quote lines.
         link.dispatchEvent(new Event("input", { bubbles: true }));
         link.dispatchEvent(new Event("change", { bubbles: true }));
+        // The line now points somewhere else, so re-judge the quantity on it.
+        checkRow(el.closest(ROW_SELECTOR));
+    }
+
+    function rowForId(id) {
+        if (!id || !stock) { return null; }
+        for (var i = 0; i < stock.length; i++) {
+            if (stock[i] && String(stock[i].id) === String(id)) { return stock[i]; }
+        }
+        return null;
     }
 
     function nameForId(id) {
-        if (!id || !stock) { return null; }
-        for (var i = 0; i < stock.length; i++) {
-            if (stock[i] && String(stock[i].id) === String(id)) { return stock[i].name; }
+        var row = rowForId(id);
+        return row ? row.name : null;
+    }
+
+    // --- over-stock marking ------------------------------------------------
+    //
+    // When a line is linked to a stock item and the quantity typed is more than
+    // is held, the quantity box outlines red with a short note underneath. It
+    // does NOT block saving: stock can legitimately be sold ahead of a shipment
+    // landing, and that call belongs to the person raising the invoice, not to
+    // a popup. It is a signal, not a gate.
+
+    var marking = false;   // guards the observer against our own DOM edits
+
+    function ensureWarnStyles() {
+        if (document.getElementById("nmp-stock-warn-style")) { return; }
+        var style = document.createElement("style");
+        style.id = "nmp-stock-warn-style";
+        style.textContent =
+            ".nmp-over-stock{border-color:#dc3545 !important;" +
+            "box-shadow:0 0 0 .2rem rgba(220,53,69,.18) !important;}" +
+            ".nmp-stock-warn{color:#c62828;font-size:.75rem;font-weight:600;" +
+            "margin-top:.2rem;line-height:1.3;white-space:nowrap;}";
+        document.head.appendChild(style);
+    }
+
+    function checkRow(row) {
+        if (!row) { return; }
+        var qtyInput = row.querySelector(QTY_SELECTOR);
+        if (!qtyInput) { return; }
+
+        var link = row.querySelector(LINK_SELECTOR);
+        var item = link ? rowForId(link.value) : null;
+        var entered = parseFloat(qtyInput.value);
+        // Unlinked line, stock list not loaded, or nothing typed yet - no claim
+        // to make, so make none.
+        var over = item !== null && !isNaN(entered) && entered > item.qty;
+
+        var warn = row.querySelector(".nmp-stock-warn");
+        var wantText = over
+            ? (item.qty > 0 ? "Only " + item.qty + " in stock" : "None in stock")
+            : "";
+
+        var hasClass = qtyInput.classList.contains("nmp-over-stock");
+        var hasText = warn ? warn.textContent : "";
+
+        // Only touch the DOM when something actually changed, so the observer
+        // below settles instead of retriggering itself.
+        if (hasClass === over && hasText === wantText) { return; }
+
+        marking = true;
+        try {
+            ensureWarnStyles();
+            qtyInput.classList.toggle("nmp-over-stock", over);
+
+            if (over) {
+                if (!warn) {
+                    warn = document.createElement("div");
+                    warn.className = "nmp-stock-warn";
+                    qtyInput.parentNode.appendChild(warn);
+                }
+                warn.textContent = wantText;
+            } else if (warn) {
+                warn.parentNode.removeChild(warn);
+            }
+        } finally {
+            marking = false;
         }
-        return null;
+    }
+
+    function sweep() {
+        if (!stock) { return; }
+        var rows = document.querySelectorAll(ROW_SELECTOR);
+        for (var i = 0; i < rows.length; i++) { checkRow(rows[i]); }
+    }
+
+    // Live Component re-renders replace the line rows wholesale, which would
+    // drop the marking. Re-check after any DOM change, debounced.
+    var sweepTimer = null;
+    function scheduleSweep() {
+        if (marking) { return; }
+        if (sweepTimer) { clearTimeout(sweepTimer); }
+        sweepTimer = setTimeout(sweep, 60);
     }
 
     // If the typed model no longer matches the stock item that was picked, drop
@@ -285,8 +380,14 @@
     });
 
     document.addEventListener("input", function (e) {
-        if (e.target.matches && e.target.matches(FIELD_SELECTOR)) {
+        if (!e.target.matches) { return; }
+        if (e.target.matches(FIELD_SELECTOR)) {
             refresh(e.target);
+            // The description may have just dropped the link.
+            checkRow(e.target.closest(ROW_SELECTOR));
+        } else if (e.target.matches(QTY_SELECTOR)) {
+            load();
+            checkRow(e.target.closest(ROW_SELECTOR));
         }
     });
 
@@ -323,4 +424,15 @@
 
     window.addEventListener("scroll", function () { if (box && box.style.display !== "none") { position(); } }, true);
     window.addEventListener("resize", function () { if (box && box.style.display !== "none") { position(); } });
+
+    // An invoice being edited already has lines on the page, so load the stock
+    // list up front there and mark anything already over.
+    if (document.querySelector(ROW_SELECTOR)) { load(); }
+
+    if (window.MutationObserver) {
+        new MutationObserver(scheduleSweep).observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
+    }
 })();

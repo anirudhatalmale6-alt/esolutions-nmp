@@ -93,13 +93,42 @@
             </twig:Ui:Card>
         </div>
 
-        {# Outstanding #}
+        {# Outstanding - the same closing balance the Debtors report shows, not
+           just the pending invoices. It has to include the balance carried over
+           from Tally and any overdue invoice, or this page quietly disagrees
+           with Debtors about what the customer owes. #}
         <div class="col-sm-6 col-lg-3">
             <twig:Ui:Card>
                 <div class="client-stat-label">{{ 'client.stats.outstanding'|trans }}</div>
-                <div class="client-stat-value client-stat-value--warning">
-                    {{ total_outstanding(client)|formatCurrency(client.currency) }}
-                </div>
+                {% if balance is not null %}
+                    <div class="client-stat-value {{ balance.balance starts with '-' ? 'client-stat-value--success' : 'client-stat-value--warning' }}">
+                        {{ balance.balanceMinor|formatCurrency(client.currency) }}
+                    </div>
+                    <div class="client-stat-badges">
+                        {% if balance.opening != '0.00' %}
+                            <span class="badge bg-secondary-lt" title="{{ 'Balance carried over from Tally'|trans }}">
+                                {{ 'opening'|trans }} {{ balance.opening }}
+                            </span>
+                        {% endif %}
+                        {% if balance.invoiced != '0.00' %}
+                            <span class="badge bg-warning-lt" title="{{ 'Still unpaid on invoices raised here'|trans }}">
+                                {{ 'unpaid'|trans }} {{ balance.invoiced }}
+                            </span>
+                        {% endif %}
+                        {% if balance.receipts != '0.00' %}
+                            <span class="badge bg-success-lt" title="{{ 'Payments recorded against them off-invoice'|trans }}">
+                                {{ 'paid in'|trans }} {{ balance.receipts }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    {% if balance.credit != '' %}
+                        <div class="client-stat-label mt-1">{{ 'In credit — we owe them'|trans }}</div>
+                    {% endif %}
+                {% else %}
+                    <div class="client-stat-value client-stat-value--warning">
+                        {{ total_outstanding(client)|formatCurrency(client.currency) }}
+                    </div>
+                {% endif %}
             </twig:Ui:Card>
         </div>
 

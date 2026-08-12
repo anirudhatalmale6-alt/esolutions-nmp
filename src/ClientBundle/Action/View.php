@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\ClientBundle\Action;
 
 use SolidInvoice\ClientBundle\Entity\Client;
+use SolidInvoice\CoreBundle\Receivables\ClientBalances;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
@@ -26,11 +27,12 @@ final readonly class View
         private PaymentRepository $paymentRepository,
         private InvoiceRepository $invoiceRepository,
         private PurchaseRepository $purchaseRepository,
+        private ClientBalances $clientBalances,
     ) {
     }
 
     /**
-     * @return array{client: Client, payments: array<string, mixed>, purchases: array<int, mixed>, total_invoices_pending: int, total_invoices_paid: int, total_income: mixed, total_outstanding: int}
+     * @return array{client: Client, payments: array<string, mixed>, purchases: array<int, mixed>, total_invoices_pending: int, total_invoices_paid: int, total_income: mixed, total_outstanding: int, balance: array<string, string>|null}
      */
     #[Template('@SolidInvoiceClient/Default/view.html.twig')]
     public function __invoke(Client $client): array
@@ -43,6 +45,11 @@ final readonly class View
             'total_invoices_paid' => $this->invoiceRepository->getCountByStatus(InvoiceStatus::Paid, $client),
             'total_income' => $this->paymentRepository->getTotalIncomeForClient($client),
             'total_outstanding' => $this->invoiceRepository->getTotalOutstanding($client),
+            // The same figure the Debtors report shows for this customer, which
+            // total_outstanding above is not: that one only counts invoices
+            // sitting at Pending, so it misses an overdue invoice and misses the
+            // balance carried over from the old Tally ledger entirely.
+            'balance' => $this->clientBalances->forClient($client),
         ];
     }
 }

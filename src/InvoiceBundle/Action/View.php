@@ -123,6 +123,10 @@ final readonly class View
             'refunds' => $refunds,
             'refundTotalMinor' => $refundTotalMinor,
             'netTotalMinor' => $netTotalMinor,
+            // 'full', 'partial' or 'none' - so the header can say the invoice was
+            // refunded. Worked out here rather than in the template because it
+            // compares minor-unit money, which Twig would have to juggle.
+            'refundState' => $this->refundState($invoice, $refundTotalMinor),
             // Net units returned per invoice line, read straight from the table so
             // the "net qty (X returned)" display can never be filtered away.
             'returnedByLine' => $this->returnedByLine($invoice),
@@ -184,6 +188,34 @@ final readonly class View
         $netTotalMinor = $invoice->getTotal()->toBigInteger()->minus($refundTotalMinor);
 
         return [$refunds, (string) $refundTotalMinor, (string) $netTotalMinor];
+    }
+
+    /**
+     * Whether this invoice has been refunded in full, in part, or not at all.
+     *
+     * A refund never un-pays an invoice: the customer did pay it, and the money
+     * was then handed back, and both facts have to stay on the record. So the
+     * status quite correctly stays Paid - but on its own that reads like an
+     * ordinary completed sale, which is why the header says "Refunded" next to
+     * it. Both figures are in minor units (fils).
+     */
+    private function refundState(Invoice $invoice, string $refundTotalMinor): string
+    {
+        $refunded = BigInteger::of($refundTotalMinor);
+
+        if ($refunded->isNegativeOrZero()) {
+            return 'none';
+        }
+
+        $total = $invoice->getTotal()->toBigInteger();
+
+        // A zero-total invoice with a refund against it can only be fully refunded;
+        // guarded here so the comparison below never has to divide by nothing.
+        if ($total->isNegativeOrZero()) {
+            return 'full';
+        }
+
+        return $refunded->isGreaterThanOrEqualTo($total) ? 'full' : 'partial';
     }
 
     /**

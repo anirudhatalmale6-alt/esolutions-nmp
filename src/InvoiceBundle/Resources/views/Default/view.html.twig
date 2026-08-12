@@ -25,6 +25,21 @@
                 <h1 class="doc-view-title">{{ "invoice.title"|trans({"%id%" : invoice.invoiceId}) }}</h1>
                 <div class="doc-view-meta">
                     {{ invoice_status_badge(invoice) }}
+                    {# A refund does not un-pay an invoice - the customer paid it and the
+                       money was then handed back - so the status stays Paid and the refund
+                       is called out beside it. Without this a fully refunded invoice reads
+                       exactly like an ordinary completed sale. #}
+                    {% if refundState|default('none') == 'full' %}
+                        <span class="badge bg-danger-lt">
+                            {{ ux_icon('tabler:receipt-refund', {width: 14, height: 14}) }}
+                            {{ 'Refunded'|trans }}
+                        </span>
+                    {% elseif refundState|default('none') == 'partial' %}
+                        <span class="badge bg-warning-lt">
+                            {{ ux_icon('tabler:receipt-refund', {width: 14, height: 14}) }}
+                            {{ 'Partly refunded'|trans }}
+                        </span>
+                    {% endif %}
                     {% if invoice.due is not empty %}
                         <span class="doc-view-meta-item">
                             {{ ux_icon('tabler:calendar', {width: 14, height: 14}) }}
@@ -602,7 +617,14 @@
                     <div class="doc-summary-grid">
                         <div class="summary-item">
                             <span class="summary-label">{{ 'invoice.status'|trans }}</span>
-                            <span class="summary-value">{{ invoice_status_badge(invoice) }}</span>
+                            <span class="summary-value">
+                                {{ invoice_status_badge(invoice) }}
+                                {% if refundState|default('none') == 'full' %}
+                                    <span class="badge bg-danger-lt">{{ 'Refunded'|trans }}</span>
+                                {% elseif refundState|default('none') == 'partial' %}
+                                    <span class="badge bg-warning-lt">{{ 'Partly refunded'|trans }}</span>
+                                {% endif %}
+                            </span>
                         </div>
                         <div class="summary-item">
                             <span class="summary-label">{{ 'invoice.total'|trans }}</span>

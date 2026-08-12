@@ -131,8 +131,13 @@
                Admins only, and behind a typed confirmation, so a member of
                staff cannot wipe the balances with a stray click. #}
             {% if is_granted('ROLE_ADMIN') %}
+                {# tabler:trash rather than tabler:eraser on purpose: icons are
+                   pulled from the icon service the first time they are used and
+                   then cached, and eraser was the one icon in the whole portal
+                   that had never been fetched before - so this page was the only
+                   one that had to reach out to the internet to finish rendering. #}
                 <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-bs-toggle="modal" data-bs-target="#clearBalances">
-                    {{ ux_icon('tabler:eraser', {width: 15, height: 15, class: 'me-1'}) }}{{ 'Clear imported balances'|trans }}
+                    {{ ux_icon('tabler:trash', {width: 15, height: 15, class: 'me-1'}) }}{{ 'Clear imported balances'|trans }}
                 </button>
             {% endif %}
         </div>

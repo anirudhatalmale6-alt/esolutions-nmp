@@ -21,10 +21,7 @@ use SolidInvoice\CoreBundle\Company\CompanySelector;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use function array_filter;
-use function count;
 use function is_numeric;
-use function usort;
 
 /**
  * Debtors / Receivables - the "who owes us what" report, laid out like the
@@ -73,8 +70,10 @@ final readonly class Debtors
 
         $totalDebit = BigDecimal::zero();
         $totalCredit = BigDecimal::zero();
+        $settledCount = 0;
         $visible = [];
 
+        // The rows arrive already sorted by balance, biggest debtor first.
         foreach ($rows as $row) {
             $balance = BigDecimal::of($row['balance']);
 
@@ -82,6 +81,8 @@ final readonly class Debtors
                 $totalDebit = $totalDebit->plus($balance);
             } elseif ($balance->isNegative()) {
                 $totalCredit = $totalCredit->plus($balance->abs());
+            } else {
+                ++$settledCount;
             }
 
             if ($showSettled || ! $balance->isZero()) {
@@ -89,18 +90,13 @@ final readonly class Debtors
             }
         }
 
-        usort(
-            $visible,
-            static fn (array $a, array $b): int => BigDecimal::of($b['balance'])->compareTo(BigDecimal::of($a['balance']))
-        );
-
         return [
             'rows' => $visible,
             'totalDebit' => (string) $totalDebit->toScale(2),
             'totalCredit' => (string) $totalCredit->toScale(2),
             'net' => (string) $totalDebit->minus($totalCredit)->toScale(2),
             'showSettled' => $showSettled,
-            'settledCount' => count($rows) - count(array_filter($rows, static fn (array $r): bool => ! BigDecimal::of($r['balance'])->isZero())),
+            'settledCount' => $settledCount,
         ];
     }
 
@@ -108,41 +104,76 @@ final readonly class Debtors
      * One row per customer: opening balance, what is still open on their
      * invoices, what they have paid off-invoice, and the resulting balance.
      *
+     * The adding up and the sorting are both done by the database in a single
+     * pass. An earlier version pulled three result sets back and combined them
+     * in PHP, which meant a BigDecimal per customer per comparison while
+     * sorting - fine for a handful of customers, and far too slow once the old
+     * Tally ledger brought several thousand of them across.
+     *
+     * Invoice figures are stored in MINOR units (fils) hence the /100; opening
+     * balances and receipts are already in major units. Draft, cancelled and
+     * archived invoices are not a debt and are left out.
+     *
      * @return list<array{clientId: string, client: string, opening: string, invoiced: string, receipts: string, balance: string, debit: string, credit: string}>
      */
     private function buildRows(string $binaryCompanyId): array
     {
-        $clients = $this->connection->executeQuery(
-            'SELECT LOWER(HEX(c.id)) AS clientId,
+        $rows = $this->connection->executeQuery(
+            "SELECT LOWER(HEX(c.id)) AS clientId,
                     c.name AS name,
-                    c.opening_balance AS opening
+                    CAST(c.opening_balance AS DECIMAL(18,2)) AS opening,
+                    ROUND(COALESCE(inv.balance, 0) / 100, 2) AS invoiced,
+                    ROUND(COALESCE(rec.total, 0), 2) AS receipts,
+                    ROUND(
+                        c.opening_balance
+                        + COALESCE(inv.balance, 0) / 100
+                        - COALESCE(rec.total, 0)
+                    , 2) AS balance
              FROM clients c
-             WHERE c.company_id = :companyId
-               AND (c.archived IS NULL OR c.archived = 0)',
-            ['companyId' => $binaryCompanyId],
-            ['companyId' => ParameterType::BINARY]
+             LEFT JOIN (
+                 SELECT i.client_id, SUM(i.balance_amount) AS balance
+                 FROM invoices i
+                 WHERE i.company_id = :invoiceCompanyId
+                   AND (i.archived IS NULL OR i.archived = 0)
+                   AND i.status NOT IN ('draft', 'cancelled', 'archived')
+                 GROUP BY i.client_id
+             ) inv ON inv.client_id = c.id
+             LEFT JOIN (
+                 SELECT r.client_id, SUM(r.amount) AS total
+                 FROM customer_receipt r
+                 WHERE r.company_id = :receiptCompanyId
+                   AND r.client_id IS NOT NULL
+                 GROUP BY r.client_id
+             ) rec ON rec.client_id = c.id
+             WHERE c.company_id = :clientCompanyId
+               AND (c.archived IS NULL OR c.archived = 0)
+             ORDER BY balance DESC",
+            // The same company three times under three names: a named
+            // placeholder repeated in one statement is not portable across
+            // drivers, and this must not be the thing that breaks the report.
+            [
+                'invoiceCompanyId' => $binaryCompanyId,
+                'receiptCompanyId' => $binaryCompanyId,
+                'clientCompanyId' => $binaryCompanyId,
+            ],
+            [
+                'invoiceCompanyId' => ParameterType::BINARY,
+                'receiptCompanyId' => ParameterType::BINARY,
+                'clientCompanyId' => ParameterType::BINARY,
+            ]
         )->fetchAllAssociative();
 
-        $outstanding = $this->outstandingByClient($binaryCompanyId);
-        $receipts = $this->receiptsByClient($binaryCompanyId);
+        $out = [];
 
-        $rows = [];
+        foreach ($rows as $row) {
+            $balance = $this->amount((string) ($row['balance'] ?? '0'));
 
-        foreach ($clients as $client) {
-            $id = (string) $client['clientId'];
-
-            $opening = $this->amount((string) ($client['opening'] ?? '0'));
-            $invoiced = BigDecimal::of($outstanding[$id] ?? '0.00');
-            $paid = BigDecimal::of($receipts[$id] ?? '0.00');
-
-            $balance = $opening->plus($invoiced)->minus($paid);
-
-            $rows[] = [
-                'clientId' => $id,
-                'client' => (string) $client['name'],
-                'opening' => (string) $opening->toScale(2),
-                'invoiced' => (string) $invoiced->toScale(2),
-                'receipts' => (string) $paid->toScale(2),
+            $out[] = [
+                'clientId' => (string) $row['clientId'],
+                'client' => (string) $row['name'],
+                'opening' => $this->money((string) ($row['opening'] ?? '0')),
+                'invoiced' => $this->money((string) ($row['invoiced'] ?? '0')),
+                'receipts' => $this->money((string) ($row['receipts'] ?? '0')),
                 'balance' => (string) $balance->toScale(2),
                 // Split into the accountant's two columns up front, so the
                 // template never has to reason about the sign.
@@ -151,66 +182,12 @@ final readonly class Debtors
             ];
         }
 
-        return $rows;
+        return $out;
     }
 
-    /**
-     * Unpaid balance still open on each customer's issued invoices, in major
-     * units. Draft / cancelled / archived invoices are not a debt.
-     *
-     * @return array<string, string>
-     */
-    private function outstandingByClient(string $binaryCompanyId): array
+    private function money(string $value): string
     {
-        $rows = $this->connection->executeQuery(
-            "SELECT LOWER(HEX(i.client_id)) AS clientId,
-                    SUM(i.balance_amount) AS balance
-             FROM invoices i
-             WHERE i.company_id = :companyId
-               AND (i.archived IS NULL OR i.archived = 0)
-               AND i.status NOT IN ('draft', 'cancelled', 'archived')
-             GROUP BY i.client_id",
-            ['companyId' => $binaryCompanyId],
-            ['companyId' => ParameterType::BINARY]
-        )->fetchAllAssociative();
-
-        $totals = [];
-
-        foreach ($rows as $row) {
-            $minor = (string) ($row['balance'] ?? '0');
-            $totals[(string) $row['clientId']] = is_numeric($minor)
-                ? (string) BigDecimal::of($minor)->dividedBy(100, 2, RoundingMode::HalfUp)
-                : '0.00';
-        }
-
-        return $totals;
-    }
-
-    /**
-     * Standalone money-in receipts recorded against each customer (major units).
-     *
-     * @return array<string, string>
-     */
-    private function receiptsByClient(string $binaryCompanyId): array
-    {
-        $rows = $this->connection->executeQuery(
-            'SELECT LOWER(HEX(r.client_id)) AS clientId,
-                    SUM(r.amount) AS total
-             FROM customer_receipt r
-             WHERE r.company_id = :companyId
-               AND r.client_id IS NOT NULL
-             GROUP BY r.client_id',
-            ['companyId' => $binaryCompanyId],
-            ['companyId' => ParameterType::BINARY]
-        )->fetchAllAssociative();
-
-        $totals = [];
-
-        foreach ($rows as $row) {
-            $totals[(string) $row['clientId']] = (string) $this->amount((string) ($row['total'] ?? '0'))->toScale(2);
-        }
-
-        return $totals;
+        return (string) $this->amount($value)->toScale(2, RoundingMode::HalfUp);
     }
 
     private function amount(string $value): BigDecimal

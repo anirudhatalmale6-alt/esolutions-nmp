@@ -16,12 +16,16 @@ namespace SolidInvoice\CoreBundle\Action\Marketplace;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Form\Type\ImageUploadType;
 use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
+use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Uid\Ulid;
 use function base64_encode;
+use function substr;
 use function file_get_contents;
 use function function_exists;
 use function getimagesize;
@@ -37,10 +41,14 @@ use function round;
 use function trim;
 
 /**
- * "Stock Listing" page (System > Stock Listing): the business owner opts their
- * Tally stock in or out of the public Marketplace and sets the WhatsApp number
- * buyers are handed. When the toggle is off, the company's stock never appears in
- * a search; when no number is set, the Chat Now button simply does not show.
+ * "Stock Listing" page: where a business decides how its stock is seen outside
+ * the portal. Two independent switches:
+ *
+ *  - the Marketplace, where buyers search across every listed business and reach
+ *    this one on WhatsApp. Off means the stock never appears in a search; with
+ *    no number set the Chat Now button simply does not show;
+ *  - its own public stock page, a no-login link at an address of its choosing
+ *    that it hands to its own customers. Off means the link 404s.
  */
 #[IsGranted('ROLE_ADMIN')]
 final class StockListingSettings extends AbstractController
@@ -51,16 +59,19 @@ final class StockListingSettings extends AbstractController
     public function __construct(
         private readonly MarketplaceManager $marketplace,
         private readonly CompanySelector $companySelector,
+        private readonly CompanyRepository $companyRepository,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
-        $binaryCompanyId = $this->companySelector->getCompany()?->toBinary();
+        $companyId = $this->companySelector->getCompany();
+        $binaryCompanyId = $companyId?->toBinary();
 
         if ($binaryCompanyId === null) {
             return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', [
                 'listed' => false, 'whatsapp' => '', 'country' => '', 'city' => '', 'logo' => '', 'countries' => $this->marketplace->countryChoices(),
+                'shareStock' => false, 'shareSlug' => '', 'shareBase' => '', 'shareUrl' => '',
             ]);
         }
 
@@ -86,6 +97,7 @@ final class StockListingSettings extends AbstractController
 
             $this->marketplace->save($binaryCompanyId, $listed, $whatsapp, $country, $city);
             $this->marketplace->saveLogo($binaryCompanyId, $logo);
+            $this->saveStockShare($request, $binaryCompanyId, $companyId);
 
             $this->addFlash('success', $listed
                 ? 'Saved - your stock is now listed on the Marketplace.'
@@ -95,6 +107,7 @@ final class StockListingSettings extends AbstractController
         }
 
         $settings = $this->marketplace->getForCompany($binaryCompanyId);
+        $shareBase = $this->shareBase();
 
         return $this->render('@SolidInvoiceCore/Marketplace/settings.html.twig', [
             'listed' => $settings['listed'],
@@ -103,7 +116,57 @@ final class StockListingSettings extends AbstractController
             'city' => $settings['city'],
             'logo' => $settings['logo'],
             'countries' => $this->marketplace->countryChoices(),
+            'shareStock' => $settings['shareStock'],
+            // Pre-fill an address for a business that has never set one, so
+            // switching the page on is a single click for most people.
+            'shareSlug' => $settings['shareSlug'] !== ''
+                ? $settings['shareSlug']
+                : $this->marketplace->suggestSlug($this->companyName($companyId), $binaryCompanyId),
+            'shareBase' => $shareBase,
+            'shareUrl' => $settings['shareStock'] && $settings['shareSlug'] !== ''
+                ? $shareBase . $settings['shareSlug']
+                : '',
         ]);
+    }
+
+    /**
+     * Store the company's own public stock page settings.
+     *
+     * A refused address (blank, or already taken by another business) must not
+     * silently switch the page on at some address the owner did not choose, so
+     * the save is skipped entirely and the reason is flashed back.
+     */
+    private function saveStockShare(Request $request, string $binaryCompanyId, Ulid $companyId): void
+    {
+        $shareStock = $request->request->getBoolean('share_stock');
+        $slug = $this->marketplace->normalizeSlug((string) $request->request->get('share_slug', ''));
+
+        if ($shareStock && $slug === '') {
+            $slug = $this->marketplace->suggestSlug($this->companyName($companyId), $binaryCompanyId);
+        }
+
+        // Off keeps the address on file, so turning the page back on later returns
+        // the same link rather than a new one customers have not got.
+        if (! $this->marketplace->saveStockShare($binaryCompanyId, $shareStock, $slug)) {
+            $this->addFlash('error', 'That stock page address is already in use by another business - please choose another.');
+        }
+    }
+
+    private function companyName(Ulid $companyId): string
+    {
+        return (string) $this->companyRepository->find($companyId)?->getName();
+    }
+
+    /**
+     * The public stock page address without the business's own part, e.g.
+     * "https://esolutions.website/inventory/". Built from the route so it stays
+     * right if the path ever moves.
+     */
+    private function shareBase(): string
+    {
+        $sample = $this->generateUrl('_stock_public_member', ['slug' => 'aaa'], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        return substr($sample, 0, -3);
     }
 
     /**

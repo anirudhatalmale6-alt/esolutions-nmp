@@ -95,9 +95,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->controller(StockPicker::class)
         ->methods(['GET']);
 
+    // Each business's own public stock page. The original /nmp-inventory address
+    // is kept - it is already in customers' hands - and simply resolves to the
+    // slug the upgrade migration gave that business.
     $routingConfigurator
         ->add('_stock_public', '/nmp-inventory')
-        ->controller(PublicStock::class);
+        ->controller(PublicStock::class)
+        ->defaults(['slug' => 'nmp']);
+
+    $routingConfigurator
+        ->add('_stock_public_member', '/inventory/{slug}')
+        ->controller(PublicStock::class)
+        ->requirements(['slug' => '[a-z0-9][a-z0-9-]{1,58}[a-z0-9]'])
+        ->methods(['GET']);
 
     // IMEI SIM-unlock codes: private admin (upload/manage) plus the public,
     // no-login customer lookup page.

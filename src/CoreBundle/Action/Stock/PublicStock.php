@@ -14,20 +14,27 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Stock;
 
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Public, no-login stock availability page shared with customers. Shows model,
- * grade and quantity only - never rates or values.
+ * Public, no-login stock availability page a business shares with its customers.
+ * Shows model, grade and quantity only - never rates or values.
+ *
+ * Each business has its own address (/inventory/{slug}) and its own on/off
+ * switch, so the page shows that business's stock and nothing else. The page
+ * only exists while the switch is on: turning it off makes the link a 404,
+ * which is what "stop sharing" has to mean.
  */
 final readonly class PublicStock
 {
     public function __construct(
         private CompanyRepository $companyRepository,
         private StockModelRepository $stockModelRepository,
+        private MarketplaceManager $marketplace,
     ) {
     }
 
@@ -35,17 +42,15 @@ final readonly class PublicStock
      * @return array{company: Company, models: list<\SolidInvoice\CoreBundle\Entity\StockModel>}
      */
     #[Template('@SolidInvoiceCore/Stock/public.html.twig')]
-    public function __invoke(): array
+    public function __invoke(string $slug): array
     {
-        // This is an anonymous request, so the company Doctrine filter adds no
-        // constraint and this returns the stock as imported. The owning company
-        // is taken from the stock itself, so the page shows the right business
-        // regardless of how many companies exist on the install.
-        $models = $this->stockModelRepository->findAllOrdered();
+        $companyId = $this->marketplace->companyIdForSharedStock($slug);
 
-        $company = $models !== []
-            ? $models[0]->getCompany()
-            : $this->companyRepository->findOneBy([]);
+        if ($companyId === null) {
+            throw new NotFoundHttpException();
+        }
+
+        $company = $this->companyRepository->find($companyId);
 
         if (! $company instanceof Company) {
             throw new NotFoundHttpException();
@@ -53,7 +58,10 @@ final readonly class PublicStock
 
         return [
             'company' => $company,
-            'models' => $models,
+            // Scoped to this company explicitly. This is an anonymous request, so
+            // the usual company filter has no company to scope by and would hand
+            // back every business's stock at once.
+            'models' => $this->stockModelRepository->findForCompany($company),
         ];
     }
 }

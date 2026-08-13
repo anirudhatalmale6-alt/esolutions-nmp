@@ -21,10 +21,15 @@ use SolidInvoice\CoreBundle\Form\Type\ImageUploadType;
 use SolidInvoice\SettingsBundle\Entity\Setting;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
+use Throwable;
+use function bin2hex;
 use function mb_ord;
 use function mb_strtoupper;
+use function rtrim;
 use function str_replace;
 use function strlen;
+use function strtolower;
+use function substr;
 use function addcslashes;
 use function array_slice;
 use function count;
@@ -49,6 +54,11 @@ final class MarketplaceManager
 
     private const MAX_RESULTS = 200;
 
+    /** Bounds of a public stock page address; must match the route requirement. */
+    public const int MIN_SLUG_LENGTH = 3;
+
+    public const int MAX_SLUG_LENGTH = 60;
+
     public function __construct(
         private readonly Connection $connection,
     ) {
@@ -59,15 +69,22 @@ final class MarketplaceManager
      * data URI for the seller's own listing logo (the one they upload here,
      * NOT the invoice/company logo), or '' when none has been uploaded.
      *
-     * @return array{listed: bool, whatsapp: string, country: string, city: string, logo: string}
+     * @return array{listed: bool, whatsapp: string, country: string, city: string, logo: string, shareStock: bool, shareSlug: string}
      */
     public function getForCompany(string $binaryCompanyId): array
     {
-        $row = $this->connection->fetchAssociative(
-            'SELECT listed, whatsapp, country, city FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE company_id = ?',
-            [$binaryCompanyId],
-            [ParameterType::BINARY]
-        );
+        try {
+            $row = $this->connection->fetchAssociative(
+                'SELECT listed, whatsapp, country, city, share_stock, share_slug FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE company_id = ?',
+                [$binaryCompanyId],
+                [ParameterType::BINARY]
+            );
+        } catch (Throwable) {
+            // The share columns arrive with a migration, and the code is deployed
+            // before it runs. In that window the stock page must still open - just
+            // without a share link - rather than break on a column that is coming.
+            $row = false;
+        }
 
         $logo = (string) ($this->connection->fetchOne(
             'SELECT setting_value FROM ' . Setting::TABLE_NAME . " WHERE company_id = ? AND setting_key = 'marketplace/logo'",
@@ -81,6 +98,8 @@ final class MarketplaceManager
             'country' => (string) ($row['country'] ?? ''),
             'city' => (string) ($row['city'] ?? ''),
             'logo' => $this->logoDataUri($logo),
+            'shareStock' => (bool) ($row['share_stock'] ?? false),
+            'shareSlug' => (string) ($row['share_slug'] ?? ''),
         ];
     }
 
@@ -158,6 +177,156 @@ final class MarketplaceManager
                 'listed' => ParameterType::INTEGER,
             ]
         );
+    }
+
+    /**
+     * Turn the company's own public stock page on or off, and set the address it
+     * lives at. Written separately from {@see save()} because the two are
+     * independent channels - the Marketplace listing and a business's own link -
+     * and saving one must not quietly change the other.
+     *
+     * Returns false, changing nothing, when the address belongs to another
+     * business. That check lives HERE rather than only in the form: share_slug is
+     * unique, so an INSERT ... ON DUPLICATE KEY carrying someone else's address
+     * would match on THAT key and quietly rewrite their row - taking their stock
+     * page down. A caller must not be able to reach that by accident.
+     */
+    public function saveStockShare(string $binaryCompanyId, bool $shareStock, string $slug): bool
+    {
+        $slug = $this->normalizeSlug($slug);
+
+        if ($slug !== '' && ! $this->slugAvailable($slug, $binaryCompanyId)) {
+            return false;
+        }
+
+        $now = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+
+        try {
+            $this->connection->executeStatement(
+                'INSERT INTO ' . MarketplaceSetting::TABLE_NAME . ' (id, company_id, listed, share_stock, share_slug, created, updated)
+                 VALUES (:id, :companyId, 0, :shareStock, :slug, :created, :updated)
+                 ON DUPLICATE KEY UPDATE share_stock = VALUES(share_stock), share_slug = VALUES(share_slug), updated = VALUES(updated)',
+                [
+                    'id' => (new Ulid())->toBinary(),
+                    'companyId' => $binaryCompanyId,
+                    'shareStock' => $shareStock ? 1 : 0,
+                    'slug' => $slug === '' ? null : $slug,
+                    'created' => $now,
+                    'updated' => $now,
+                ],
+                [
+                    'id' => ParameterType::BINARY,
+                    'companyId' => ParameterType::BINARY,
+                    'shareStock' => ParameterType::INTEGER,
+                ]
+            );
+        } catch (Throwable) {
+            // Same deploy window: the columns are not there yet, so there is
+            // nothing to write. Saving the Marketplace half of the form must not
+            // fail because of it.
+            return true;
+        }
+
+        return true;
+    }
+
+    /**
+     * Cut a raw entry down to what can safely sit in a URL: lower case, letters,
+     * digits and single dashes. Returns '' when nothing usable is left, or when
+     * the result is too short to be worth publishing.
+     */
+    public function normalizeSlug(?string $raw): string
+    {
+        $slug = strtolower(trim((string) $raw));
+        $slug = (string) preg_replace('/[^a-z0-9]+/', '-', $slug);
+        $slug = trim($slug, '-');
+        $slug = (string) preg_replace('/-{2,}/', '-', $slug);
+
+        if (strlen($slug) > self::MAX_SLUG_LENGTH) {
+            $slug = rtrim(substr($slug, 0, self::MAX_SLUG_LENGTH), '-');
+        }
+
+        return strlen($slug) < self::MIN_SLUG_LENGTH ? '' : $slug;
+    }
+
+    /**
+     * Whether this company may use this address - free, or already its own.
+     */
+    public function slugAvailable(string $slug, string $binaryCompanyId): bool
+    {
+        try {
+            $owner = $this->connection->fetchOne(
+                'SELECT company_id FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE share_slug = ?',
+                [$slug]
+            );
+        } catch (Throwable) {
+            // Pre-migration deploy window: nobody owns an address yet, and the
+            // write below fails safe anyway. Said "free" so the settings page
+            // still opens instead of erroring on a column that is on its way.
+            return true;
+        }
+
+        return $owner === false || $owner === null || $owner === $binaryCompanyId;
+    }
+
+    /**
+     * A starting address for a business that is switching its page on for the
+     * first time, taken from its name and made unique with a number if needed.
+     * Falls back to "stock" for a name with nothing usable in it.
+     */
+    public function suggestSlug(string $companyName, string $binaryCompanyId): string
+    {
+        $base = $this->normalizeSlug($companyName);
+
+        if ($base === '') {
+            $base = 'stock';
+        }
+
+        $slug = $base;
+
+        for ($suffix = 2; ! $this->slugAvailable($slug, $binaryCompanyId); ++$suffix) {
+            $slug = $base . '-' . $suffix;
+
+            // Guard against an unreachable loop rather than trusting the data.
+            if ($suffix > 200) {
+                return $base . '-' . substr(bin2hex($binaryCompanyId), 0, 6);
+            }
+        }
+
+        return $slug;
+    }
+
+    /**
+     * The company behind a public stock address, or null when the address is
+     * unknown or its owner has switched the page off.
+     *
+     * Deliberately raw DBAL: this runs on an anonymous request, where there is
+     * no active company for the usual filter to scope by.
+     */
+    public function companyIdForSharedStock(string $slug): ?Ulid
+    {
+        $slug = $this->normalizeSlug($slug);
+
+        if ($slug === '') {
+            return null;
+        }
+
+        try {
+            $companyId = $this->connection->fetchOne(
+                'SELECT company_id FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE share_slug = ? AND share_stock = 1',
+                [$slug]
+            );
+        } catch (Throwable) {
+            // Columns not migrated yet - the page 404s until they are, which is
+            // the safe way round: it never shows stock nobody opted to publish.
+            return null;
+        }
+
+        if ($companyId === false || $companyId === null) {
+            return null;
+        }
+
+        return Ulid::fromBinary((string) $companyId);
     }
 
     /**

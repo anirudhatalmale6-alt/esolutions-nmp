@@ -139,6 +139,7 @@ return static function (SecurityConfig $config): void {
             '/invite/accept/[a-zA-Z0-9-]{26}$|' .
             '/join/[A-Za-z0-9_-]{1,64}$|' .
             '/nmp-inventory$|' .
+            '/inventory/[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$|' .
             '/imei-unlock$|' .
             '/marketplace$|' .
             '/$|' .

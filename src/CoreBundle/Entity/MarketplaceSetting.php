@@ -23,12 +23,19 @@ use Symfony\Bridge\Doctrine\Types\UlidType;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * A company's opt-in settings for the public Marketplace. Each business decides
- * whether its Tally stock is listed for buyers to search, and the WhatsApp number
- * buyers are handed when they press "Chat Now". One row per company.
+ * A company's opt-in settings for showing its stock outside the portal. Two
+ * separate channels live here, and a business can use either, both or neither:
+ *
+ *  - the Marketplace: its Tally stock is searchable by buyers alongside every
+ *    other listed business, who reach it on WhatsApp;
+ *  - its own public stock page: a private, no-login link of its own stock only,
+ *    which it hands to its customers.
+ *
+ * One row per company.
  */
 #[ORM\Table(name: MarketplaceSetting::TABLE_NAME)]
 #[ORM\UniqueConstraint(name: 'uniq_marketplace_setting_company', columns: ['company_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_marketplace_setting_share_slug', columns: ['share_slug'])]
 #[ORM\Entity(repositoryClass: MarketplaceSettingRepository::class)]
 class MarketplaceSetting
 {
@@ -55,6 +62,21 @@ class MarketplaceSetting
 
     #[ORM\Column(name: 'city', type: Types::STRING, length: 100, nullable: true)]
     private ?string $city = null;
+
+    /**
+     * Whether this business publishes its own no-login stock page. Separate from
+     * {@see $listed}: a business can hand its own customers a private link
+     * without appearing in the Marketplace search, or the other way round.
+     */
+    #[ORM\Column(name: 'share_stock', type: Types::BOOLEAN, options: ['default' => 0])]
+    private bool $shareStock = false;
+
+    /**
+     * The address of that page (/inventory/{slug}). Unique across the portal, so
+     * one business's link can never land on another's stock.
+     */
+    #[ORM\Column(name: 'share_slug', type: Types::STRING, length: 60, nullable: true)]
+    private ?string $shareSlug = null;
 
     public function getId(): ?Ulid
     {
@@ -105,6 +127,30 @@ class MarketplaceSetting
     public function setCity(?string $city): self
     {
         $this->city = $city;
+
+        return $this;
+    }
+
+    public function isShareStock(): bool
+    {
+        return $this->shareStock;
+    }
+
+    public function setShareStock(bool $shareStock): self
+    {
+        $this->shareStock = $shareStock;
+
+        return $this;
+    }
+
+    public function getShareSlug(): ?string
+    {
+        return $this->shareSlug;
+    }
+
+    public function setShareSlug(?string $shareSlug): self
+    {
+        $this->shareSlug = $shareSlug;
 
         return $this;
     }

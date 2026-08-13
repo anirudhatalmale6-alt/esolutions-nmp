@@ -78,6 +78,7 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
         '_marketplace',
         '_store_front',
         '_stock_public',
+        '_stock_public_member',
         '_unlock_public',
     ];
 

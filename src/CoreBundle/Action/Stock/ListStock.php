@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Stock;
 
 use Brick\Math\BigDecimal;
+use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Marketplace\MarketplaceManager;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -25,6 +27,8 @@ final readonly class ListStock
     public function __construct(
         private StockModelRepository $stockModelRepository,
         private UrlGeneratorInterface $urlGenerator,
+        private CompanySelector $companySelector,
+        private MarketplaceManager $marketplace,
     ) {
     }
 
@@ -56,8 +60,36 @@ final readonly class ListStock
             'models' => $models,
             'totalQuantity' => $totalQuantity,
             'totalValue' => (string) $totalValue->toScale(2),
-            'shareUrl' => $this->urlGenerator->generate('_stock_public', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            'shareUrl' => $this->shareUrl(),
             'lastImported' => $lastImported,
         ];
+    }
+
+    /**
+     * This business's own public stock link, or '' when it has not published one.
+     *
+     * Read from its own settings rather than generated blindly: on a portal with
+     * several businesses, a fixed link would send every one of them to somebody
+     * else's stock page.
+     */
+    private function shareUrl(): string
+    {
+        $companyId = $this->companySelector->getCompany();
+
+        if ($companyId === null) {
+            return '';
+        }
+
+        $settings = $this->marketplace->getForCompany($companyId->toBinary());
+
+        if (! $settings['shareStock'] || $settings['shareSlug'] === '') {
+            return '';
+        }
+
+        return $this->urlGenerator->generate(
+            '_stock_public_member',
+            ['slug' => $settings['shareSlug']],
+            UrlGeneratorInterface::ABSOLUTE_URL
+        );
     }
 }

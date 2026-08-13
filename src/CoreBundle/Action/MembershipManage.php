@@ -32,6 +32,7 @@ use function in_array;
  * Super-user membership console. The platform owner sees every vendor company
  * with its plan, expiry, verified badge and comp status, and can:
  *   - verify / un-verify a company
+ *   - enable the Marketplace for it by name, without putting it on Premium
  *   - set its plan (None / Basic / Premium) for an annual term or lifetime
  *   - grant it complimentary (free) - no Stripe charge
  *   - reset the password of any account (no e-mail server needed)
@@ -136,6 +137,12 @@ final class MembershipManage extends AbstractController
                 'expiresAt' => $company->getMembershipExpiresAt(),
                 'complimentary' => $company->isMembershipComplimentary(),
                 'verified' => $company->isVerified(),
+                // The grant itself, as ticked on this page...
+                'marketplaceGranted' => $company->hasMarketplaceAccess(),
+                // ...and whether the business can actually reach the Marketplace
+                // today, which Premium also satisfies. Shown so a Premium company
+                // does not read as shut out just because the box is unticked.
+                'marketplaceAccess' => $this->membership->hasMarketplaceAccess($company),
                 'users' => $users,
                 // A company the platform owner belongs to (any super-admin member)
                 // can't be deleted from here, so the owner can't wipe themselves out.
@@ -165,6 +172,7 @@ final class MembershipManage extends AbstractController
         $plan = MembershipPlan::fromValue((string) $request->request->get('plan'));
         $verified = $request->request->getBoolean('verified');
         $complimentary = $request->request->getBoolean('complimentary');
+        $marketplaceAccess = $request->request->getBoolean('marketplace_access');
         $term = (string) $request->request->get('term', 'annual');
 
         // Verification is a prerequisite for Premium.
@@ -177,6 +185,10 @@ final class MembershipManage extends AbstractController
         // Persist verification first so it is stored even for a None/Basic plan.
         $this->membership->setVerified($company, $verified);
 
+        // The Marketplace grant is deliberately independent of the plan - that is
+        // the whole point of it - so it is stored whatever the plan below says.
+        $this->membership->setMarketplaceAccess($company, $marketplaceAccess);
+
         // Work out the expiry: no plan or a "lifetime" term means no expiry;
         // otherwise one year from today.
         $expiresAt = null;
@@ -186,7 +198,13 @@ final class MembershipManage extends AbstractController
 
         $this->membership->grant($company, $plan, $expiresAt, $plan->isPaid() && $complimentary);
 
-        $this->addFlash('success', sprintf('%s updated: %s%s.', $company->getName(), $plan->label(), $complimentary && $plan->isPaid() ? ' (complimentary)' : ''));
+        $this->addFlash('success', sprintf(
+            '%s updated: %s%s. Marketplace %s.',
+            $company->getName(),
+            $plan->label(),
+            $complimentary && $plan->isPaid() ? ' (complimentary)' : '',
+            $this->membership->hasMarketplaceAccess($company) ? 'enabled' : 'not enabled'
+        ));
 
         return $this->redirectToRoute('_membership_manage');
     }

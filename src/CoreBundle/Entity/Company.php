@@ -121,6 +121,19 @@ class Company implements Stringable, SubscribableInterface
     private bool $verified = false;
 
     /**
+     * TRUE when the platform owner has handed this company the Marketplace by
+     * name, without putting it on Premium. The Marketplace is normally a Premium
+     * sales channel; this lets the owner let a business in on its own merits - a
+     * good supplier, someone being brought on board - and take it back later,
+     * without touching what they pay or when it runs out.
+     *
+     * Grants the Marketplace only. The Online Store, Orders and Unlock Codes stay
+     * behind Premium.
+     */
+    #[ORM\Column(name: 'marketplace_access', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $marketplaceAccess = false;
+
+    /**
      * The referral / sales link code that brought this company onto the platform
      * (see ReferralLink). NULL for companies that predate the referral system or
      * were created directly by the platform owner. Used to attribute a signup to
@@ -381,6 +394,18 @@ class Company implements Stringable, SubscribableInterface
     public function setVerified(bool $verified): self
     {
         $this->verified = $verified;
+
+        return $this;
+    }
+
+    public function hasMarketplaceAccess(): bool
+    {
+        return $this->marketplaceAccess;
+    }
+
+    public function setMarketplaceAccess(bool $marketplaceAccess): self
+    {
+        $this->marketplaceAccess = $marketplaceAccess;
 
         return $this;
     }

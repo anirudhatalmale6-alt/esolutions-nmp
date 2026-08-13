@@ -91,6 +91,11 @@
                                 {% if row.complimentary %}
                                     <span class="text-secondary small ms-1">· {{ 'Free'|trans }}</span>
                                 {% endif %}
+                                {# Only the hand-given grant is flagged here - Premium
+                                   already says it on the badge beside it. #}
+                                {% if row.marketplaceGranted %}
+                                    <span class="badge bg-secondary-lt ms-1" title="{{ 'Marketplace enabled for this business without Premium'|trans }}">{{ ux_icon('tabler:building-store', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Marketplace'|trans }}</span>
+                                {% endif %}
                             </td>
 
                             <td>
@@ -220,6 +225,18 @@
                         <label class="form-check">
                             <input class="form-check-input" type="checkbox" name="complimentary" value="1"{{ row.complimentary ? ' checked' }}>
                             <span class="form-check-label">{{ 'Complimentary (free)'|trans }} <span class="text-secondary">— {{ 'no charge'|trans }}</span></span>
+                        </label>
+                        {# Independent of the plan on purpose: this is how a business
+                           is let into the Marketplace without being moved to Premium. #}
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="marketplace_access" value="1"{{ row.marketplaceGranted ? ' checked' }}>
+                            <span class="form-check-label">
+                                {{ 'Marketplace'|trans }}
+                                <span class="text-secondary">— {{ 'let this business list its stock, no Premium needed'|trans }}</span>
+                                {% if row.marketplaceAccess and not row.marketplaceGranted %}
+                                    <span class="text-secondary">({{ 'already has it through Premium'|trans }})</span>
+                                {% endif %}
+                            </span>
                         </label>
                     </div>
                     <div class="col-12">

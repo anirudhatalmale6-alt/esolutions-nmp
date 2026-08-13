@@ -71,6 +71,23 @@ final class MembershipManager
         return $this->effectivePlan($company)->unlocksSalesChannels();
     }
 
+    /**
+     * Whether this company may use the Marketplace.
+     *
+     * Premium unlocks it as one of the sales channels, but the platform owner can
+     * also hand it to a business by name from the membership console without
+     * moving it onto Premium. Either route is enough - but a plan that has lapsed
+     * is not, so a business still has to be a paid-up member of the portal.
+     */
+    public function hasMarketplaceAccess(Company $company): bool
+    {
+        if ($this->hasSalesChannels($company)) {
+            return true;
+        }
+
+        return $company->hasMarketplaceAccess() && $this->isActive($company);
+    }
+
     public function isVerified(Company $company): bool
     {
         return $company->isVerified();
@@ -125,6 +142,16 @@ final class MembershipManager
     public function setVerified(Company $company, bool $verified): void
     {
         $company->setVerified($verified);
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Hand a company the Marketplace, or take it back, without touching its plan.
+     */
+    public function setMarketplaceAccess(Company $company, bool $marketplaceAccess): void
+    {
+        $company->setMarketplaceAccess($marketplaceAccess);
 
         $this->entityManager->flush();
     }

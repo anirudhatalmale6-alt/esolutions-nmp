@@ -36,8 +36,11 @@ use function str_starts_with;
  *                  lapsed, it is sent to the subscribe/upgrade page. Verification
  *                  ("trusted") is a separate manual badge - NOT required for Basic
  *                  access, only for a Premium upgrade.
- *   2. Premium   - the two public sales channels (Marketplace share + Online
- *                  Store admin) additionally require Premium.
+ *   2. Premium   - the public sales channels (Online Store admin, Orders and
+ *                  Unlock Codes) additionally require Premium. The Marketplace
+ *                  is the exception: Premium unlocks it, but the platform owner
+ *                  can also hand it to a business by name from the membership
+ *                  console, without moving it onto Premium.
  *
  * The platform owner (ROLE_SUPER_ADMIN) is never gated. Public shop-window pages,
  * login/registration, onboarding, company switching, profile and the membership
@@ -89,8 +92,17 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
      * is caught by the "_order" prefix check below, so new ones stay gated too.)
      * The public customer IMEI lookup (_unlock_public) stays free and open.
      */
-    private const PREMIUM_ROUTES = [
+    /**
+     * The Marketplace, which Premium unlocks like the others - but which the
+     * platform owner can also hand to a business by name from the membership
+     * console, without moving it onto Premium. Kept apart from the list below
+     * precisely so that grant opens the Marketplace and nothing else.
+     */
+    private const MARKETPLACE_ROUTES = [
         '_marketplace_settings',
+    ];
+
+    private const PREMIUM_ROUTES = [
         '_store_admin',
         '_store_import',
         '_store_image',
@@ -176,11 +188,24 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
             return;
         }
 
-        // 3. Premium sales-channel gate. Covers the explicit routes above plus
+        // 3a. Marketplace gate. Premium unlocks it, and so does a grant made by
+        // the platform owner - checked first so a granted business is not sent to
+        // the upgrade page for something it has already been given.
+        if (in_array($route, self::MARKETPLACE_ROUTES, true)) {
+            if (! $this->membership->hasMarketplaceAccess($company)) {
+                $this->flash($request, 'warning', 'The Marketplace is a Premium feature. Upgrade to Premium, or ask us to enable it for your business.');
+                $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
+                $event->stopPropagation();
+            }
+
+            return;
+        }
+
+        // 3b. Premium sales-channel gate. Covers the explicit routes above plus
         // every Orders route (_order… prefix), which lives behind the store.
         if ((in_array($route, self::PREMIUM_ROUTES, true) || str_starts_with($route, '_order'))
             && ! $this->membership->hasSalesChannels($company)) {
-            $this->flash($request, 'warning', 'The Online Store, Orders, Marketplace and Unlock Codes are Premium features. Upgrade to Premium to start using them.');
+            $this->flash($request, 'warning', 'The Online Store, Orders and Unlock Codes are Premium features. Upgrade to Premium to start using them.');
             $event->setResponse(new RedirectResponse($this->router->generate('_membership_upgrade')));
             $event->stopPropagation();
         }

@@ -23,6 +23,7 @@ use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\CoreBundle\Pdf\Generator;
 use SolidInvoice\CoreBundle\Repository\CreditNoteRepository;
+use SolidInvoice\CoreBundle\Refunds\InvoiceRefunds;
 use SolidInvoice\CoreBundle\Response\PdfResponse;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
@@ -57,6 +58,7 @@ final readonly class View
         private CompanySelector $companySelector,
         private InvoiceRepository $invoiceRepository,
         private WorkflowInterface $invoiceStateMachine,
+        private InvoiceRefunds $invoiceRefunds,
     ) {
     }
 
@@ -173,7 +175,7 @@ final readonly class View
         foreach ($creditNotes as $creditNote) {
             $amountMinor = BigDecimal::of($creditNote->getAmount())
                 ->multipliedBy(100)
-                ->toScale(0, RoundingMode::HALF_UP)
+                ->toScale(0, RoundingMode::HalfUp)
                 ->toBigInteger();
 
             $refundTotalMinor = $refundTotalMinor->plus($amountMinor);
@@ -193,29 +195,14 @@ final readonly class View
     /**
      * Whether this invoice has been refunded in full, in part, or not at all.
      *
-     * A refund never un-pays an invoice: the customer did pay it, and the money
-     * was then handed back, and both facts have to stay on the record. So the
-     * status quite correctly stays Paid - but on its own that reads like an
-     * ordinary completed sale, which is why the header says "Refunded" next to
-     * it. Both figures are in minor units (fils).
+     * The credit notes are already loaded and summed above for the totals block,
+     * so the sum is handed straight to InvoiceRefunds rather than read back out
+     * of the database - but the test itself lives there, so the marker on this
+     * page and the one on the invoice list can never disagree.
      */
     private function refundState(Invoice $invoice, string $refundTotalMinor): string
     {
-        $refunded = BigInteger::of($refundTotalMinor);
-
-        if ($refunded->isNegativeOrZero()) {
-            return 'none';
-        }
-
-        $total = $invoice->getTotal()->toBigInteger();
-
-        // A zero-total invoice with a refund against it can only be fully refunded;
-        // guarded here so the comparison below never has to divide by nothing.
-        if ($total->isNegativeOrZero()) {
-            return 'full';
-        }
-
-        return $refunded->isGreaterThanOrEqualTo($total) ? 'full' : 'partial';
+        return $this->invoiceRefunds->state(BigInteger::of($refundTotalMinor), $invoice->getTotal());
     }
 
     /**

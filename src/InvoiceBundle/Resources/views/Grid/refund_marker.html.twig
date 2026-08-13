@@ -1,0 +1,15 @@
+{#
+ # A coloured dot flagging that money went back out on this invoice, shown beside
+ # the status in the invoice list. A refunded invoice still reads "Paid" - the
+ # customer did pay it - so without this it looks like an ordinary completed sale
+ # and you would have to open every invoice to spot the refunds.
+ #
+ # Red = refunded in full, orange = part of it came back. Plain markup rather than
+ # an icon: this renders once per row, and an icon that is not already cached is
+ # fetched at render time.
+ #}
+{% set isFull = refund == 'full' %}
+<span class="ms-1"
+      title="{{ (isFull ? 'Fully refunded' : 'Partly refunded')|trans }}"
+      style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; background-color: {{ isFull ? '#d63939' : '#f76707' }};"></span>
+<span class="visually-hidden">{{ (isFull ? 'Fully refunded' : 'Partly refunded')|trans }}</span>

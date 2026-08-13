@@ -17,6 +17,7 @@ use Brick\Math\BigInteger;
 use Brick\Math\BigNumber;
 use Override;
 use SolidInvoice\ClientBundle\Entity\Contact;
+use SolidInvoice\CoreBundle\Refunds\InvoiceRefunds;
 use SolidInvoice\InvoiceBundle\DataGrid\InvoiceStatusView;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
@@ -103,13 +104,25 @@ final class InvoiceTemplateExtension extends AbstractExtension
             return '';
         }
 
-        return $environment->render(
+        $label = $environment->render(
             '@SolidInvoiceCore/Status/label.html.twig',
             [
                 'entity' => ['name' => $view->name, 'label' => $view->color],
                 'tooltip' => $tooltip,
             ]
         );
+
+        // Refunded invoices keep their Paid status, so the dot is what tells you
+        // at a glance that money went back out on this one. Appended here rather
+        // than inside the status template, which quotes and other entities share.
+        if ($view->refund !== InvoiceRefunds::NONE) {
+            $label .= $environment->render(
+                '@SolidInvoiceInvoice/Grid/refund_marker.html.twig',
+                ['refund' => $view->refund]
+            );
+        }
+
+        return $label;
     }
 
     /**

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\InvoiceBundle\DataGrid;
 
+use SolidInvoice\CoreBundle\Refunds\InvoiceRefunds;
 use Stringable;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
@@ -24,10 +25,23 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final readonly class InvoiceStatusView implements Stringable
 {
+    /**
+     * @param string $refund InvoiceRefunds::NONE, PARTIAL or FULL. A refunded
+     *                       invoice still reads "Paid" - correctly, the customer
+     *                       did pay it - so the grid puts a coloured dot beside
+     *                       the status to flag that money went back out. Kept out
+     *                       of __toString so the CSV export is unaffected.
+     */
     public function __construct(
         public string $name,
         public string $color,
+        public string $refund = InvoiceRefunds::NONE,
     ) {
+    }
+
+    public function withRefund(string $refund): self
+    {
+        return new self($this->name, $this->color, $refund);
     }
 
     public function __toString(): string

@@ -30,6 +30,7 @@ use SolidInvoice\DataGridBundle\GridBuilder\Column\StringColumn;
 use SolidInvoice\DataGridBundle\GridBuilder\Filter\ChoiceFilter;
 use SolidInvoice\DataGridBundle\GridBuilder\Filter\DateRangeFilter;
 use SolidInvoice\DataGridBundle\GridBuilder\Query;
+use SolidInvoice\CoreBundle\Refunds\InvoiceRefunds;
 use SolidInvoice\DataGridBundle\Source\ORMSource;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
@@ -44,6 +45,7 @@ abstract class BaseInvoiceGrid extends Grid
         protected readonly Calculator $calculator,
         protected readonly InvoiceTemplateExtension $invoiceTemplateExtension,
         protected readonly Security $security,
+        protected readonly InvoiceRefunds $invoiceRefunds,
     ) {
     }
 
@@ -78,7 +80,11 @@ abstract class BaseInvoiceGrid extends Grid
                 // The status enum has no "partially paid" state, so resolve a
                 // payment-aware view (shows "Partially Paid" once a deposit is
                 // captured). The view is Stringable, so CSV export stays clean.
-                ->formatValue(fn (mixed $value, Invoice $invoice): InvoiceStatusView => $this->invoiceTemplateExtension->invoiceStatusView($invoice))
+                // A refunded invoice stays Paid, so the view also carries whether
+                // money was handed back and the badge picks up a coloured dot.
+                ->formatValue(fn (mixed $value, Invoice $invoice): InvoiceStatusView => $this->invoiceTemplateExtension
+                    ->invoiceStatusView($invoice)
+                    ->withRefund($this->invoiceRefunds->stateFor($invoice)))
                 ->filter(ChoiceFilter::new('status', array_column(array_map(static fn (InvoiceStatus $s) => [$s->value, $s->getLabel()], InvoiceStatus::cases()), 1, 0))->multiple()),
             MoneyColumn::new('total')
                 ->searchable(false)

@@ -17,6 +17,7 @@ use Money\Currency;
 use RuntimeException;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\SettingsBundle\Repository\SettingsRepository;
+use Symfony\Component\Uid\Ulid;
 use Throwable;
 
 /**
@@ -43,7 +44,31 @@ class SystemConfig
             return null;
         }
 
-        return $this->repository->getSetting($key, $company)?->getValue();
+        if ($company instanceof Company) {
+            return $this->getForCompany($company, $key);
+        }
+
+        return $this->repository->getSetting($key)?->getValue();
+    }
+
+    /**
+     * A named company's setting, read without depending on - or disturbing - the
+     * company the request happens to be working in. A document uses this so it
+     * always shows the details of the business that issued it.
+     */
+    public function getForCompany(Company $company, string $key): ?string
+    {
+        if (null === $this->installed || '' === $this->installed) {
+            return null;
+        }
+
+        $companyId = $company->getId();
+
+        if (! $companyId instanceof Ulid) {
+            return null;
+        }
+
+        return $this->repository->valueForCompany($companyId, $key);
     }
 
     /**

@@ -304,18 +304,24 @@
             <div class="doc-card">
                 {# Document Header - From/To #}
                 <div class="doc-header-from-to">
+                    {# The "From" side is the business that ISSUED this invoice -
+                       invoice.company - never "whichever company the person
+                       reading it happens to be signed into". Reading the current
+                       company here meant an invoice belonging to one member could
+                       be shown with another business's name, e-mail and address
+                       on it. #}
                     <div class="doc-party doc-party-from">
                         <div class="doc-party-label">{{ 'invoice.from'|trans }}</div>
-                        <h3 class="doc-party-name">{{ company_name() }}</h3>
+                        <h3 class="doc-party-name">{{ invoice.company.name|default(company_name()) }}</h3>
 
-                        {% for identifier in tax_identifiers() %}
+                        {% for identifier in tax_identifiers(invoice.company) %}
                             <div class="doc-party-detail">
                                 <span class="detail-label">{{ identifier.label }}</span>
                                 <span class="detail-value">{{ identifier.value }}</span>
                             </div>
                         {% endfor %}
 
-                        {% set email = setting('system/company/contact_details/email') %}
+                        {% set email = company_setting(invoice.company, 'system/company/contact_details/email') %}
                         {% if email is not empty %}
                             <div class="doc-party-detail">
                                 {{ ux_icon('tabler:mail', {width: 14, height: 14}) }}
@@ -323,7 +329,7 @@
                             </div>
                         {% endif %}
 
-                        {% set phoneNumber = setting('system/company/contact_details/phone_number') %}
+                        {% set phoneNumber = company_setting(invoice.company, 'system/company/contact_details/phone_number') %}
                         {% if phoneNumber is not empty %}
                             <div class="doc-party-detail">
                                 {{ ux_icon('tabler:phone', {width: 14, height: 14}) }}
@@ -331,7 +337,7 @@
                             </div>
                         {% endif %}
 
-                        {% set address = setting('system/company/contact_details/address', null, true) %}
+                        {% set address = company_setting(invoice.company, 'system/company/contact_details/address', null, true) %}
                         {% if address is not null and address|filter(v => v) is not empty %}
                             <div class="doc-party-detail">
                                 {{ ux_icon('tabler:map-pin', {width: 14, height: 14}) }}

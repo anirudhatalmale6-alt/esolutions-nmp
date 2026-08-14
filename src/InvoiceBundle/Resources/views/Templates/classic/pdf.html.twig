@@ -14,7 +14,7 @@
             {% if setting('system/company/logo') is not empty %}
                 <div style="margin-bottom: 8px;">{{ app_logo(50) }}</div>
             {% endif %}
-            <div style="font-size: 16pt; font-weight: bold; color: #1e293b;">{{ company_name() }}</div>
+            <div style="font-size: 16pt; font-weight: bold; color: #1e293b;">{{ invoice.company.name|default(company_name()) }}</div>
         </td>
         <td style="padding: 16px 20px; vertical-align: top; text-align: right; width: 50%;">
             <div style="font-size: 9pt; color: #64748b; text-transform: uppercase; letter-spacing: 2px;">
@@ -28,7 +28,7 @@
 <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 24px;">
     <tr>
         <td style="width: 33%; vertical-align: top; padding-right: 16px;">
-            {{ inv.from_block() }}
+            {{ inv.from_block('invoice.from', invoice.company) }}
         </td>
         <td style="width: 33%; vertical-align: top; padding-right: 16px;">
             {{ inv.bill_to_block(invoice) }}

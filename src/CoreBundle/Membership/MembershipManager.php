@@ -114,6 +114,19 @@ final class MembershipManager
         return $company !== null && $this->hasSalesChannels($company);
     }
 
+    /**
+     * Can the company the user is currently working in use the Marketplace? True
+     * on Premium, and also when the platform owner has granted it by name. The
+     * sidebar asks this so a business that has been given the Marketplace is not
+     * still told to upgrade for something it already has.
+     */
+    public function currentHasMarketplaceAccess(): bool
+    {
+        $company = $this->currentCompany();
+
+        return $company !== null && $this->hasMarketplaceAccess($company);
+    }
+
     // ---- Mutations (used by the super-user panel; Stripe checkout later) ----
 
     /**

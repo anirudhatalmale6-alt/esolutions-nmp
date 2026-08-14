@@ -21,7 +21,7 @@
                 <div style="font-style: italic; font-size: 32pt; color: #1a1a1a; line-height: 1.0;">{{ 'invoice.number_prefix'|trans }} {{ invoice.invoiceId }}</div>
             </td>
             <td style="vertical-align: bottom; text-align: right;">
-                <div style="font-style: italic; font-size: 14pt; color: #2a2a2a;">{{ company_name() }}</div>
+                <div style="font-style: italic; font-size: 14pt; color: #2a2a2a;">{{ invoice.company.name|default(company_name()) }}</div>
                 <div style="font-size: 9pt; color: #6b6b6b;">{{ invoice.invoiceDate|date('F j, Y') }}</div>
             </td>
         </tr>
@@ -31,7 +31,7 @@
 <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 28px;">
     <tr>
         <td style="width: 8%; vertical-align: top;"><span class="editorial-marker">I.</span></td>
-        <td style="width: 46%; vertical-align: top;">{{ inv.from_block() }}</td>
+        <td style="width: 46%; vertical-align: top;">{{ inv.from_block('invoice.from', invoice.company) }}</td>
         <td style="width: 8%; vertical-align: top;"><span class="editorial-marker">II.</span></td>
         <td style="width: 38%; vertical-align: top;">{{ inv.bill_to_block(invoice) }}</td>
     </tr>

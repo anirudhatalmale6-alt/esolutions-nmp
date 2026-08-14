@@ -21,7 +21,7 @@
             </div>
         </td>
         <td style="padding: 12mm 16mm; vertical-align: top;">
-            <div style="font-family: Georgia, serif; font-size: 28pt; color: #2a2418; line-height: 1.0; margin-bottom: 4px;">{{ company_name() }}</div>
+            <div style="font-family: Georgia, serif; font-size: 28pt; color: #2a2418; line-height: 1.0; margin-bottom: 4px;">{{ invoice.company.name|default(company_name()) }}</div>
             <div style="font-size: 9pt; color: #7a6a4a; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px;">{{ 'invoice.template.photographer.subtitle'|trans }}</div>
 
             <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 24px;">
@@ -41,7 +41,7 @@
             <table cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 24px;">
                 <tr>
                     <td style="width: 50%; vertical-align: top;">{{ inv.bill_to_block(invoice, 'invoice.template.photographer.client_label') }}</td>
-                    <td style="width: 50%; vertical-align: top;">{{ inv.from_block('invoice.template.photographer.studio_label') }}</td>
+                    <td style="width: 50%; vertical-align: top;">{{ inv.from_block('invoice.template.photographer.studio_label', invoice.company) }}</td>
                 </tr>
             </table>
 

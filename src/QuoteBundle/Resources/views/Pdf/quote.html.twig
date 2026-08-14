@@ -60,26 +60,26 @@
 
             {# Company Name #}
             <div class="company-name" style="font-size: 18pt; font-weight: bold; color: #1e293b; margin-bottom: 8px;">
-                {{ company_name() }}
+                {{ quote.company.name|default(company_name()) }}
             </div>
 
             {# Company Details #}
             <div class="company-details" style="font-size: 9pt; color: #475569; line-height: 1.6;">
-                {% for identifier in tax_identifiers() %}
+                {% for identifier in tax_identifiers(quote.company) %}
                     <div><span style="font-weight: 600; color: #1e293b;">{{ identifier.label }}:</span> {{ identifier.value }}</div>
                 {% endfor %}
 
-                {% set email = setting('system/company/contact_details/email') %}
+                {% set email = company_setting(quote.company, 'system/company/contact_details/email') %}
                 {% if email is not empty %}
                     <div>{{ email }}</div>
                 {% endif %}
 
-                {% set phoneNumber = setting('system/company/contact_details/phone_number') %}
+                {% set phoneNumber = company_setting(quote.company, 'system/company/contact_details/phone_number') %}
                 {% if phoneNumber is not empty %}
                     <div>{{ phoneNumber }}</div>
                 {% endif %}
 
-                {% set companyAddress = setting('system/company/contact_details/address', null, true) %}
+                {% set companyAddress = company_setting(quote.company, 'system/company/contact_details/address', null, true) %}
                 {% if companyAddress is not empty %}
                     <div>{{ address(companyAddress)|replace({"\n": ", "}) }}</div>
                 {% endif %}

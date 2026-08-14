@@ -18,6 +18,7 @@ use Doctrine\DBAL\Exception;
 use JsonException;
 use Override;
 use SolidInvoice\ClientBundle\Entity\Address;
+use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\SettingsBundle\SystemConfig;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -41,6 +42,10 @@ class SettingsExtension extends AbstractExtension
     {
         return [
             new TwigFunction('setting', fn (string $setting, $default = null, $decode = false) => $this->getSetting($setting, $default, $decode)),
+            // Same as setting(), but for a named company rather than whichever
+            // company the request is in. Invoices and quotes use this so the
+            // "From" block is always the business that issued the document.
+            new TwigFunction('company_setting', fn (?Company $company, string $setting, $default = null, $decode = false) => $this->getCompanySetting($company, $setting, $default, $decode)),
             new TwigFunction('address', fn (array $address) => $this->renderAddress($address)),
         ];
     }
@@ -68,6 +73,40 @@ class SettingsExtension extends AbstractExtension
             return $default;
         }
 
+        return $this->present($setting, $default, $decode);
+    }
+
+    /**
+     * @param mixed|null $default
+     *
+     * @return mixed|null
+     *
+     * @throws JsonException
+     */
+    public function getCompanySetting(?Company $company, string $key, $default = null, bool $decode = false)
+    {
+        if (! $company instanceof Company) {
+            return $this->getSetting($key, $default, $decode);
+        }
+
+        try {
+            $setting = $this->config->getForCompany($company, $key);
+        } catch (Exception) {
+            return $default;
+        }
+
+        return $this->present($setting, $default, $decode);
+    }
+
+    /**
+     * @param mixed|null $default
+     *
+     * @return mixed|null
+     *
+     * @throws JsonException
+     */
+    private function present(?string $setting, $default, bool $decode)
+    {
         if (null === $setting) {
             return $default;
         }

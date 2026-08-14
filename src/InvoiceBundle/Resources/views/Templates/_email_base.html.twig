@@ -47,7 +47,7 @@
                 "paymentStatus": {{ (isPaid ? 'PaymentComplete' : 'PaymentDue')|json_encode(jsonFlags)|raw }},
                 "provider": {
                     "@type": "Organization",
-                    "name": {{ company_name()|json_encode(jsonFlags)|raw }}
+                    "name": {{ invoice.company.name|default(company_name())|json_encode(jsonFlags)|raw }}
                 },
                 "customer": {
                     "@type": "Organization",
@@ -78,7 +78,7 @@
             <row>
                 <columns>
                     <p style="color: #1e293b; font-size: 16px; line-height: 1.5; font-family: {{ headingFont }}; margin: 0 0 24px 0; Margin: 0 0 24px 0;">
-                        {{ 'invoice.info'|trans({'%company%': company_name(), '%created%': invoice.invoiceDate|date}, 'email') }}
+                        {{ 'invoice.info'|trans({'%company%': invoice.company.name|default(company_name()), '%created%': invoice.invoiceDate|date}, 'email') }}
                     </p>
                 </columns>
             </row>

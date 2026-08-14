@@ -34,7 +34,7 @@
                                 </td>
                                 <td style="vertical-align: top; text-align: right;">
                                     <div style="font-size: 8pt; letter-spacing: 2px; text-transform: uppercase; color: #6b6b6b;">
-                                        {{ company_name() }}
+                                        {{ invoice.company.name|default(company_name()) }}
                                     </div>
                                 </td>
                             </tr>

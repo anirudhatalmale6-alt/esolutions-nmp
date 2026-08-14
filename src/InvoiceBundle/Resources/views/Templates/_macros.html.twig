@@ -35,30 +35,34 @@
     </div>
 {% endmacro %}
 
-{% macro from_block(label='invoice.from') %}
+{# `company` is the business that issued the document. Passing it keeps the
+   From block tied to the issuer instead of to whichever company the person
+   viewing the document is signed into. Left null it falls back to the
+   current company, which is what a design preview wants. #}
+{% macro from_block(label='invoice.from', company=null) %}
     <div>
         <div style="font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px;">
             {{ label|trans }}
         </div>
         <div style="font-size: 14pt; font-weight: 600; color: #1e293b; margin-bottom: 8px;">
-            {{ company_name() }}
+            {{ company ? company.name : company_name() }}
         </div>
         <div style="font-size: 9pt; color: #475569; line-height: 1.6;">
-            {% for identifier in tax_identifiers() %}
+            {% for identifier in tax_identifiers(company) %}
                 <div><span style="font-weight: 600; color: #1e293b;">{{ identifier.label }}:</span> {{ identifier.value }}</div>
             {% endfor %}
 
-            {% set companyEmail = setting('system/company/contact_details/email') %}
+            {% set companyEmail = company_setting(company, 'system/company/contact_details/email') %}
             {% if companyEmail is not empty %}
                 <div>{{ companyEmail }}</div>
             {% endif %}
 
-            {% set companyPhone = setting('system/company/contact_details/phone_number') %}
+            {% set companyPhone = company_setting(company, 'system/company/contact_details/phone_number') %}
             {% if companyPhone is not empty %}
                 <div>{{ companyPhone }}</div>
             {% endif %}
 
-            {% set companyAddress = setting('system/company/contact_details/address', null, true) %}
+            {% set companyAddress = company_setting(company, 'system/company/contact_details/address', null, true) %}
             {% if companyAddress is not empty %}
                 <div>{{ address(companyAddress)|replace({"\n": ", "}) }}</div>
             {% endif %}

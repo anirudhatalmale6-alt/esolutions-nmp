@@ -32,10 +32,14 @@ final class MarketplaceMenu
     {
         $extras = ['icon' => 'crown'];
 
-        // Marketplace is a Premium sales channel. On non-Premium companies it
-        // stays visible but carries an "Upgrade to Premium" badge; the actual
-        // feature pages are blocked server-side (MembershipGateListener).
-        if (! $this->membership->currentHasSalesChannels()) {
+        // Premium unlocks the Marketplace, and so does a grant the platform owner
+        // has made for this business by name - so ask for Marketplace access, not
+        // for Premium. Asking for Premium here left a business that had already
+        // been given the Marketplace staring at an "Upgrade to Premium" badge on
+        // a menu it could open perfectly well. Without access the item stays
+        // visible but carries the badge; the pages themselves are blocked
+        // server-side (MembershipGateListener).
+        if (! $this->membership->currentHasMarketplaceAccess()) {
             $extras['plan_label'] = 'Premium';
         }
 

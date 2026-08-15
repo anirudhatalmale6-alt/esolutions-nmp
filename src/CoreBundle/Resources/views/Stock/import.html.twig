@@ -25,7 +25,11 @@
         </twig:block>
 
         <p class="text-muted">
-            {{ 'Upload the Excel stock summary exported from Tally. Each upload fully replaces the current stock list. The file is read exactly as Tally lays it out - every model with its grade breakdown, quantities, rates and values.'|trans }}
+            {{ 'Upload the Excel stock summary exported from Tally. This sets your opening figure - the quantity each item starts at. The file is read exactly as Tally lays it out: every model with its grade breakdown, quantities, rates and values.'|trans }}
+        </p>
+
+        <p class="text-muted">
+            {{ 'After that, the system keeps count on its own: invoices take stock out, purchases put it in, refunds put returned units back. You do not need to import again.'|trans }}
         </p>
 
         <form method="post" action="{{ path('_stock_import') }}" enctype="multipart/form-data" class="d-flex align-items-end gap-3 flex-wrap">
@@ -38,6 +42,16 @@
                 {{ ux_icon('tabler:upload', {width: 18, height: 18}) }}
                 {{ 'Import'|trans }}
             </button>
+
+            <div class="form-check w-100 mt-2">
+                <input class="form-check-input" type="checkbox" name="replace_live_stock" id="replace-live-stock" value="1">
+                <label class="form-check-label text-danger" for="replace-live-stock">
+                    {{ 'Replace the live count'|trans }}
+                    <span class="d-block text-muted small">
+                        {{ 'Only tick this if you want to start again from the sheet. Everything the system has counted since the last opening figure - today\'s sales, today\'s arrivals - is discarded.'|trans }}
+                    </span>
+                </label>
+            </div>
         </form>
     </twig:Ui:Card>
 

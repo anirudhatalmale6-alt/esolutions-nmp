@@ -16,6 +16,8 @@ namespace SolidInvoice\CoreBundle\Stock;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use LogicException;
 use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Entity\StockMovement;
@@ -37,18 +39,38 @@ use function method_exists;
  */
 final class StockLedger
 {
+    /**
+     * Takes the registry rather than the entity manager itself.
+     *
+     * The ledger is reached from a Doctrine event listener, and a listener that
+     * asks for the entity manager by name sits inside the graph that builds it.
+     * The registry hands one over on demand instead, which keeps this out of
+     * that knot entirely.
+     */
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly ManagerRegistry $registry,
         private readonly StockMovementRepository $movementRepository,
         private readonly Security $security,
     ) {
+    }
+
+    private function entityManager(): EntityManagerInterface
+    {
+        $manager = $this->registry->getManagerForClass(StockMovement::class);
+
+        if (! $manager instanceof EntityManagerInterface) {
+            throw new LogicException('No entity manager is configured for stock movements.');
+        }
+
+        return $manager;
     }
 
     /**
      * Record a movement and apply it to the model's running quantity.
      *
      * $sourceType / $sourceId tie the movement back to the document that caused
-     * it, so reverseSource() can undo exactly this later.
+     * it, so {@see StockPoster} can work out later what that document still
+     * owes - and undo it exactly when the document is cancelled or deleted.
      */
     public function record(
         StockModel $model,
@@ -75,7 +97,7 @@ final class StockLedger
             ->setMovedAt($movedAt ?? new DateTimeImmutable('today'))
             ->setRecordedBy($this->currentUserName());
 
-        $this->entityManager->persist($movement);
+        $this->entityManager()->persist($movement);
 
         $model->setQuantity($model->getQuantity() + $quantity);
 
@@ -84,53 +106,23 @@ final class StockLedger
         }
 
         if ($flush) {
-            $this->entityManager->flush();
+            $this->entityManager()->flush();
         }
 
         return $movement;
     }
 
     /**
-     * Undo everything a document did to stock, by writing opposite movements
-     * rather than deleting the originals - the history keeps showing that the
-     * stock went out and then came back, which is what actually happened.
+     * Write out movements recorded with flush: false.
      *
-     * Safe to call twice: the reversals it writes are themselves tagged to the
-     * same source, so a second call would find and cancel them out. Callers
-     * should still only reverse once, on cancel or delete.
+     * Undoing a document is not done by deleting its movements - it is done by
+     * writing opposite ones (see {@see StockPoster}), so the history keeps
+     * showing that the stock went out and then came back, which is what
+     * actually happened.
      */
-    public function reverseSource(string $sourceType, string $sourceId, StockMovementReason $reason, ?string $note = null): int
+    public function flush(): void
     {
-        $movements = $this->movementRepository->findForSource($sourceType, $sourceId);
-        $reversed = 0;
-
-        foreach ($movements as $movement) {
-            $model = $movement->getStockModel();
-
-            if (! $model instanceof StockModel || $movement->getQuantity() === 0) {
-                continue;
-            }
-
-            $this->record(
-                model: $model,
-                quantity: -$movement->getQuantity(),
-                reason: $reason,
-                reference: $movement->getReference(),
-                sourceType: $sourceType . ':reversal',
-                sourceId: $sourceId,
-                grade: $movement->getStockGrade(),
-                note: $note,
-                flush: false,
-            );
-
-            ++$reversed;
-        }
-
-        if ($reversed > 0) {
-            $this->entityManager->flush();
-        }
-
-        return $reversed;
+        $this->entityManager()->flush();
     }
 
     /**

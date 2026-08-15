@@ -12,6 +12,10 @@
 {% block title %}{{ ux_icon('tabler:box', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Stock'|trans }}{% endblock title %}
 
 {% block heading %}
+    <a href="{{ path('_stock_movements') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:clock', {width: 18, height: 18}) }}
+        {{ 'Stock history'|trans }}
+    </a>
     {% if is_granted('ROLE_MANAGER') %}
     <a href="{{ path('_stock_import') }}" class="btn btn-primary">
         {{ ux_icon('tabler:upload', {width: 18, height: 18}) }}
@@ -112,7 +116,9 @@
                 <tbody id="stock-body">
                     {% for model in models %}
                         <tr class="fw-bold stock-model-row" data-search="{{ (model.name ~ ' ' ~ model.grades|map(g => g.grade)|join(' '))|lower }}">
-                            <td>{{ model.name }}</td>
+                            <td>
+                                <a href="{{ path('_stock_movements', {model: model.id}) }}" class="text-reset">{{ model.name }}</a>
+                            </td>
                             <td class="text-end">{{ model.quantity|number_format }}</td>
                             <td class="text-end">AED {{ model.rate|number_format(2) }}</td>
                             <td class="text-end">AED {{ model.value|number_format(2) }}</td>

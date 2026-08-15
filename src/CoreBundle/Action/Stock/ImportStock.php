@@ -16,6 +16,7 @@ namespace SolidInvoice\CoreBundle\Action\Stock;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
+use SolidInvoice\CoreBundle\Stock\StockAlreadyLiveException;
 use SolidInvoice\CoreBundle\Stock\StockImporter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -81,11 +82,22 @@ final class ImportStock extends AbstractController
             $extension = 'xlsx';
         }
 
+        // Setting the opening figure again throws away everything the system has
+        // counted since, so it has to be asked for deliberately.
+        $force = $request->request->getBoolean('replace_live_stock');
+
         $movedFile = null;
 
         try {
             $movedFile = $file->move(sys_get_temp_dir(), uniqid('stock_import_', true) . '.' . $extension);
-            $summary = $this->stockImporter->import($movedFile->getPathname(), $company);
+            $summary = $this->stockImporter->import($movedFile->getPathname(), $company, $force);
+        } catch (StockAlreadyLiveException $e) {
+            $this->addFlash('error', sprintf(
+                '%s If you really want to start again from the sheet, tick "Replace the live count" and upload it again.',
+                $e->getMessage(),
+            ));
+
+            return $this->redirectToRoute('_stock_import');
         } catch (Throwable $e) {
             $this->addFlash('error', sprintf('Could not read that file. Please upload the Tally stock summary Excel export. (%s)', $e->getMessage()));
 
@@ -97,11 +109,15 @@ final class ImportStock extends AbstractController
         }
 
         $this->addFlash('success', sprintf(
-            'Stock updated: cleared %d previous item(s), then imported %d models, %d grades, %d units.',
-            $summary['replaced'],
+            'Opening stock set from the sheet: %d item(s) read (%d new, %d updated), %d grade rows, %d units in hand.%s',
             $summary['models'],
+            $summary['created'],
+            $summary['updated'],
             $summary['grades'],
             $summary['quantity'],
+            $summary['cleared'] > 0
+                ? sprintf(' %d item(s) not on the sheet were taken to zero.', $summary['cleared'])
+                : '',
         ));
 
         return $this->redirectToRoute('_stock_list');

@@ -17,6 +17,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\StoreProduct;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<StoreProduct>
@@ -56,7 +57,7 @@ class StoreProductRepository extends EntityRepository
     {
         return $this->createQueryBuilder('p')
             ->where('p.company = :company')
-            ->setParameter('company', $company)
+            ->setParameter('company', $company->getId(), UlidType::NAME)
             ->orderBy('p.featured', 'DESC')
             ->addOrderBy('p.position', 'ASC')
             ->addOrderBy('p.make', 'ASC')
@@ -75,7 +76,7 @@ class StoreProductRepository extends EntityRepository
         return $this->createQueryBuilder('p')
             ->where('p.company = :company')
             ->andWhere('p.sku = :sku')
-            ->setParameter('company', $company)
+            ->setParameter('company', $company->getId(), UlidType::NAME)
             ->setParameter('sku', $sku)
             ->setMaxResults(1)
             ->getQuery()

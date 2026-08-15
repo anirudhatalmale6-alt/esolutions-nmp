@@ -18,6 +18,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\CoreBundle\Entity\CustomerReceipt;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<CustomerReceipt>
@@ -71,7 +72,7 @@ class CustomerReceiptRepository extends EntityRepository
         $sum = $this->createQueryBuilder('r')
             ->select('SUM(r.amount)')
             ->where('r.client = :client')
-            ->setParameter('client', $client)
+            ->setParameter('client', $client->getId(), UlidType::NAME)
             ->getQuery()
             ->getSingleScalarResult();
 

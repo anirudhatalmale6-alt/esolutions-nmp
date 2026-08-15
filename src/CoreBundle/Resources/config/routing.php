@@ -32,9 +32,11 @@ use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Stock\StockMovements;
 use SolidInvoice\CoreBundle\Action\Stock\StockPicker;
 use SolidInvoice\CoreBundle\Action\Unlock\BulkUnlockLookup;
 use SolidInvoice\CoreBundle\Action\Unlock\ImportUnlockCodes;
@@ -87,6 +89,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_import', '/stock/import')
         ->controller(ImportStock::class);
+
+    // Why a quantity is what it is: every in and out, with the document behind
+    // it. Optionally narrowed to one item with ?model=<id>.
+    $routingConfigurator
+        ->add('_stock_movements', '/stock/movements')
+        ->controller(StockMovements::class)
+        ->methods(['GET']);
+
+    // Stock take: record what was actually counted on the shelf.
+    $routingConfigurator
+        ->add('_stock_adjust', '/stock/adjust')
+        ->controller(AdjustStock::class)
+        ->methods(['POST']);
 
     // Feeds the model picker on invoice / purchase lines with this company's own
     // stock, so a line can be linked to a real item rather than matched by name.

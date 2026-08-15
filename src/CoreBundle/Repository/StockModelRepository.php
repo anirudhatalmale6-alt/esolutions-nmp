@@ -13,12 +13,11 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Repository;
 
-use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
-use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<StockModel>
@@ -59,7 +58,7 @@ class StockModelRepository extends EntityRepository
             ->leftJoin('m.grades', 'g')
             ->addSelect('g')
             ->where('m.company = :company')
-            ->setParameter('company', $company)
+            ->setParameter('company', $company->getId(), UlidType::NAME)
             ->orderBy('m.name', 'ASC')
             ->getQuery()
             ->getResult();
@@ -96,45 +95,16 @@ class StockModelRepository extends EntityRepository
         return $list;
     }
 
-    /**
-     * Remove every stock model, and its grades, belonging to the given company.
-     * Used before a re-import so uploading a fresh list REPLACES the previous
-     * one instead of stacking duplicates on top of it.
+    /*
+     * deleteForCompany() used to live here: the Tally import called it to wipe
+     * the company's stock before rebuilding it from the sheet.
      *
-     * The grades are deleted first (explicitly) so the model delete can never
-     * trip a foreign-key constraint - this does not rely on the database FK
-     * having been created with ON DELETE CASCADE, which is not guaranteed on a
-     * schema that was built up with doctrine:schema:update.
-     *
-     * @return int the number of stock models that were removed
+     * It is gone deliberately, and must not come back. Deleting a stock model
+     * takes two things with it that are not obvious from the delete itself: the
+     * invoice and purchase lines pointing at it lose the link (the foreign key
+     * is ON DELETE SET NULL), and its entire movement history goes too (ON
+     * DELETE CASCADE) - so the audit trail behind every quantity disappears
+     * without a trace. The importer now matches items by name and adjusts what
+     * is already there instead; see StockImporter.
      */
-    public function deleteForCompany(Company $company): int
-    {
-        $companyId = $company->getId()?->toBinary();
-
-        if ($companyId === null) {
-            return 0;
-        }
-
-        // Delete straight through the DBAL connection on the real tables, by the
-        // binary company_id. This deliberately bypasses the ORM/DQL bulk-delete
-        // path (which was leaving the previous import in place) and the Doctrine
-        // company SQL-filter, so a re-upload reliably wipes the old stock first.
-        $connection = $this->getEntityManager()->getConnection();
-
-        // 1. Child grades first (models of this company).
-        $connection->executeStatement(
-            'DELETE FROM ' . StockGrade::TABLE_NAME
-            . ' WHERE stock_model_id IN (SELECT id FROM ' . StockModel::TABLE_NAME . ' WHERE company_id = ?)',
-            [$companyId],
-            [ParameterType::BINARY]
-        );
-
-        // 2. The models themselves - return how many rows were cleared.
-        return (int) $connection->executeStatement(
-            'DELETE FROM ' . StockModel::TABLE_NAME . ' WHERE company_id = ?',
-            [$companyId],
-            [ParameterType::BINARY]
-        );
-    }
 }

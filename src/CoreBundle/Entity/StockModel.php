@@ -138,6 +138,15 @@ class StockModel implements Stringable
         return $this;
     }
 
+    public function removeGrade(StockGrade $grade): self
+    {
+        if ($this->grades->removeElement($grade)) {
+            $grade->setStockModel(null);
+        }
+
+        return $this;
+    }
+
     public function __toString(): string
     {
         return $this->name;

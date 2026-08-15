@@ -21,6 +21,7 @@ use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 use function sprintf;
 use function str_pad;
 use const STR_PAD_LEFT;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<StoreOrder>
@@ -93,7 +94,7 @@ class StoreOrderRepository extends EntityRepository
         $count = (int) $this->createQueryBuilder('o')
             ->select('COUNT(o.id)')
             ->where('o.company = :company')
-            ->setParameter('company', $company)
+            ->setParameter('company', $company->getId(), UlidType::NAME)
             ->getQuery()
             ->getSingleScalarResult();
 

@@ -15,9 +15,15 @@ namespace SolidInvoice\CoreBundle\Repository;
 
 use DateTimeInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Entity\StockMovement;
+use SolidInvoice\CoreBundle\Enum\StockMovementReason;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Uid\Ulid;
+use function is_string;
+use function strlen;
 
 /**
  * @extends EntityRepository<StockMovement>
@@ -38,7 +44,7 @@ class StockMovementRepository extends EntityRepository
     {
         return $this->createQueryBuilder('m')
             ->where('m.stockModel = :model')
-            ->setParameter('model', $model)
+            ->setParameter('model', $model->getId(), UlidType::NAME)
             ->orderBy('m.movedAt', 'DESC')
             ->addOrderBy('m.created', 'DESC')
             ->getQuery()
@@ -82,6 +88,109 @@ class StockMovementRepository extends EntityRepository
     }
 
     /**
+     * How many real movements a company has recorded - everything except the
+     * opening figure itself.
+     *
+     * A count above zero means the system, not the Tally sheet, now knows what
+     * is on the shelf; see {@see \SolidInvoice\CoreBundle\Stock\StockAlreadyLiveException}.
+     */
+    public function countLiveMovementsForCompany(Company $company): int
+    {
+        return (int) $this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->join('m.stockModel', 'model')
+            ->where('model.company = :company')
+            ->andWhere('m.reason != :baseline')
+            ->setParameter('company', $company->getId(), UlidType::NAME)
+            ->setParameter('baseline', StockMovementReason::Baseline->value)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * The stock history for the business the user is signed into, newest first,
+     * capped so a busy vendor's page stays fast. Company scoping comes from the
+     * CompanyFilter.
+     *
+     * @return list<StockMovement>
+     */
+    public function findRecent(?StockModel $model = null, int $limit = 300): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->join('m.stockModel', 'model')
+            ->addSelect('model')
+            ->orderBy('m.movedAt', 'DESC')
+            ->addOrderBy('m.created', 'DESC')
+            ->setMaxResults($limit);
+
+        if ($model instanceof StockModel) {
+            $qb->where('m.stockModel = :model')
+                ->setParameter('model', $model->getId(), UlidType::NAME);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * What a document has already put through the ledger, per stock item.
+     *
+     * The posting side compares this against what the document says today and
+     * writes only the difference, so saving the same invoice twice moves nothing
+     * the second time.
+     *
+     * @return array<string, int> stock model id => net quantity already posted
+     */
+    public function netBySourceGroupedByModel(string $sourceType, string $sourceId): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.stockModel) AS model_id', 'SUM(m.quantity) AS net')
+            ->where('m.sourceType = :type')
+            ->andWhere('m.sourceId = :id')
+            ->setParameter('type', $sourceType)
+            ->setParameter('id', $sourceId)
+            ->groupBy('m.stockModel')
+            ->getQuery()
+            ->getArrayResult();
+
+        $net = [];
+
+        foreach ($rows as $row) {
+            $modelId = self::normaliseId($row['model_id']);
+
+            if ($modelId === null) {
+                continue;
+            }
+
+            $net[$modelId] = (int) $row['net'];
+        }
+
+        return $net;
+    }
+
+    /**
+     * IDENTITY() hands the foreign key back as whatever the driver produced -
+     * raw 16 bytes, a hex string, or an already-converted Ulid. Bring all three
+     * to the one canonical string so the map keys line up with the ids the
+     * posting side works with.
+     */
+    private static function normaliseId(mixed $value): ?string
+    {
+        if ($value instanceof Ulid) {
+            return (string) $value;
+        }
+
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        if (Ulid::isValid($value)) {
+            return (string) Ulid::fromString($value);
+        }
+
+        return strlen($value) === 16 ? (string) Ulid::fromBinary($value) : null;
+    }
+
+    /**
      * The net of every movement for a model - what its quantity SHOULD be.
      * The running figure on StockModel is what it actually is; comparing the two
      * catches drift.
@@ -91,7 +200,12 @@ class StockMovementRepository extends EntityRepository
         $sum = $this->createQueryBuilder('m')
             ->select('SUM(m.quantity)')
             ->where('m.stockModel = :model')
-            ->setParameter('model', $model)
+            // Bound as the id with its type spelled out. A Ulid primary key is
+            // 16 raw bytes in the column; left to infer the type from the
+            // entity, the comparison goes in as the readable 26-character form
+            // and quietly matches nothing - which reads as "no history" rather
+            // than as an error.
+            ->setParameter('model', $model->getId(), UlidType::NAME)
             ->getQuery()
             ->getSingleScalarResult();
 

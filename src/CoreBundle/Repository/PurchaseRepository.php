@@ -17,6 +17,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\ClientBundle\Entity\Client;
 use SolidInvoice\CoreBundle\Entity\Purchase;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<Purchase>
@@ -54,7 +55,7 @@ class PurchaseRepository extends EntityRepository
     {
         return $this->createQueryBuilder('p')
             ->andWhere('p.client = :client')
-            ->setParameter('client', $client)
+            ->setParameter('client', $client->getId(), UlidType::NAME)
             ->orderBy('p.purchaseDate', 'DESC')
             ->addOrderBy('p.created', 'DESC')
             ->getQuery()

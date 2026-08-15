@@ -19,6 +19,7 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\UnlockCode;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 use function preg_replace;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<UnlockCode>
@@ -63,7 +64,7 @@ class UnlockCodeRepository extends EntityRepository
         return (int) $this->createQueryBuilder('u')
             ->select('COUNT(u.id)')
             ->where('u.company = :company')
-            ->setParameter('company', $company)
+            ->setParameter('company', $company->getId(), UlidType::NAME)
             ->getQuery()
             ->getSingleScalarResult();
     }

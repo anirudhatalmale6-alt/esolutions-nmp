@@ -18,6 +18,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
+use Symfony\Bridge\Doctrine\Types\UlidType;
 
 /**
  * @extends EntityRepository<CreditNote>
@@ -53,7 +54,7 @@ class CreditNoteRepository extends EntityRepository
     {
         return $this->createQueryBuilder('cn')
             ->where('cn.invoice = :invoice')
-            ->setParameter('invoice', $invoice)
+            ->setParameter('invoice', $invoice->getId(), UlidType::NAME)
             ->orderBy('cn.created', 'DESC')
             ->getQuery()
             ->getResult();

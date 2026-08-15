@@ -1,0 +1,124 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:box', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Stock history'|trans }}{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_stock_list') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to stock'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    {% if model %}
+        <twig:Ui:Card class="mb-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div>
+                    <div class="text-muted small">{{ 'Item'|trans }}</div>
+                    <div class="h4 mb-0">{{ model.name }}</div>
+                </div>
+                <div class="ms-auto text-end">
+                    <div class="text-muted small">{{ 'In hand'|trans }}</div>
+                    <div class="h4 mb-0">{{ model.quantity|number_format }}</div>
+                </div>
+            </div>
+
+            {% if inSync is same as(false) %}
+                {# The running figure and the history disagree, which means something
+                   changed the quantity without going through the ledger. Say so
+                   rather than showing a number that cannot be explained. #}
+                <div class="alert alert-warning mt-3 mb-0">
+                    {{ 'This item shows %actual% in hand, but its history adds up to %expected%. Count the shelf and record it below to put the two back in step.'|trans({'%actual%': model.quantity, '%expected%': expected}) }}
+                </div>
+            {% endif %}
+
+            {% if is_granted('ROLE_MANAGER') %}
+                <hr>
+                <form method="post" action="{{ path('_stock_adjust') }}" class="row g-2 align-items-end">
+                    <input type="hidden" name="_token" value="{{ csrf_token('stock.adjust') }}">
+                    <input type="hidden" name="model" value="{{ model.id }}">
+                    <div class="col-auto">
+                        <label for="counted" class="form-label mb-1">{{ 'Counted on the shelf'|trans }}</label>
+                        <input type="number" step="1" name="counted" id="counted" class="form-control" style="max-width: 160px;" value="{{ model.quantity }}" required>
+                    </div>
+                    <div class="col">
+                        <label for="adjust-note" class="form-label mb-1">{{ 'Why (optional)'|trans }}</label>
+                        <input type="text" name="note" id="adjust-note" class="form-control" placeholder="{{ 'Stock take, damaged unit, lost in transit...'|trans }}">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">{{ 'Record count'|trans }}</button>
+                    </div>
+                </form>
+                <div class="text-muted small mt-2">
+                    {{ 'Enter what is actually there. The difference is recorded as a correction, so the history still shows what changed and who changed it.'|trans }}
+                </div>
+            {% endif %}
+        </twig:Ui:Card>
+    {% else %}
+        <p class="text-muted">
+            {{ 'Every movement in and out of stock, newest first. Open an item from the stock list to see just that item and to record a count.'|trans }}
+        </p>
+    {% endif %}
+
+    <twig:Ui:Card>
+        {% if movements is empty %}
+            <div class="text-center py-5 text-muted">
+                {{ ux_icon('tabler:box-off', {width: 40, height: 40}) }}
+                <p class="mt-3 mb-1">{{ 'No stock has moved yet.'|trans }}</p>
+                <p class="mb-0 small">{{ 'Raising an invoice takes stock out and entering a purchase puts it in - both will show here.'|trans }}</p>
+            </div>
+        {% else %}
+            <table class="table table-vcenter">
+                <thead>
+                    <tr>
+                        <th>{{ 'Date'|trans }}</th>
+                        {% if not model %}<th>{{ 'Item'|trans }}</th>{% endif %}
+                        <th>{{ 'Reason'|trans }}</th>
+                        <th>{{ 'Document'|trans }}</th>
+                        <th class="text-end">{{ 'Change'|trans }}</th>
+                        <th>{{ 'Recorded by'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movement in movements %}
+                        <tr>
+                            <td class="text-nowrap">{{ movement.movedAt ? movement.movedAt|date('d M Y') : '' }}</td>
+                            {% if not model %}
+                                <td>
+                                    <a href="{{ path('_stock_movements', {model: movement.stockModel.id}) }}">{{ movement.stockModel.name }}</a>
+                                </td>
+                            {% endif %}
+                            <td>
+                                <span class="badge bg-{{ movement.reason.colour }}-lt">{{ movement.reason.label }}</span>
+                                {% if movement.note %}
+                                    <div class="text-muted small">{{ movement.note }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set target = stock_movement_link(movement) %}
+                                {% if target %}
+                                    <a href="{{ target }}">{{ movement.reference|default('View') }}</a>
+                                {% else %}
+                                    {{ movement.reference|default('-') }}
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold {{ movement.quantity > 0 ? 'text-green' : 'text-red' }}">
+                                {{ movement.quantity > 0 ? '+' : '' }}{{ movement.quantity|number_format }}
+                            </td>
+                            <td class="text-muted">{{ movement.recordedBy|default('-') }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock content %}

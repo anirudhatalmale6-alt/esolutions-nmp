@@ -55,6 +55,17 @@ class PurchaseItem
     #[ORM\JoinColumn(name: 'stock_model_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?StockModel $stockModel = null;
 
+    /**
+     * Which grade of that item arrived on this line.
+     *
+     * A shipment of 100 handsets is normally 60 of one grade and 40 of another,
+     * entered as two lines, because that is how they are priced and sold. Null
+     * where the item is not graded at all.
+     */
+    #[ORM\ManyToOne(targetEntity: StockGrade::class)]
+    #[ORM\JoinColumn(name: 'stock_grade_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?StockGrade $stockGrade = null;
+
     #[ORM\Column(name: 'qty', type: Types::DECIMAL, precision: 15, scale: 2)]
     private string $qty = '1';
 
@@ -103,6 +114,18 @@ class PurchaseItem
     public function getStockModel(): ?StockModel
     {
         return $this->stockModel;
+    }
+
+    public function setStockGrade(?StockGrade $stockGrade): self
+    {
+        $this->stockGrade = $stockGrade;
+
+        return $this;
+    }
+
+    public function getStockGrade(): ?StockGrade
+    {
+        return $this->stockGrade;
     }
 
     public function getQty(): string

@@ -173,6 +173,10 @@
                                            beside the description so the picker can find it as a sibling.
                                            Empty = a line that is not stock, which moves no quantity. #}
                                         {{ form_widget(item.stockModel) }}
+                                        {# And which grade of it, because that is what is actually sold
+                                           and what the quantity comes out of. #}
+                                        {{ form_widget(item.stockGrade) }}
+                                        <span class="nmp-grade-badge" data-stock-grade-label></span>
                                         {{ form_errors(item.description) }}
                                     </div>
                                     <div class="column-price">

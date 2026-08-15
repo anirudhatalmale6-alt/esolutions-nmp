@@ -82,6 +82,10 @@
                                         {# The stock item behind this line, set by the model picker.
                                            Empty = a line that is not stock (freight, customs, a service). #}
                                         <input type="hidden" name="item_stock_model[]" data-stock-model-field value="{{ row.stock_model_id|default('') }}">
+                                        {# And which grade arrived on this line. A shipment is normally
+                                           entered as one line per grade. #}
+                                        <input type="hidden" name="item_stock_grade[]" data-stock-grade-field value="{{ row.stock_grade_id|default('') }}">
+                                        <span class="nmp-grade-badge" data-stock-grade-label></span>
                                     </td>
                                     <td>
                                         <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="{{ row.qty }}">
@@ -199,6 +203,8 @@
                 <td>
                     <input type="text" name="item_description[]" class="form-control item-desc" placeholder="{{ 'e.g. iPhone 15 128GB'|trans }}">
                     <input type="hidden" name="item_stock_model[]" data-stock-model-field value="">
+                    <input type="hidden" name="item_stock_grade[]" data-stock-grade-field value="">
+                    <span class="nmp-grade-badge" data-stock-grade-label></span>
                 </td>
                 <td>
                     <input type="number" step="0.01" min="0" name="item_qty[]" class="form-control text-end item-qty" value="1">

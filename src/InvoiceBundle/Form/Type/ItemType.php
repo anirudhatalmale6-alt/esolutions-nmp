@@ -16,6 +16,7 @@ namespace SolidInvoice\InvoiceBundle\Form\Type;
 use Doctrine\Persistence\ManagerRegistry;
 use Money\Currency;
 use Override;
+use SolidInvoice\CoreBundle\Form\Transformer\StockGradeTransformer;
 use SolidInvoice\CoreBundle\Form\Transformer\StockModelTransformer;
 use SolidInvoice\InvoiceBundle\Entity\Line;
 use SolidInvoice\TaxBundle\Entity\Tax;
@@ -38,6 +39,7 @@ class ItemType extends AbstractType
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly StockModelTransformer $stockModelTransformer,
+        private readonly StockGradeTransformer $stockGradeTransformer,
     ) {
     }
 
@@ -89,6 +91,20 @@ class ItemType extends AbstractType
                 ],
             ]
         )->get('stockModel')->addModelTransformer($this->stockModelTransformer);
+
+        // Which grade of that item. Set by the same picker, which offers one
+        // suggestion per grade - the owner sells "S22 Grade A", not "S22", and
+        // the quantity has to come out of the grade that was actually sold.
+        $builder->add(
+            'stockGrade',
+            HiddenType::class,
+            [
+                'required' => false,
+                'attr' => [
+                    'data-stock-grade-field' => true,
+                ],
+            ]
+        )->get('stockGrade')->addModelTransformer($this->stockGradeTransformer);
 
         // Internal IMEI capture for this line (comma-separated, entered via the
         // per-line IMEI popup). Hidden input; never shown to the customer.

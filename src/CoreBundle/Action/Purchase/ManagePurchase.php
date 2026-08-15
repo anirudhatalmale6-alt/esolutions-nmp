@@ -23,6 +23,7 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\Purchase;
 use SolidInvoice\CoreBundle\Entity\PurchaseItem;
 use SolidInvoice\CoreBundle\Entity\PurchasePayment;
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\PurchaseRepository;
@@ -164,11 +165,14 @@ final class ManagePurchase extends AbstractController
         $purchase->clearItems();
 
         foreach ($data['items'] as $row) {
+            $model = $this->resolveStockModel($row['stock_model_id'] ?? '');
+
             $item = new PurchaseItem();
             $item->setDescription($row['description'])
                 ->setQty($row['qty'])
                 ->setPrice($row['price'])
-                ->setStockModel($this->resolveStockModel($row['stock_model_id'] ?? ''));
+                ->setStockModel($model)
+                ->setStockGrade($this->resolveStockGrade($model, $row['stock_grade_id'] ?? ''));
             $item->recalculateTotal();
             $purchase->addItem($item);
         }
@@ -214,7 +218,7 @@ final class ManagePurchase extends AbstractController
      * Quantities/prices default to sensible numbers so a half-filled row never
      * breaks the maths.
      *
-     * @return list<array{description: string, qty: string, price: string, stock_model_id: string}>
+     * @return list<array{description: string, qty: string, price: string, stock_model_id: string, stock_grade_id: string}>
      */
     private function parseItems(Request $request): array
     {
@@ -222,6 +226,7 @@ final class ManagePurchase extends AbstractController
         $quantities = $request->request->all('item_qty');
         $prices = $request->request->all('item_price');
         $stockModels = $request->request->all('item_stock_model');
+        $stockGrades = $request->request->all('item_stock_grade');
 
         if (! is_array($descriptions)) {
             return [];
@@ -235,6 +240,7 @@ final class ManagePurchase extends AbstractController
             $qtyRaw = trim((string) ($quantities[$i] ?? ''));
             $priceRaw = trim((string) ($prices[$i] ?? ''));
             $stockModelId = trim((string) (is_array($stockModels) ? ($stockModels[$i] ?? '') : ''));
+            $stockGradeId = trim((string) (is_array($stockGrades) ? ($stockGrades[$i] ?? '') : ''));
 
             // Ignore a completely empty row.
             if ($description === '' && $qtyRaw === '' && $priceRaw === '') {
@@ -249,6 +255,7 @@ final class ManagePurchase extends AbstractController
                 'qty' => $qty,
                 'price' => $price,
                 'stock_model_id' => Ulid::isValid($stockModelId) ? $stockModelId : '',
+                'stock_grade_id' => Ulid::isValid($stockGradeId) ? $stockGradeId : '',
             ];
         }
 
@@ -269,6 +276,29 @@ final class ManagePurchase extends AbstractController
         }
 
         return $this->stockModelRepository->find(Ulid::fromString($id));
+    }
+
+    /**
+     * Resolve the grade the picker linked, but only if it really belongs to the
+     * item on the same line.
+     *
+     * A grade from a different handset would put the units somewhere nobody
+     * would think to look for them, so a mismatch drops back to an ungraded
+     * line rather than being trusted.
+     */
+    private function resolveStockGrade(?StockModel $model, string $id): ?StockGrade
+    {
+        if (! $model instanceof StockModel || $id === '' || ! Ulid::isValid($id)) {
+            return null;
+        }
+
+        foreach ($model->getGrades() as $grade) {
+            if ((string) $grade->getId() === $id) {
+                return $grade;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -353,6 +383,7 @@ final class ManagePurchase extends AbstractController
                 'qty' => $item->getQty(),
                 'price' => $item->getPrice(),
                 'stock_model_id' => $item->getStockModel() !== null ? (string) $item->getStockModel()->getId() : '',
+                'stock_grade_id' => $item->getStockGrade() !== null ? (string) $item->getStockGrade()->getId() : '',
             ];
         }
 

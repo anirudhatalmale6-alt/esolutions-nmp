@@ -134,6 +134,22 @@ class Company implements Stringable, SubscribableInterface
     private bool $marketplaceAccess = false;
 
     /**
+     * Whether this business's documents move its stock.
+     *
+     * OFF means nothing changed: quantities only move when somebody uploads the
+     * Tally sheet, exactly as before. ON means invoices take stock out and
+     * purchases put it in, and the system becomes the thing that knows what is
+     * on the shelf.
+     *
+     * Deliberately off to begin with, and set per business rather than for the
+     * whole portal. A vendor who runs on Tally can carry on doing so, one who
+     * has never used Tally can work entirely in here, and either can switch when
+     * they are ready instead of on the day an update lands.
+     */
+    #[ORM\Column(name: 'live_stock', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $liveStock = false;
+
+    /**
      * The referral / sales link code that brought this company onto the platform
      * (see ReferralLink). NULL for companies that predate the referral system or
      * were created directly by the platform owner. Used to attribute a signup to
@@ -406,6 +422,18 @@ class Company implements Stringable, SubscribableInterface
     public function setMarketplaceAccess(bool $marketplaceAccess): self
     {
         $this->marketplaceAccess = $marketplaceAccess;
+
+        return $this;
+    }
+
+    public function hasLiveStock(): bool
+    {
+        return $this->liveStock;
+    }
+
+    public function setLiveStock(bool $liveStock): self
+    {
+        $this->liveStock = $liveStock;
 
         return $this;
     }

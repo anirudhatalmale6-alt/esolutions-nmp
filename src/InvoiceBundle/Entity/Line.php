@@ -31,6 +31,7 @@ use Doctrine\ORM\Mapping as ORM;
 use SolidInvoice\ApiBundle\State\Processor\InvoiceLinePersistProcessor;
 use SolidInvoice\CoreBundle\Doctrine\Type\BigIntegerType;
 use SolidInvoice\CoreBundle\Entity\LineInterface;
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Traits\Entity\CompanyAware;
 use SolidInvoice\CoreBundle\Traits\Entity\TimeStampable;
@@ -146,6 +147,17 @@ class Line implements LineInterface, Stringable
     #[ORM\JoinColumn(name: 'stock_model_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     protected ?StockModel $stockModel = null;
 
+    /**
+     * Which grade of that item is being sold.
+     *
+     * The same handset in A and in B are different things at different prices,
+     * so a sale comes out of one grade, not out of the model as a whole. Null
+     * where the item is not graded at all.
+     */
+    #[ORM\ManyToOne(targetEntity: StockGrade::class)]
+    #[ORM\JoinColumn(name: 'stock_grade_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    protected ?StockGrade $stockGrade = null;
+
     #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'lines')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(
@@ -209,6 +221,18 @@ class Line implements LineInterface, Stringable
     public function getStockModel(): ?StockModel
     {
         return $this->stockModel;
+    }
+
+    public function setStockGrade(?StockGrade $stockGrade): static
+    {
+        $this->stockGrade = $stockGrade;
+
+        return $this;
+    }
+
+    public function getStockGrade(): ?StockGrade
+    {
+        return $this->stockGrade;
     }
 
     public function setImei(?string $imei): static

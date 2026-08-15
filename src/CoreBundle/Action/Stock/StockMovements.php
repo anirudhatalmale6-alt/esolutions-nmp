@@ -40,7 +40,7 @@ final readonly class StockMovements
     }
 
     /**
-     * @return array{movements: list<\SolidInvoice\CoreBundle\Entity\StockMovement>, model: ?StockModel, inSync: ?bool, expected: ?int}
+     * @return array{movements: list<\SolidInvoice\CoreBundle\Entity\StockMovement>, model: ?StockModel, inSync: ?bool, expected: ?int, gradesAddUp: ?bool}
      */
     #[Template('@SolidInvoiceCore/Stock/movements.html.twig')]
     public function __invoke(Request $request): array
@@ -54,6 +54,9 @@ final readonly class StockMovements
             // agrees with the history behind it.
             'inSync' => $model instanceof StockModel ? $this->ledger->isInSync($model) : null,
             'expected' => $model instanceof StockModel ? $this->movementRepository->netQuantityForModel($model) : null,
+            // And whether its grades still add up to that figure, which is the
+            // other way the two halves can drift apart.
+            'gradesAddUp' => $model instanceof StockModel ? $this->ledger->gradesAddUp($model) : null,
         ];
     }
 

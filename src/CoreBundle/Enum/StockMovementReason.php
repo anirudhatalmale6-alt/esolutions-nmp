@@ -38,6 +38,13 @@ enum StockMovementReason: string
     /** Counted by hand: stock-take correction, damage, loss or theft. */
     case Adjustment = 'adjustment';
 
+    /**
+     * Moved between grades on the same item - stock received as A that turns
+     * out to be C. Nothing enters or leaves the building, so these always come
+     * in pairs that cancel out on the item's total.
+     */
+    case Regrade = 'regrade';
+
     public function label(): string
     {
         return match ($this) {
@@ -47,6 +54,7 @@ enum StockMovementReason: string
             self::Return => 'Customer return',
             self::PurchaseReturn => 'Returned to supplier',
             self::Adjustment => 'Manual adjustment',
+            self::Regrade => 'Regraded',
         };
     }
 
@@ -59,8 +67,9 @@ enum StockMovementReason: string
         return match ($this) {
             self::Baseline, self::Purchase, self::Return => true,
             self::Sale, self::PurchaseReturn => false,
-            // An adjustment can go either way, so it follows the entered sign.
-            self::Adjustment => true,
+            // An adjustment or a regrade can go either way, so both follow the
+            // sign that was entered.
+            self::Adjustment, self::Regrade => true,
         };
     }
 
@@ -71,6 +80,7 @@ enum StockMovementReason: string
             self::Purchase, self::Return => 'green',
             self::Sale, self::PurchaseReturn => 'blue',
             self::Adjustment => 'orange',
+            self::Regrade => 'purple',
         };
     }
 }

@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
+use SolidInvoice\CoreBundle\Stock\OpeningStock;
 
 /**
  * Single source of truth for "what can this company do" as far as membership
@@ -30,6 +31,7 @@ final class MembershipManager
         private readonly CompanySelector $companySelector,
         private readonly CompanyRepository $companyRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly OpeningStock $openingStock,
     ) {
     }
 
@@ -165,6 +167,32 @@ final class MembershipManager
     public function setMarketplaceAccess(Company $company, bool $marketplaceAccess): void
     {
         $company->setMarketplaceAccess($marketplaceAccess);
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Turn live stock tracking on or off for one business.
+     *
+     * Switching it ON is the moment its quantities stop coming from Tally and
+     * start being kept by the system, so whatever it holds right now is written
+     * into the ledger as the opening figure. Without that, every quantity would
+     * start life as a number with nothing behind it, and the first person to ask
+     * "why does this say twelve" would get no answer.
+     *
+     * Switching it OFF simply stops documents moving stock. Nothing already
+     * recorded is touched - the history stands, and turning it back on picks up
+     * where it left off.
+     */
+    public function setLiveStock(Company $company, bool $liveStock): void
+    {
+        $wasOn = $company->hasLiveStock();
+
+        $company->setLiveStock($liveStock);
+
+        if ($liveStock && ! $wasOn) {
+            $this->openingStock->recordFor($company);
+        }
 
         $this->entityManager->flush();
     }

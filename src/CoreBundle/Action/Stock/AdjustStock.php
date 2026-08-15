@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action\Stock;
 
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Entity\StockMovement;
 use SolidInvoice\CoreBundle\Repository\StockModelRepository;
@@ -69,25 +70,59 @@ final class AdjustStock extends AbstractController
             return $this->redirectToRoute('_stock_movements', ['model' => $id]);
         }
 
+        // Counting happens per grade where the item has them, because that is
+        // what is actually stacked on the shelf.
+        $grade = $this->grade($model, (string) $request->request->get('grade'));
+
+        if ($grade === null && ! $model->getGrades()->isEmpty()) {
+            $this->addFlash('error', 'Choose which grade you counted.');
+
+            return $this->redirectToRoute('_stock_movements', ['model' => $id]);
+        }
+
         $note = trim((string) $request->request->get('note'));
-        $before = $model->getQuantity();
-        $movement = $this->ledger->setCountedQuantity($model, (int) $counted, $note !== '' ? $note : null);
+        $what = $grade instanceof StockGrade
+            ? sprintf('%s (%s)', $model->getName(), $grade->getGrade())
+            : $model->getName();
+        $before = $grade instanceof StockGrade ? $grade->getQuantity() : $model->getQuantity();
+        $movement = $this->ledger->setCountedQuantity($model, (int) $counted, $note !== '' ? $note : null, $grade);
 
         if (! $movement instanceof StockMovement) {
-            $this->addFlash('info', sprintf('%s was already showing %d - nothing to correct.', $model->getName(), $before));
+            $this->addFlash('info', sprintf('%s was already showing %d - nothing to correct.', $what, $before));
 
             return $this->redirectToRoute('_stock_movements', ['model' => $id]);
         }
 
         $this->addFlash('success', sprintf(
             '%s corrected from %d to %d (%s%d).',
-            $model->getName(),
+            $what,
             $before,
-            $model->getQuantity(),
+            $grade instanceof StockGrade ? $grade->getQuantity() : $model->getQuantity(),
             $movement->getQuantity() > 0 ? '+' : '',
             $movement->getQuantity(),
         ));
 
         return $this->redirectToRoute('_stock_movements', ['model' => $id]);
+    }
+
+    /**
+     * Resolve a grade from the item's own list, so an id from elsewhere on the
+     * portal simply does not resolve.
+     */
+    private function grade(StockModel $model, string $id): ?StockGrade
+    {
+        $id = trim($id);
+
+        if ($id === '' || ! Ulid::isValid($id)) {
+            return null;
+        }
+
+        foreach ($model->getGrades() as $grade) {
+            if ((string) $grade->getId() === $id) {
+                return $grade;
+            }
+        }
+
+        return null;
     }
 }

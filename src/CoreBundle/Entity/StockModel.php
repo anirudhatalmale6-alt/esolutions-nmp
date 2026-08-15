@@ -138,14 +138,13 @@ class StockModel implements Stringable
         return $this;
     }
 
-    public function removeGrade(StockGrade $grade): self
-    {
-        if ($this->grades->removeElement($grade)) {
-            $grade->setStockModel(null);
-        }
-
-        return $this;
-    }
+    /*
+     * There is deliberately no removeGrade(). The collection is orphanRemoval,
+     * so dropping a grade DELETES it - and invoice and purchase lines point at
+     * a grade (ON DELETE SET NULL), so every line that ever sold it would
+     * quietly lose the link. A grade that no longer holds anything is taken to
+     * zero instead; see StockImporter::applyQuantities().
+     */
 
     public function __toString(): string
     {

@@ -160,7 +160,7 @@ final class StockSyncListener
             default => null,
         };
 
-        if ($document === null || $document->getId() === null) {
+        if ($document === null || $document->getId() === null || ! $this->tracksStock($document)) {
             return;
         }
 
@@ -190,7 +190,7 @@ final class StockSyncListener
             default => [null, null],
         };
 
-        if ($reason === null) {
+        if ($reason === null || ! $this->tracksStock($entity)) {
             return;
         }
 
@@ -206,6 +206,25 @@ final class StockSyncListener
             'reason' => $reason,
             'note' => (string) $note,
         ];
+    }
+
+    /**
+     * Whether this document's business has asked for its stock to be kept live.
+     *
+     * Off by default and set per business, so an update landing does not change
+     * how anybody's day works. A vendor running on Tally carries on importing;
+     * one who has never used Tally works entirely in here. Nothing about this
+     * listener runs for a business that has not switched it on.
+     */
+    private function tracksStock(Invoice | Purchase | CreditNote $document): bool
+    {
+        try {
+            return $document->getCompany()->hasLiveStock();
+        } catch (Throwable) {
+            // A document whose company is not loaded (or not set yet) is not
+            // something to guess about.
+            return false;
+        }
     }
 
     private function sourceType(Invoice | Purchase | CreditNote $document): string

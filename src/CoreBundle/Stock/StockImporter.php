@@ -113,12 +113,8 @@ final class StockImporter
             $model->setRate($entry['model']['rate'])
                 ->setValue($entry['model']['value']);
 
-            $this->replaceGrades($model, $entry['grades']);
             $gradeCount += count($entry['grades']);
-
-            if ($this->setOpeningQuantity($model, $entry['model']['qty']) !== null) {
-                ++$adjusted;
-            }
+            $adjusted += $this->applyQuantities($model, $entry);
 
             $seen[$key] = true;
             $totalQuantity += $entry['model']['qty'];
@@ -132,7 +128,13 @@ final class StockImporter
         $cleared = 0;
 
         foreach ($existing as $key => $model) {
-            if (! isset($seen[$key]) && $this->setOpeningQuantity($model, 0) !== null) {
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $emptied = $this->applyQuantities($model, ['model' => ['qty' => 0], 'grades' => []]);
+
+            if ($emptied > 0) {
                 ++$cleared;
             }
         }
@@ -152,13 +154,81 @@ final class StockImporter
     }
 
     /**
-     * Move an item to the figure on the sheet, recording the difference as the
-     * opening stock. Nothing is written when it already agrees, so re-uploading
-     * the same sheet does not litter the history with no-op rows.
+     * Bring an item to the figures on the sheet, GRADE BY GRADE, recording each
+     * difference as opening stock.
+     *
+     * Grades are matched by name and adjusted, never deleted and rebuilt. They
+     * used to be replaced wholesale, which was fine while a grade was only a
+     * display breakdown - but invoice and purchase lines now point at a grade,
+     * so dropping one silently unlinks every line that sold it.
+     *
+     * An item's total is not set directly here at all. Each grade movement
+     * carries the model total with it, so the total is always exactly what its
+     * grades add up to rather than a second figure that can disagree with them.
+     *
+     * @param array{model: array{qty: int}, grades: list<array{name: string, qty: int, rate: string, value: string}>} $entry
+     *
+     * @return int how many figures actually moved
      */
-    private function setOpeningQuantity(StockModel $model, int $quantity): ?StockMovement
+    private function applyQuantities(StockModel $model, array $entry): int
     {
-        $difference = $quantity - $model->getQuantity();
+        $existing = [];
+
+        foreach ($model->getGrades() as $grade) {
+            $existing[$this->key($grade->getGrade())] = $grade;
+        }
+
+        // No grade breakdown at all: the item is a single figure of its own.
+        if ($entry['grades'] === [] && $existing === []) {
+            return $this->setOpeningQuantity($model, $entry['model']['qty']) instanceof StockMovement ? 1 : 0;
+        }
+
+        $adjusted = 0;
+        $seen = [];
+
+        foreach ($entry['grades'] as $row) {
+            $key = $this->key($row['name']);
+            $grade = $existing[$key] ?? null;
+
+            if (! $grade instanceof StockGrade) {
+                $grade = new StockGrade();
+                $grade->setGrade($row['name']);
+                $model->addGrade($grade);
+                $this->entityManager->persist($grade);
+                $existing[$key] = $grade;
+            }
+
+            $grade->setRate($row['rate'])
+                ->setValue($row['value']);
+
+            if ($this->setOpeningQuantity($model, $row['qty'], $grade) instanceof StockMovement) {
+                ++$adjusted;
+            }
+
+            $seen[$key] = true;
+        }
+
+        // A grade the sheet no longer lists holds nothing. Taken to zero rather
+        // than removed, so the lines that sold it keep pointing at something.
+        foreach ($existing as $key => $grade) {
+            if (! isset($seen[$key]) && $this->setOpeningQuantity($model, 0, $grade) instanceof StockMovement) {
+                ++$adjusted;
+            }
+        }
+
+        return $adjusted;
+    }
+
+    /**
+     * Move an item, or one grade of it, to the figure on the sheet, recording
+     * the difference as the opening stock. Nothing is written when it already
+     * agrees, so re-uploading the same sheet does not litter the history with
+     * no-op rows.
+     */
+    private function setOpeningQuantity(StockModel $model, int $quantity, ?StockGrade $grade = null): ?StockMovement
+    {
+        $current = $grade instanceof StockGrade ? $grade->getQuantity() : $model->getQuantity();
+        $difference = $quantity - $current;
 
         if ($difference === 0) {
             return null;
@@ -170,33 +240,10 @@ final class StockImporter
             reason: StockMovementReason::Baseline,
             reference: 'Tally stock import',
             sourceType: self::SOURCE_IMPORT,
+            grade: $grade,
             note: 'Opening figure taken from the Tally stock summary',
             flush: false,
         );
-    }
-
-    /**
-     * Grades are re-read from the sheet each time. They are a breakdown of the
-     * model total for display, not something invoices move on their own, so
-     * replacing them wholesale is safe where replacing the model is not.
-     *
-     * @param list<array{name: string, qty: int, rate: string, value: string}> $gradeRows
-     */
-    private function replaceGrades(StockModel $model, array $gradeRows): void
-    {
-        foreach ($model->getGrades() as $grade) {
-            $model->removeGrade($grade);
-        }
-
-        foreach ($gradeRows as $gradeRow) {
-            $grade = new StockGrade();
-            $grade->setGrade($gradeRow['name'])
-                ->setQuantity($gradeRow['qty'])
-                ->setRate($gradeRow['rate'])
-                ->setValue($gradeRow['value']);
-            $model->addGrade($grade);
-            $this->entityManager->persist($grade);
-        }
     }
 
     /**

@@ -15,6 +15,7 @@ namespace SolidInvoice\CoreBundle\Repository;
 
 use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 use Symfony\Bridge\Doctrine\Types\UlidType;
@@ -66,13 +67,18 @@ class StockModelRepository extends EntityRepository
 
     /**
      * The lightweight list behind the model picker on invoice / purchase lines:
-     * id, name and quantity in hand, nothing else.
+     * id, name, quantity in hand, and the grade breakdown.
+     *
+     * The grades are here because a line sells a grade, not an item - "S22" is
+     * not something anybody sells, "S22 Grade A" is. The picker offers one entry
+     * per grade so the choice is made once, while typing, instead of through a
+     * second dropdown afterwards.
      *
      * Deliberately NOT the full entities - this is fetched on every billing page
-     * and a vendor can hold hundreds of models, so it stays a flat array with no
-     * grades joined. Company scoping comes from the CompanyFilter.
+     * and a vendor can hold hundreds of models, so it stays flat arrays and two
+     * queries. Company scoping comes from the CompanyFilter.
      *
-     * @return list<array{id: string, name: string, qty: int}>
+     * @return list<array{id: string, name: string, qty: int, grades: list<array{id: string, grade: string, qty: int}>}>
      */
     public function pickerList(): array
     {
@@ -82,17 +88,56 @@ class StockModelRepository extends EntityRepository
             ->getQuery()
             ->getArrayResult();
 
+        $grades = $this->gradesByModel();
         $list = [];
 
         foreach ($rows as $row) {
+            $id = (string) $row['id'];
+
             $list[] = [
-                'id' => (string) $row['id'],
+                'id' => $id,
                 'name' => (string) $row['name'],
                 'qty' => (int) $row['quantity'],
+                'grades' => $grades[$id] ?? [],
             ];
         }
 
         return $list;
+    }
+
+    /**
+     * Every grade of this company's stock, keyed by the item it belongs to.
+     *
+     * @return array<string, list<array{id: string, grade: string, qty: int}>>
+     */
+    private function gradesByModel(): array
+    {
+        $rows = $this->getEntityManager()
+            ->createQuery(
+                'SELECT g.id AS id, g.grade AS grade, g.quantity AS quantity, IDENTITY(g.stockModel) AS model_id
+                 FROM ' . StockGrade::class . ' g
+                 JOIN g.stockModel m
+                 ORDER BY g.grade ASC'
+            )
+            ->getArrayResult();
+
+        $grades = [];
+
+        foreach ($rows as $row) {
+            $modelId = StockMovementRepository::normaliseIdentity($row['model_id']);
+
+            if ($modelId === null) {
+                continue;
+            }
+
+            $grades[$modelId][] = [
+                'id' => (string) $row['id'],
+                'grade' => (string) $row['grade'],
+                'qty' => (int) $row['quantity'],
+            ];
+        }
+
+        return $grades;
     }
 
     /*

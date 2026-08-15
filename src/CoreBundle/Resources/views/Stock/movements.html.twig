@@ -32,6 +32,27 @@
                 </div>
             </div>
 
+            {% if model.grades|length %}
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm table-vcenter mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Grade'|trans }}</th>
+                                <th class="text-end">{{ 'In hand'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in model.grades %}
+                                <tr>
+                                    <td>{{ grade.grade }}</td>
+                                    <td class="text-end fw-bold">{{ grade.quantity|number_format }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
             {% if inSync is same as(false) %}
                 {# The running figure and the history disagree, which means something
                    changed the quantity without going through the ledger. Say so
@@ -41,14 +62,31 @@
                 </div>
             {% endif %}
 
+            {% if gradesAddUp is same as(false) %}
+                <div class="alert alert-warning mt-3 mb-0">
+                    {{ 'The grades below do not add up to the item total. Counting each grade will put it right.'|trans }}
+                </div>
+            {% endif %}
+
             {% if is_granted('ROLE_MANAGER') %}
                 <hr>
                 <form method="post" action="{{ path('_stock_adjust') }}" class="row g-2 align-items-end">
                     <input type="hidden" name="_token" value="{{ csrf_token('stock.adjust') }}">
                     <input type="hidden" name="model" value="{{ model.id }}">
+                    {% if model.grades|length %}
+                        <div class="col-auto">
+                            <label for="count-grade" class="form-label mb-1">{{ 'Grade counted'|trans }}</label>
+                            <select name="grade" id="count-grade" class="form-select" required>
+                                <option value="">{{ 'Choose...'|trans }}</option>
+                                {% for grade in model.grades %}
+                                    <option value="{{ grade.id }}">{{ grade.grade }} ({{ grade.quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
                     <div class="col-auto">
                         <label for="counted" class="form-label mb-1">{{ 'Counted on the shelf'|trans }}</label>
-                        <input type="number" step="1" name="counted" id="counted" class="form-control" style="max-width: 160px;" value="{{ model.quantity }}" required>
+                        <input type="number" step="1" name="counted" id="counted" class="form-control" style="max-width: 160px;" required>
                     </div>
                     <div class="col">
                         <label for="adjust-note" class="form-label mb-1">{{ 'Why (optional)'|trans }}</label>
@@ -61,6 +99,46 @@
                 <div class="text-muted small mt-2">
                     {{ 'Enter what is actually there. The difference is recorded as a correction, so the history still shows what changed and who changed it.'|trans }}
                 </div>
+
+                {% if model.grades|length > 1 %}
+                    <hr>
+                    <form method="post" action="{{ path('_stock_regrade') }}" class="row g-2 align-items-end">
+                        <input type="hidden" name="_token" value="{{ csrf_token('stock.regrade') }}">
+                        <input type="hidden" name="model" value="{{ model.id }}">
+                        <div class="col-auto">
+                            <label for="regrade-qty" class="form-label mb-1">{{ 'Move'|trans }}</label>
+                            <input type="number" step="1" min="1" name="quantity" id="regrade-qty" class="form-control" style="max-width: 110px;" required>
+                        </div>
+                        <div class="col-auto">
+                            <label for="regrade-from" class="form-label mb-1">{{ 'From'|trans }}</label>
+                            <select name="from" id="regrade-from" class="form-select" required>
+                                <option value="">{{ 'Choose...'|trans }}</option>
+                                {% for grade in model.grades %}
+                                    <option value="{{ grade.id }}">{{ grade.grade }} ({{ grade.quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label for="regrade-to" class="form-label mb-1">{{ 'To'|trans }}</label>
+                            <select name="to" id="regrade-to" class="form-select" required>
+                                <option value="">{{ 'Choose...'|trans }}</option>
+                                {% for grade in model.grades %}
+                                    <option value="{{ grade.id }}">{{ grade.grade }} ({{ grade.quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="regrade-note" class="form-label mb-1">{{ 'Why (optional)'|trans }}</label>
+                            <input type="text" name="note" id="regrade-note" class="form-control" placeholder="{{ 'Failed inspection, downgraded on arrival...'|trans }}">
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-outline-primary">{{ 'Move between grades'|trans }}</button>
+                        </div>
+                    </form>
+                    <div class="text-muted small mt-2">
+                        {{ 'For units that turn out to be a different grade than they were booked in as. Nothing enters or leaves - the item total stays the same.'|trans }}
+                    </div>
+                {% endif %}
             {% endif %}
         </twig:Ui:Card>
     {% else %}
@@ -82,6 +160,7 @@
                     <tr>
                         <th>{{ 'Date'|trans }}</th>
                         {% if not model %}<th>{{ 'Item'|trans }}</th>{% endif %}
+                        <th>{{ 'Grade'|trans }}</th>
                         <th>{{ 'Reason'|trans }}</th>
                         <th>{{ 'Document'|trans }}</th>
                         <th class="text-end">{{ 'Change'|trans }}</th>
@@ -97,6 +176,13 @@
                                     <a href="{{ path('_stock_movements', {model: movement.stockModel.id}) }}">{{ movement.stockModel.name }}</a>
                                 </td>
                             {% endif %}
+                            <td>
+                                {% if movement.stockGrade %}
+                                    <span class="badge bg-secondary-lt">{{ movement.stockGrade.grade }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <span class="badge bg-{{ movement.reason.colour }}-lt">{{ movement.reason.label }}</span>
                                 {% if movement.note %}

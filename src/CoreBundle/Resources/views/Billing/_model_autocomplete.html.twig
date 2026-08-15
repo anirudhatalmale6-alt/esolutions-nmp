@@ -44,6 +44,8 @@
     // Invoice / quote lines are textareas; purchase lines are plain inputs.
     var FIELD_SELECTOR = "textarea.invoice-item-name, textarea.quote-item-name, input.item-desc";
     var LINK_SELECTOR = "[data-stock-model-field]";
+    var GRADE_SELECTOR = "[data-stock-grade-field]";
+    var GRADE_LABEL_SELECTOR = "[data-stock-grade-label]";
     // Only SELLING can go over stock, so the check is on invoice / quote rows.
     // A purchase adds stock, so there is nothing to exceed.
     var QTY_SELECTOR = "input.invoice-item-qty, input.quote-item-qty";
@@ -105,7 +107,10 @@
             ".nmp-ac .nmp-ac-qty{flex:0 0 auto;font-size:.75rem;font-weight:600;" +
             "padding:.05rem .4rem;border-radius:10px;background:#e8f5e9;color:#2e7d32;}" +
             ".nmp-ac .nmp-ac-qty.nmp-ac-out{background:#fdecea;color:#c62828;}" +
-            ".nmp-ac li.nmp-active .nmp-ac-qty,.nmp-ac li:hover .nmp-ac-qty{background:rgba(255,255,255,.25);color:#fff;}";
+            ".nmp-ac li.nmp-active .nmp-ac-qty,.nmp-ac li:hover .nmp-ac-qty{background:rgba(255,255,255,.25);color:#fff;}" +
+            ".nmp-ac .nmp-ac-grade{flex:0 0 auto;font-size:.7rem;font-weight:600;letter-spacing:.02em;" +
+            "padding:.05rem .4rem;border-radius:10px;background:#ede7f6;color:#4527a0;}" +
+            ".nmp-ac li.nmp-active .nmp-ac-grade,.nmp-ac li:hover .nmp-ac-grade{background:rgba(255,255,255,.25);color:#fff;}";
         document.head.appendChild(style);
 
         box = document.createElement("ul");
@@ -125,21 +130,45 @@
     // The hidden input holding this line's stock item id. Looked up within the
     // line's own cell/column so one row can never write into another's.
     function linkFieldFor(el) {
-        var scope = el.closest(".column-description, td, .billing-item-row, .purchase-item-row");
-        return scope ? scope.querySelector(LINK_SELECTOR) : null;
+        return fieldWithin(el, LINK_SELECTOR);
     }
 
-    function setLink(el, id) {
-        var link = linkFieldFor(el);
-        if (!link) { return; }
-        var current = link.value || "";
-        var next = id || "";
-        if (current === next) { return; }
+    function scopeFor(el) {
+        return el.closest(".column-description, td, .billing-item-row, .purchase-item-row");
+    }
+
+    function fieldWithin(el, selector) {
+        var scope = scopeFor(el);
+        return scope ? scope.querySelector(selector) : null;
+    }
+
+    function writeField(input, value) {
+        if (!input) { return false; }
+        var next = value || "";
+        if ((input.value || "") === next) { return false; }
         var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-        setter.call(link, next);
+        setter.call(input, next);
         // Let the Live Component pick up the change on invoice/quote lines.
-        link.dispatchEvent(new Event("input", { bubbles: true }));
-        link.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+    }
+
+    // Show the chosen grade beside the description, so a line that says only
+    // "Samsung S22" still makes plain WHICH S22 is being sold.
+    function showGrade(el, grade) {
+        var label = fieldWithin(el, GRADE_LABEL_SELECTOR);
+        if (!label) { return; }
+        ensureWarnStyles();
+        label.textContent = grade || "";
+        label.style.display = grade ? "inline-block" : "none";
+    }
+
+    function setLink(el, id, gradeId, gradeName) {
+        var changed = writeField(linkFieldFor(el), id);
+        changed = writeField(fieldWithin(el, GRADE_SELECTOR), gradeId) || changed;
+        showGrade(el, gradeName);
+        if (!changed) { return; }
         // The line now points somewhere else, so re-judge the quantity on it.
         checkRow(el.closest(ROW_SELECTOR));
     }
@@ -155,6 +184,23 @@
     function nameForId(id) {
         var row = rowForId(id);
         return row ? row.name : null;
+    }
+
+    // How many are held on the exact thing this line points at: the grade when
+    // one was chosen, otherwise the item as a whole.
+    function heldFor(id, gradeId) {
+        var row = rowForId(id);
+        if (!row) { return null; }
+        if (!gradeId) { return { qty: row.qty, grade: null }; }
+        var grades = Array.isArray(row.grades) ? row.grades : [];
+        for (var i = 0; i < grades.length; i++) {
+            if (String(grades[i].id) === String(gradeId)) {
+                return { qty: grades[i].qty, grade: grades[i].grade };
+            }
+        }
+        // The grade has gone (emptied, or renamed in Tally). Fall back to the
+        // item rather than claim the line is over stock.
+        return { qty: row.qty, grade: null };
     }
 
     // --- over-stock marking ------------------------------------------------
@@ -175,25 +221,33 @@
             ".nmp-over-stock{border-color:#dc3545 !important;" +
             "box-shadow:0 0 0 .2rem rgba(220,53,69,.18) !important;}" +
             ".nmp-stock-warn{color:#c62828;font-size:.75rem;font-weight:600;" +
-            "margin-top:.2rem;line-height:1.3;white-space:nowrap;}";
+            "margin-top:.2rem;line-height:1.3;white-space:nowrap;}" +
+            ".nmp-grade-badge{display:none;margin-top:.25rem;font-size:.7rem;font-weight:600;" +
+            "letter-spacing:.02em;padding:.05rem .4rem;border-radius:10px;" +
+            "background:#ede7f6;color:#4527a0;}";
         document.head.appendChild(style);
     }
 
     function checkRow(row) {
         if (!row) { return; }
+        refreshGradeBadge(row);
         var qtyInput = row.querySelector(QTY_SELECTOR);
         if (!qtyInput) { return; }
 
         var link = row.querySelector(LINK_SELECTOR);
-        var item = link ? rowForId(link.value) : null;
+        var gradeField = row.querySelector(GRADE_SELECTOR);
+        var item = link && link.value
+            ? heldFor(link.value, gradeField ? gradeField.value : null)
+            : null;
         var entered = parseFloat(qtyInput.value);
         // Unlinked line, stock list not loaded, or nothing typed yet - no claim
         // to make, so make none.
         var over = item !== null && !isNaN(entered) && entered > item.qty;
 
         var warn = row.querySelector(".nmp-stock-warn");
+        var where = over && item.grade ? " in " + item.grade : "";
         var wantText = over
-            ? (item.qty > 0 ? "Only " + item.qty + " in stock" : "None in stock")
+            ? (item.qty > 0 ? "Only " + item.qty + where + " in stock" : "None" + where + " in stock")
             : "";
 
         var hasClass = qtyInput.classList.contains("nmp-over-stock");
@@ -223,6 +277,29 @@
         }
     }
 
+    // Put the grade name back on a row from the id it is carrying. Needed on
+    // page load and after any re-render, where only the hidden id survives.
+    function refreshGradeBadge(row) {
+        var label = row.querySelector(GRADE_LABEL_SELECTOR);
+        if (!label) { return; }
+        var link = row.querySelector(LINK_SELECTOR);
+        var gradeField = row.querySelector(GRADE_SELECTOR);
+        var gradeId = gradeField ? gradeField.value : "";
+        var held = link && link.value && gradeId ? heldFor(link.value, gradeId) : null;
+        var name = held && held.grade ? held.grade : "";
+
+        if (label.textContent === name) { return; }
+
+        marking = true;
+        try {
+            ensureWarnStyles();
+            label.textContent = name;
+            label.style.display = name ? "inline-block" : "none";
+        } finally {
+            marking = false;
+        }
+    }
+
     function sweep() {
         if (!stock) { return; }
         var rows = document.querySelectorAll(ROW_SELECTOR);
@@ -247,7 +324,7 @@
         // Stock list not loaded yet - leave the link alone, we cannot judge it.
         if (linked === null) { return; }
         var typed = splitValue(el.value).first.trim().toLowerCase();
-        if (typed !== linked.toLowerCase()) { setLink(el, ""); }
+        if (typed !== linked.toLowerCase()) { setLink(el, "", "", ""); }
     }
 
     // Split the value into line 1 (the model) and "the rest" (from the first
@@ -274,13 +351,31 @@
         var starts = [], contains = [];
 
         // 1. Their own stock first - these are the ones that can move quantity.
+        //    One entry PER GRADE, because a grade is what is actually sold: the
+        //    owner picks "S22 Grade A", not "S22" followed by a second choice.
         if (stock) {
             for (var i = 0; i < stock.length; i++) {
                 var row = stock[i];
                 if (!row || typeof row.name !== "string") { continue; }
                 var at = row.name.toLowerCase().indexOf(q);
-                if (at === 0) { starts.push({ name: row.name, id: row.id, qty: row.qty }); }
-                else if (at > 0) { contains.push({ name: row.name, id: row.id, qty: row.qty }); }
+                if (at < 0) { continue; }
+                var bucket = at === 0 ? starts : contains;
+                var grades = Array.isArray(row.grades) ? row.grades : [];
+
+                if (grades.length === 0) {
+                    bucket.push({ name: row.name, id: row.id, qty: row.qty, gradeId: null, grade: null });
+                    continue;
+                }
+
+                for (var g = 0; g < grades.length; g++) {
+                    bucket.push({
+                        name: row.name,
+                        id: row.id,
+                        qty: grades[g].qty,
+                        gradeId: grades[g].id,
+                        grade: grades[g].grade
+                    });
+                }
             }
         }
 
@@ -292,8 +387,8 @@
                 var lc = name.toLowerCase();
                 if (lc === q || (stockNames && stockNames.has(lc))) { continue; }
                 var pos = lc.indexOf(q);
-                if (pos === 0) { starts.push({ name: name, id: null, qty: null }); }
-                else if (pos > 0) { contains.push({ name: name, id: null, qty: null }); }
+                if (pos === 0) { starts.push({ name: name, id: null, qty: null, gradeId: null, grade: null }); }
+                else if (pos > 0) { contains.push({ name: name, id: null, qty: null, gradeId: null, grade: null }); }
             }
         }
 
@@ -308,6 +403,9 @@
             var it = items[i];
             html += '<li data-i="' + i + '"' + (i === active ? ' class="nmp-active"' : '') + '>' +
                 '<span class="nmp-ac-name">' + escapeHtml(it.name) + '</span>';
+            if (it.grade) {
+                html += '<span class="nmp-ac-grade">' + escapeHtml(it.grade) + '</span>';
+            }
             if (it.id) {
                 var out = !(it.qty > 0);
                 html += '<span class="nmp-ac-qty' + (out ? ' nmp-ac-out' : '') + '">' +
@@ -350,7 +448,7 @@
         setter.call(field, picked.name + parts.rest);
         // Link the line to the stock item, or clear any previous link when the
         // pick came from the master name list rather than their own stock.
-        setLink(field, picked.id || "");
+        setLink(field, picked.id || "", picked.gradeId || "", picked.grade || "");
         // Let the Live Component pick up the new value.
         field.dispatchEvent(new Event("input", { bubbles: true }));
         field.dispatchEvent(new Event("change", { bubbles: true }));

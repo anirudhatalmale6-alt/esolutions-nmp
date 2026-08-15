@@ -35,7 +35,9 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
+use SolidInvoice\CoreBundle\Action\Stock\ManageStockItem;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
+use SolidInvoice\CoreBundle\Action\Stock\RegradeStock;
 use SolidInvoice\CoreBundle\Action\Stock\StockMovements;
 use SolidInvoice\CoreBundle\Action\Stock\StockPicker;
 use SolidInvoice\CoreBundle\Action\Unlock\BulkUnlockLookup;
@@ -102,6 +104,25 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_stock_adjust', '/stock/adjust')
         ->controller(AdjustStock::class)
         ->methods(['POST']);
+
+    // Move units between grades of the same item - stock booked in as A that
+    // turns out to be C. The item's total does not change.
+    $routingConfigurator
+        ->add('_stock_regrade', '/stock/regrade')
+        ->controller(RegradeStock::class)
+        ->methods(['POST']);
+
+    // Create or rename an item and its grades by hand, for a business that does
+    // not run Tally and has nothing to import.
+    $routingConfigurator
+        ->add('_stock_item_new', '/stock/item/new')
+        ->controller(ManageStockItem::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_stock_item_edit', '/stock/item/{id}/edit')
+        ->controller(ManageStockItem::class)
+        ->methods(['GET', 'POST']);
 
     // Feeds the model picker on invoice / purchase lines with this company's own
     // stock, so a line can be linked to a real item rather than matched by name.

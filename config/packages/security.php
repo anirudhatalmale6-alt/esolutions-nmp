@@ -185,9 +185,12 @@ return static function (SecurityConfig $config): void {
     $config->accessControl()->path('^/purchases/[^/]+/pay')->roles(['ROLE_ACCOUNTANT']);
     $config->accessControl()->path('^/purchases')->roles(['ROLE_STAFF']);
     $config->accessControl()->path('^/stock/import')->roles(['ROLE_MANAGER']);
-    // Recording a stock take rewrites a quantity, so it sits with the other
-    // write actions rather than with viewing.
+    // Recording a stock take, moving units between grades, and creating or
+    // renaming an item all rewrite stock, so they sit with the other write
+    // actions rather than with viewing.
     $config->accessControl()->path('^/stock/adjust')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/stock/regrade')->roles(['ROLE_MANAGER']);
+    $config->accessControl()->path('^/stock/item')->roles(['ROLE_MANAGER']);
     $config->accessControl()->path('^/stock')->roles(['ROLE_STAFF']);
     // IMEI unlock-code admin (upload/manage) is Manager+. The public customer
     // lookup (/imei-unlock) is allowed anonymously via the PUBLIC_ACCESS list

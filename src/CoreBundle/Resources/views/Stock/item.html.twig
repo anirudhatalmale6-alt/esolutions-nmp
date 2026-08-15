@@ -1,0 +1,119 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}
+    {{ ux_icon('tabler:box', {width: 24, height: 24, class: 'me-2'}) }}
+    {{ model ? 'Edit stock item'|trans : 'Add stock item'|trans }}
+{% endblock title %}
+
+{% block heading %}
+    <a href="{{ path('_stock_list') }}" class="btn btn-outline-secondary">
+        {{ ux_icon('tabler:arrow-left', {width: 18, height: 18}) }}
+        {{ 'Back to stock'|trans }}
+    </a>
+{% endblock %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <form method="post" action="{{ model ? path('_stock_item_edit', {id: model.id}) : path('_stock_item_new') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('stock.item') }}">
+
+            <div class="mb-3">
+                <label for="item-name" class="form-label">{{ 'Item name'|trans }}</label>
+                <input type="text" name="name" id="item-name" class="form-control" style="max-width: 480px;"
+                       value="{{ model ? model.name : '' }}" placeholder="{{ 'e.g. SAMSUNG S22 128GB'|trans }}" required autofocus>
+                <div class="form-text">
+                    {{ 'Use the same wording every time you buy this handset, so it stays one item rather than several.'|trans }}
+                </div>
+            </div>
+
+            <h4 class="mt-4">{{ 'Grades'|trans }}</h4>
+
+            {% if model and model.grades|length %}
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-vcenter mb-0" style="max-width: 480px;">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Grade'|trans }}</th>
+                                <th class="text-end">{{ 'In hand'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grade in model.grades %}
+                                <tr>
+                                    <td>{{ grade.grade }}</td>
+                                    <td class="text-end fw-bold">{{ grade.quantity|number_format }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted small">
+                    {{ 'Quantities are not edited here. They move when you enter a purchase, raise an invoice, record a count or move units between grades.'|trans }}
+                    <a href="{{ path('_stock_movements', {model: model.id}) }}">{{ 'Open the stock history'|trans }}</a>.
+                </p>
+            {% endif %}
+
+            <p class="text-muted">
+                {% if model %}
+                    {{ 'Add any grade you have started holding. A new grade starts empty.'|trans }}
+                {% else %}
+                    {{ 'List the grades you hold and how many of each. If you do not grade this item, leave these blank and enter a single opening figure by recording a count afterwards.'|trans }}
+                {% endif %}
+            </p>
+
+            <table class="table table-sm" style="max-width: 480px;">
+                <thead>
+                    <tr>
+                        <th>{{ 'Grade'|trans }}</th>
+                        {% if not model %}<th style="width: 140px;">{{ 'How many'|trans }}</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody id="grade-rows">
+                    {% for i in 1..3 %}
+                        <tr>
+                            <td><input type="text" name="grade_name[]" class="form-control" placeholder="{{ 'e.g. Grade A'|trans }}"></td>
+                            {% if not model %}
+                                <td><input type="number" step="1" name="grade_qty[]" class="form-control text-end" placeholder="0"></td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-link ps-0" id="add-grade-row">
+                {{ ux_icon('tabler:plus', {width: 16, height: 16}) }} {{ 'Add another grade'|trans }}
+            </button>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">{{ model ? 'Save'|trans : 'Add item'|trans }}</button>
+                <a href="{{ path('_stock_list') }}" class="btn btn-link">{{ 'Cancel'|trans }}</a>
+            </div>
+        </form>
+    </twig:Ui:Card>
+
+    <script>
+        (function () {
+            var button = document.getElementById('add-grade-row');
+            var body = document.getElementById('grade-rows');
+            if (!button || !body) { return; }
+            button.addEventListener('click', function () {
+                var last = body.rows[body.rows.length - 1];
+                if (!last) { return; }
+                var row = last.cloneNode(true);
+                var inputs = row.querySelectorAll('input');
+                for (var i = 0; i < inputs.length; i++) { inputs[i].value = ''; }
+                body.appendChild(row);
+                if (inputs.length) { inputs[0].focus(); }
+            });
+        })();
+    </script>
+{% endblock content %}

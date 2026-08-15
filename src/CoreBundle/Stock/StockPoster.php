@@ -16,6 +16,7 @@ namespace SolidInvoice\CoreBundle\Stock;
 use DateTimeInterface;
 use SolidInvoice\CoreBundle\Entity\CreditNote;
 use SolidInvoice\CoreBundle\Entity\Purchase;
+use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
 use SolidInvoice\CoreBundle\Enum\StockMovementReason;
 use SolidInvoice\CoreBundle\Repository\StockMovementRepository;
@@ -40,6 +41,11 @@ use function round;
  * It matters more than it sounds. The purchase form throws away all its lines
  * and rebuilds them on every save, so anything that simply "posted the lines"
  * would double the stock each time the user pressed Save.
+ *
+ * Everything here works at ITEM AND GRADE. A Samsung S22 is not one number: it
+ * is so many Grade A and so many Grade B, priced and sold separately. Movements
+ * name the grade they came out of, and the model total is simply what its
+ * grades add up to.
  */
 final class StockPoster
 {
@@ -110,7 +116,7 @@ final class StockPoster
                 continue;
             }
 
-            $this->add($desired, $model, self::units($item->getQty()));
+            $this->add($desired, $model, $item->getStockGrade(), self::units($item->getQty()));
         }
 
         return $this->sync(
@@ -131,6 +137,10 @@ final class StockPoster
      * not stock, and a refund with no disposition recorded is left out rather
      * than guessed at - an inflated stock figure is worse than a missing one,
      * because nobody goes looking for it.
+     *
+     * The unit goes back into the grade it was sold from. Where it comes back
+     * in worse condition than it left, that is a regrade afterwards, recorded
+     * as its own movement rather than hidden inside the refund.
      *
      * @return int number of movements written
      */
@@ -157,7 +167,7 @@ final class StockPoster
                         continue;
                     }
 
-                    $this->add($desired, $model, self::units($qty));
+                    $this->add($desired, $model, $line->getStockGrade(), self::units($qty));
                 }
             }
         }
@@ -209,7 +219,7 @@ final class StockPoster
     /**
      * What an invoice's lines say should be out, as negative quantities.
      *
-     * @return array<string, array{model: StockModel, quantity: int}>
+     * @return array<string, array{model: StockModel, grade: ?StockGrade, quantity: int}>
      */
     private function invoiceLines(Invoice $invoice): array
     {
@@ -226,7 +236,7 @@ final class StockPoster
                 continue;
             }
 
-            $this->add($desired, $model, -self::units($line->getQty()));
+            $this->add($desired, $model, $line->getStockGrade(), -self::units($line->getQty()));
         }
 
         return $desired;
@@ -236,7 +246,7 @@ final class StockPoster
      * Write the difference between what a document should have moved and what
      * it has moved already.
      *
-     * @param array<string, array{model: StockModel, quantity: int}> $desired
+     * @param array<string, array{model: StockModel, grade: ?StockGrade, quantity: int}> $desired
      */
     private function sync(
         string $sourceType,
@@ -248,18 +258,25 @@ final class StockPoster
         ?string $note,
         bool $flush,
     ): int {
-        $posted = $this->movementRepository->netBySourceGroupedByModel($sourceType, $sourceId);
+        $posted = $this->movementRepository->netBySourceGrouped($sourceType, $sourceId);
         $written = 0;
 
-        foreach (array_unique([...array_keys($desired), ...array_keys($posted)]) as $modelId) {
-            $target = $desired[$modelId]['quantity'] ?? 0;
-            $difference = $target - ($posted[$modelId] ?? 0);
+        foreach (array_unique([...array_keys($desired), ...array_keys($posted)]) as $key) {
+            $target = $desired[$key]['quantity'] ?? 0;
+            $difference = $target - ($posted[$key] ?? 0);
 
             if ($difference === 0) {
                 continue;
             }
 
-            $model = $desired[$modelId]['model'] ?? $this->findModel($sourceType, $sourceId, $modelId);
+            $model = $desired[$key]['model'] ?? null;
+            $grade = $desired[$key]['grade'] ?? null;
+
+            if (! $model instanceof StockModel) {
+                // The line that pointed here is gone, so the only thing left to
+                // do is give the units back - found through what was posted.
+                [$model, $grade] = $this->fromHistory($sourceType, $sourceId, $key);
+            }
 
             if (! $model instanceof StockModel) {
                 continue;
@@ -272,6 +289,7 @@ final class StockPoster
                 reference: $reference,
                 sourceType: $sourceType,
                 sourceId: $sourceId,
+                grade: $grade,
                 movedAt: $movedAt,
                 note: $note,
                 flush: false,
@@ -288,38 +306,61 @@ final class StockPoster
     }
 
     /**
-     * The stock item behind a movement this document has already written, for
-     * the case where the line pointing at it has since been removed and the
-     * only thing left to do is give the units back.
+     * The item and grade behind a movement this document already wrote, for the
+     * case where the line pointing at them has since been removed.
+     *
+     * @return array{0: ?StockModel, 1: ?StockGrade}
      */
-    private function findModel(string $sourceType, string $sourceId, string $modelId): ?StockModel
+    private function fromHistory(string $sourceType, string $sourceId, string $key): array
     {
         foreach ($this->movementRepository->findForSource($sourceType, $sourceId) as $movement) {
             $model = $movement->getStockModel();
 
-            if ($model instanceof StockModel && (string) $model->getId() === $modelId) {
-                return $model;
+            if (! $model instanceof StockModel) {
+                continue;
+            }
+
+            $grade = $movement->getStockGrade();
+
+            if (StockMovementRepository::key((string) $model->getId(), $this->gradeId($grade)) === $key) {
+                return [$model, $grade];
             }
         }
 
-        return null;
+        return [null, null];
     }
 
     /**
-     * @param array<string, array{model: StockModel, quantity: int}> $desired
+     * @param array<string, array{model: StockModel, grade: ?StockGrade, quantity: int}> $desired
      */
-    private function add(array &$desired, StockModel $model, int $quantity): void
+    private function add(array &$desired, StockModel $model, ?StockGrade $grade, int $quantity): void
     {
-        $key = (string) $model->getId();
+        $modelId = (string) $model->getId();
 
-        if ($key === '' || $quantity === 0) {
+        if ($modelId === '' || $quantity === 0) {
             return;
         }
 
-        // The same item can appear on more than one line of the same document;
-        // it is one net movement, not two competing ones.
+        // A grade belonging to a different item would silently corrupt both, so
+        // it is dropped back to a plain item movement rather than trusted.
+        if ($grade instanceof StockGrade && $grade->getStockModel()?->getId()?->equals($model->getId()) !== true) {
+            $grade = null;
+        }
+
+        $key = StockMovementRepository::key($modelId, $this->gradeId($grade));
+
+        // The same item and grade can appear on more than one line of the same
+        // document; that is one net movement, not two competing ones.
         $desired[$key]['model'] = $model;
+        $desired[$key]['grade'] = $grade;
         $desired[$key]['quantity'] = ($desired[$key]['quantity'] ?? 0) + $quantity;
+    }
+
+    private function gradeId(?StockGrade $grade): ?string
+    {
+        $id = $grade?->getId();
+
+        return $id === null ? null : (string) $id;
     }
 
     /**

@@ -132,39 +132,53 @@ class StockMovementRepository extends EntityRepository
     }
 
     /**
-     * What a document has already put through the ledger, per stock item.
+     * What a document has already put through the ledger, per item AND grade.
      *
      * The posting side compares this against what the document says today and
      * writes only the difference, so saving the same invoice twice moves nothing
      * the second time.
      *
-     * @return array<string, int> stock model id => net quantity already posted
+     * Grade is part of the key, not a detail hanging off it: selling 3 Grade A
+     * and returning 3 Grade B is two movements that happen to cancel out on the
+     * model total, and treating them as one would lose both.
+     *
+     * @return array<string, int> "<model id>|<grade id or empty>" => net quantity already posted
      */
-    public function netBySourceGroupedByModel(string $sourceType, string $sourceId): array
+    public function netBySourceGrouped(string $sourceType, string $sourceId): array
     {
         $rows = $this->createQueryBuilder('m')
-            ->select('IDENTITY(m.stockModel) AS model_id', 'SUM(m.quantity) AS net')
+            ->select('IDENTITY(m.stockModel) AS model_id', 'IDENTITY(m.stockGrade) AS grade_id', 'SUM(m.quantity) AS net')
             ->where('m.sourceType = :type')
             ->andWhere('m.sourceId = :id')
             ->setParameter('type', $sourceType)
             ->setParameter('id', $sourceId)
             ->groupBy('m.stockModel')
+            ->addGroupBy('m.stockGrade')
             ->getQuery()
             ->getArrayResult();
 
         $net = [];
 
         foreach ($rows as $row) {
-            $modelId = self::normaliseId($row['model_id']);
+            $modelId = self::normaliseIdentity($row['model_id']);
 
             if ($modelId === null) {
                 continue;
             }
 
-            $net[$modelId] = (int) $row['net'];
+            $net[self::key($modelId, self::normaliseIdentity($row['grade_id']))] = (int) $row['net'];
         }
 
         return $net;
+    }
+
+    /**
+     * The one place the item+grade key is spelled, so the posting side and the
+     * reading side can never drift apart on its shape.
+     */
+    public static function key(string $modelId, ?string $gradeId): string
+    {
+        return $modelId . '|' . ($gradeId ?? '');
     }
 
     /**
@@ -173,7 +187,7 @@ class StockMovementRepository extends EntityRepository
      * to the one canonical string so the map keys line up with the ids the
      * posting side works with.
      */
-    private static function normaliseId(mixed $value): ?string
+    public static function normaliseIdentity(mixed $value): ?string
     {
         if ($value instanceof Ulid) {
             return (string) $value;

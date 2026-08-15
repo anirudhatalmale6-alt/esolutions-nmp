@@ -139,6 +139,7 @@ final class MembershipManage extends AbstractController
                 'verified' => $company->isVerified(),
                 // The grant itself, as ticked on this page...
                 'marketplaceGranted' => $company->hasMarketplaceAccess(),
+                'liveStock' => $company->hasLiveStock(),
                 // ...and whether the business can actually reach the Marketplace
                 // today, which Premium also satisfies. Shown so a Premium company
                 // does not read as shut out just because the box is unticked.
@@ -173,6 +174,7 @@ final class MembershipManage extends AbstractController
         $verified = $request->request->getBoolean('verified');
         $complimentary = $request->request->getBoolean('complimentary');
         $marketplaceAccess = $request->request->getBoolean('marketplace_access');
+        $liveStock = $request->request->getBoolean('live_stock');
         $term = (string) $request->request->get('term', 'annual');
 
         // Verification is a prerequisite for Premium.
@@ -188,6 +190,12 @@ final class MembershipManage extends AbstractController
         // The Marketplace grant is deliberately independent of the plan - that is
         // the whole point of it - so it is stored whatever the plan below says.
         $this->membership->setMarketplaceAccess($company, $marketplaceAccess);
+
+        // Whether this business's own documents move its stock. Off means it
+        // keeps working exactly as it did, with quantities coming from Tally, so
+        // switching it on is always a decision somebody made rather than
+        // something that happened to them.
+        $this->membership->setLiveStock($company, $liveStock);
 
         // Work out the expiry: no plan or a "lifetime" term means no expiry;
         // otherwise one year from today.

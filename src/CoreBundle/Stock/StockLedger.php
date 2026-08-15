@@ -17,6 +17,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use InvalidArgumentException;
 use LogicException;
 use SolidInvoice\CoreBundle\Entity\StockGrade;
 use SolidInvoice\CoreBundle\Entity\StockModel;
@@ -25,6 +26,7 @@ use SolidInvoice\CoreBundle\Enum\StockMovementReason;
 use SolidInvoice\CoreBundle\Repository\StockMovementRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use function method_exists;
+use function sprintf;
 
 /**
  * The single way stock quantities are allowed to change.
@@ -83,6 +85,7 @@ final class StockLedger
         ?DateTimeInterface $movedAt = null,
         ?string $note = null,
         bool $flush = true,
+        bool $apply = true,
     ): StockMovement {
         $movement = new StockMovement();
         $movement->setCompany($model->getCompany())
@@ -99,10 +102,16 @@ final class StockLedger
 
         $this->entityManager()->persist($movement);
 
-        $model->setQuantity($model->getQuantity() + $quantity);
+        // $apply: false writes the movement WITHOUT moving anything, for the one
+        // case where the quantity is already correct and what is missing is the
+        // row explaining it - the opening figure of a business that is switching
+        // its stock live. Everything else moves the figure.
+        if ($apply) {
+            $model->setQuantity($model->getQuantity() + $quantity);
 
-        if ($grade instanceof StockGrade) {
-            $grade->setQuantity($grade->getQuantity() + $quantity);
+            if ($grade instanceof StockGrade) {
+                $grade->setQuantity($grade->getQuantity() + $quantity);
+            }
         }
 
         if ($flush) {
@@ -126,13 +135,18 @@ final class StockLedger
     }
 
     /**
-     * Set a model's quantity to a counted figure, writing the difference as an
-     * adjustment. This is the stock-take path: the user says what is on the
-     * shelf, and the ledger records the correction that got it there.
+     * Set a counted figure, writing the difference as an adjustment. This is
+     * the stock-take path: the user says what is on the shelf, and the ledger
+     * records the correction that got it there.
+     *
+     * Counting happens per grade where the item has grades, because that is
+     * what is physically stacked on the shelf - "twelve S22" is not something
+     * anybody can verify, "twelve Grade A S22" is.
      */
-    public function setCountedQuantity(StockModel $model, int $counted, ?string $note = null): ?StockMovement
+    public function setCountedQuantity(StockModel $model, int $counted, ?string $note = null, ?StockGrade $grade = null): ?StockMovement
     {
-        $difference = $counted - $model->getQuantity();
+        $current = $grade instanceof StockGrade ? $grade->getQuantity() : $model->getQuantity();
+        $difference = $counted - $current;
 
         if ($difference === 0) {
             return null;
@@ -143,8 +157,73 @@ final class StockLedger
             quantity: $difference,
             reason: StockMovementReason::Adjustment,
             reference: 'Stock take',
+            grade: $grade,
             note: $note,
         );
+    }
+
+    /**
+     * Move units between two grades of the same item.
+     *
+     * Stock booked in as Grade A that turns out to be Grade C has not arrived
+     * and has not been sold - it has moved sideways. Recording it as two
+     * opposite movements keeps the item's total untouched while showing both
+     * halves of what happened, which a pair of unrelated corrections would not.
+     *
+     * @return array{0: StockMovement, 1: StockMovement}
+     *
+     * @throws InvalidArgumentException when the grades are not both this item's, or the quantity is not positive
+     */
+    public function regrade(StockModel $model, StockGrade $from, StockGrade $to, int $quantity, ?string $note = null): array
+    {
+        if ($quantity <= 0) {
+            throw new InvalidArgumentException('Enter how many units to move, as a positive number.');
+        }
+
+        if ($from->getId()?->equals($to->getId()) === true) {
+            throw new InvalidArgumentException('Choose two different grades.');
+        }
+
+        foreach ([$from, $to] as $grade) {
+            if ($grade->getStockModel()?->getId()?->equals($model->getId()) !== true) {
+                throw new InvalidArgumentException('Both grades must belong to the same stock item.');
+            }
+        }
+
+        if ($quantity > $from->getQuantity()) {
+            throw new InvalidArgumentException(sprintf(
+                'There are only %d in %s, so %d cannot be moved out of it.',
+                $from->getQuantity(),
+                $from->getGrade(),
+                $quantity,
+            ));
+        }
+
+        $reference = sprintf('%s to %s', $from->getGrade(), $to->getGrade());
+
+        $out = $this->record(
+            model: $model,
+            quantity: -$quantity,
+            reason: StockMovementReason::Regrade,
+            reference: $reference,
+            grade: $from,
+            note: $note,
+            flush: false,
+        );
+
+        $in = $this->record(
+            model: $model,
+            quantity: $quantity,
+            reason: StockMovementReason::Regrade,
+            reference: $reference,
+            grade: $to,
+            note: $note,
+            flush: false,
+        );
+
+        $this->flush();
+
+        return [$out, $in];
     }
 
     /**
@@ -154,6 +233,27 @@ final class StockLedger
     public function isInSync(StockModel $model): bool
     {
         return $this->movementRepository->netQuantityForModel($model) === $model->getQuantity();
+    }
+
+    /**
+     * Whether an item's grades still add up to the item's own total.
+     *
+     * They must, because the total is not a separate fact - it is what the
+     * grades come to. An item with no grades at all is trivially in step.
+     */
+    public function gradesAddUp(StockModel $model): bool
+    {
+        if ($model->getGrades()->isEmpty()) {
+            return true;
+        }
+
+        $sum = 0;
+
+        foreach ($model->getGrades() as $grade) {
+            $sum += $grade->getQuantity();
+        }
+
+        return $sum === $model->getQuantity();
     }
 
     private function currentUserName(): ?string

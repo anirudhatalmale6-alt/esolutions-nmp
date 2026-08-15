@@ -238,6 +238,16 @@
                                 {% endif %}
                             </span>
                         </label>
+                        {# Off by default. Turning it on is the moment this business
+                           stops getting its quantities from Tally and starts
+                           counting for itself. #}
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="live_stock" value="1"{{ row.liveStock ? ' checked' }}>
+                            <span class="form-check-label">
+                                {{ 'Live stock'|trans }}
+                                <span class="text-secondary">— {{ 'invoices take stock out and purchases put it in, instead of quantities coming from Tally'|trans }}</span>
+                            </span>
+                        </label>
                     </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-primary">

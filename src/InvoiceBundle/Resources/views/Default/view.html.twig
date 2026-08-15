@@ -419,9 +419,14 @@
                                     <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}
                                         {# What grade actually left the shelf on this line. Staff-facing only:
                                            a mix is deliberately one plain line on the customer's copy, and
-                                           this is where anyone here can see what it was really made of. #}
+                                           this is where anyone here can see what it was really made of.
+
+                                           no-print, so that holds even when this screen is printed. The
+                                           customer's document is the PDF, which never had it - this covers
+                                           the case of somebody printing their own copy of the page and
+                                           handing it over. #}
                                         {% if item.stockModel and item.gradeSplit is not empty %}
-                                            <div class="line-grade text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                            <div class="line-grade no-print text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
                                                 <strong>{{ 'Mixed grades'|trans }}:</strong>
                                                 {% for grade in item.stockModel.grades %}
                                                     {% set share = item.gradeSplit[grade.id ~ '']|default(0) %}
@@ -429,7 +434,7 @@
                                                 {% endfor %}
                                             </div>
                                         {% elseif item.stockGrade %}
-                                            <div class="line-grade text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                            <div class="line-grade no-print text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
                                                 <strong>{{ 'Grade'|trans }}:</strong> {{ item.stockGrade.grade }}
                                             </div>
                                         {% endif %}

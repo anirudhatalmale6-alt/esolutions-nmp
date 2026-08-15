@@ -417,6 +417,22 @@
                             {% for item in invoice.lines %}
                                 <tr>
                                     <td class="column-description" data-label="{{ 'invoice.item.heading.description'|trans }}">{{ item.description|nl2br }}
+                                        {# What grade actually left the shelf on this line. Staff-facing only:
+                                           a mix is deliberately one plain line on the customer's copy, and
+                                           this is where anyone here can see what it was really made of. #}
+                                        {% if item.stockModel and item.gradeSplit is not empty %}
+                                            <div class="line-grade text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                                <strong>{{ 'Mixed grades'|trans }}:</strong>
+                                                {% for grade in item.stockModel.grades %}
+                                                    {% set share = item.gradeSplit[grade.id ~ '']|default(0) %}
+                                                    {% if share > 0 %}<span style="display:inline-block;margin-right:.5rem;">{{ share }} &times; {{ grade.grade }}</span>{% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% elseif item.stockGrade %}
+                                            <div class="line-grade text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                                <strong>{{ 'Grade'|trans }}:</strong> {{ item.stockGrade.grade }}
+                                            </div>
+                                        {% endif %}
                                         {# Internal IMEI record for warranty/claim tracking - staff-facing only,
                                            never shown on the customer PDF or the public invoice view. #}
                                         {% if item.imei is not empty %}

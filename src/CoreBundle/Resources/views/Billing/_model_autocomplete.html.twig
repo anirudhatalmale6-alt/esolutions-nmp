@@ -46,6 +46,12 @@
     var LINK_SELECTOR = "[data-stock-model-field]";
     var GRADE_SELECTOR = "[data-stock-grade-field]";
     var GRADE_LABEL_SELECTOR = "[data-stock-grade-label]";
+    // Where one line covers more than one grade - sixty Grade A and forty
+    // Grade B sold as a hundred handsets, with the customer's copy saying only
+    // "a hundred". The hidden field carries the breakdown, the box next to it
+    // is where it gets typed.
+    var SPLIT_SELECTOR = "[data-grade-split-field]";
+    var MIX_SELECTOR = "[data-grade-mix]";
     // Only SELLING can go over stock, so the check is on invoice / quote rows.
     // A purchase adds stock, so there is nothing to exceed.
     var QTY_SELECTOR = "input.invoice-item-qty, input.quote-item-qty";
@@ -164,9 +170,13 @@
         label.style.display = grade ? "inline-block" : "none";
     }
 
-    function setLink(el, id, gradeId, gradeName) {
+    function setLink(el, id, gradeId, gradeName, split) {
         var changed = writeField(linkFieldFor(el), id);
         changed = writeField(fieldWithin(el, GRADE_SELECTOR), gradeId) || changed;
+        // A pick replaces whatever the line was before, so any old mix goes
+        // with it - a mix left behind on a line now selling one grade would
+        // take stock out of grades nobody chose.
+        changed = writeSplit(fieldWithin(el, SPLIT_SELECTOR), split || {}) || changed;
         showGrade(el, gradeName);
         if (!changed) { return; }
         // The line now points somewhere else, so re-judge the quantity on it.
@@ -203,6 +213,154 @@
         return { qty: row.qty, grade: null };
     }
 
+    // --- the mix -----------------------------------------------------------
+    //
+    // Stock is sometimes sold mixed: a hundred handsets that are really sixty
+    // Grade A and forty Grade B, invoiced as one line of a hundred so the
+    // customer is not handed a grade breakdown they were never offered. The
+    // customer's copy shows one line; these boxes say which grades it comes
+    // out of, and the quantities move from exactly those.
+
+    function readSplit(input) {
+        if (!input || !input.value) { return {}; }
+        try {
+            var parsed = JSON.parse(input.value);
+            return (parsed && typeof parsed === "object") ? parsed : {};
+        } catch (e) { return {}; }
+    }
+
+    // Returns true when the field actually changed, so callers can avoid
+    // re-checking a row that is exactly as it was.
+    function writeSplit(input, split) {
+        if (!input) { return false; }
+        var clean = {};
+        var keys = Object.keys(split || {});
+        for (var i = 0; i < keys.length; i++) {
+            var n = parseInt(split[keys[i]], 10);
+            if (!isNaN(n) && n > 0) { clean[keys[i]] = n; }
+        }
+        return writeField(input, Object.keys(clean).length ? JSON.stringify(clean) : "");
+    }
+
+    function splitTotal(split) {
+        var keys = Object.keys(split || {}), sum = 0;
+        for (var i = 0; i < keys.length; i++) {
+            var n = parseInt(split[keys[i]], 10);
+            if (!isNaN(n)) { sum += n; }
+        }
+        return sum;
+    }
+
+    // A first suggestion for the mix: take from each grade in turn, as far as
+    // it goes. Selling more than is held puts the shortfall on the first grade
+    // so the mix still adds up to what is being sold - the red warning under
+    // the quantity is what says the shelf cannot cover it.
+    function autoSplit(id, want) {
+        var row = rowForId(id);
+        if (!row || !(want > 0)) { return {}; }
+        var grades = Array.isArray(row.grades) ? row.grades : [];
+        var left = want, split = {};
+
+        for (var i = 0; i < grades.length && left > 0; i++) {
+            var take = Math.min(left, Math.max(0, grades[i].qty));
+            if (take > 0) { split[grades[i].id] = take; left -= take; }
+        }
+
+        if (left > 0 && grades.length > 0) {
+            split[grades[0].id] = (split[grades[0].id] || 0) + left;
+        }
+
+        return split;
+    }
+
+    function qtyOn(row) {
+        var input = row ? row.querySelector(QTY_SELECTOR) : null;
+        var n = input ? parseFloat(input.value) : NaN;
+        return isNaN(n) ? 0 : Math.round(n);
+    }
+
+    // Read the boxes back into the hidden field. Done on change rather than on
+    // every keystroke: writing the field re-renders the line, which would pull
+    // the box out from under whoever is typing in it.
+    function commitMix(row) {
+        if (!row) { return; }
+        var boxes = row.querySelectorAll("[data-mix-grade]");
+        var split = {};
+        for (var i = 0; i < boxes.length; i++) {
+            split[boxes[i].getAttribute("data-mix-grade")] = boxes[i].value;
+        }
+        writeSplit(row.querySelector(SPLIT_SELECTOR), split);
+        checkRow(row);
+    }
+
+    function mixCounter(row, split) {
+        var counter = row.querySelector("[data-mix-total]");
+        if (!counter) { return; }
+        var want = qtyOn(row);
+        var have = splitTotal(split);
+        counter.textContent = have + " of " + want;
+        counter.className = "nmp-mix-total" + (have === want ? "" : " nmp-mix-off");
+    }
+
+    // Build (or refresh) the mix boxes on a row from the hidden field. Rebuilt
+    // only when the row starts pointing at a different item, so a re-render in
+    // the middle of typing does not throw the caret out of the box.
+    function refreshMix(row) {
+        var host = row.querySelector(MIX_SELECTOR);
+        if (!host) { return; }
+
+        var link = row.querySelector(LINK_SELECTOR);
+        var splitField = row.querySelector(SPLIT_SELECTOR);
+        var split = readSplit(splitField);
+        var item = link && link.value ? rowForId(link.value) : null;
+        var grades = item && Array.isArray(item.grades) ? item.grades : [];
+        var on = grades.length > 0 && Object.keys(split).length > 0;
+        var built = host.getAttribute("data-mix-built") || "";
+
+        if (!on) {
+            if (built !== "") {
+                marking = true;
+                try {
+                    host.innerHTML = "";
+                    host.removeAttribute("data-mix-built");
+                    host.style.display = "none";
+                } finally { marking = false; }
+            }
+            return;
+        }
+
+        marking = true;
+        try {
+            ensureWarnStyles();
+            host.style.display = "flex";
+
+            if (built !== String(item.id)) {
+                var html = '<span class="nmp-mix-label">MIX</span>';
+                for (var i = 0; i < grades.length; i++) {
+                    html += '<span class="nmp-mix-cell">' +
+                        '<span class="nmp-mix-grade">' + escapeHtml(grades[i].grade) + '</span>' +
+                        '<input type="number" min="0" step="1" class="nmp-mix-input" ' +
+                        'data-mix-grade="' + escapeHtml(String(grades[i].id)) + '" value="">' +
+                        '</span>';
+                }
+                html += '<span class="nmp-mix-total" data-mix-total></span>' +
+                    '<button type="button" class="nmp-mix-auto" data-mix-auto title="Fill the mix from what is in stock">auto</button>';
+                host.innerHTML = html;
+                host.setAttribute("data-mix-built", String(item.id));
+            }
+
+            var boxes = host.querySelectorAll("[data-mix-grade]");
+            for (var b = 0; b < boxes.length; b++) {
+                if (boxes[b] === document.activeElement) { continue; }
+                var value = split[boxes[b].getAttribute("data-mix-grade")];
+                var next = (value === undefined || value === null) ? "" : String(value);
+                if (boxes[b].value !== next) { boxes[b].value = next; }
+            }
+
+            mixCounter(row, split);
+        } finally { marking = false; }
+    }
+
     // --- over-stock marking ------------------------------------------------
     //
     // When a line is linked to a stock item and the quantity typed is more than
@@ -224,31 +382,66 @@
             "margin-top:.2rem;line-height:1.3;white-space:nowrap;}" +
             ".nmp-grade-badge{display:none;margin-top:.25rem;font-size:.7rem;font-weight:600;" +
             "letter-spacing:.02em;padding:.05rem .4rem;border-radius:10px;" +
-            "background:#ede7f6;color:#4527a0;}";
+            "background:#ede7f6;color:#4527a0;}" +
+            ".nmp-mix{display:none;flex-wrap:wrap;align-items:center;gap:.35rem;margin-top:.3rem;}" +
+            ".nmp-mix-label{font-size:.65rem;font-weight:700;letter-spacing:.06em;color:#4527a0;}" +
+            ".nmp-mix-cell{display:inline-flex;align-items:center;gap:.25rem;}" +
+            ".nmp-mix-grade{font-size:.7rem;font-weight:600;color:#5f6b7a;white-space:nowrap;}" +
+            // Beats the form styling that would otherwise stretch a number box
+            // across the whole column.
+            ".nmp-mix input.nmp-mix-input{width:3.75rem;min-width:0;padding:.1rem .3rem;" +
+            "font-size:.75rem;text-align:right;border:1px solid var(--tblr-border-color,#dadfe5);" +
+            "border-radius:4px;background:#fff;}" +
+            ".nmp-mix-total{font-size:.7rem;font-weight:600;color:#2e7d32;}" +
+            ".nmp-mix-total.nmp-mix-off{color:#c62828;}" +
+            ".nmp-mix-auto{font-size:.65rem;font-weight:600;letter-spacing:.03em;padding:.05rem .35rem;" +
+            "border:1px solid var(--tblr-border-color,#dadfe5);border-radius:4px;background:#f6f8fa;" +
+            "color:#5f6b7a;cursor:pointer;}";
         document.head.appendChild(style);
     }
 
     function checkRow(row) {
         if (!row) { return; }
         refreshGradeBadge(row);
+        refreshMix(row);
         var qtyInput = row.querySelector(QTY_SELECTOR);
         if (!qtyInput) { return; }
 
         var link = row.querySelector(LINK_SELECTOR);
         var gradeField = row.querySelector(GRADE_SELECTOR);
-        var item = link && link.value
-            ? heldFor(link.value, gradeField ? gradeField.value : null)
-            : null;
-        var entered = parseFloat(qtyInput.value);
-        // Unlinked line, stock list not loaded, or nothing typed yet - no claim
-        // to make, so make none.
-        var over = item !== null && !isNaN(entered) && entered > item.qty;
-
+        var split = readSplit(row.querySelector(SPLIT_SELECTOR));
+        var mixed = link && link.value && Object.keys(split).length > 0;
         var warn = row.querySelector(".nmp-stock-warn");
-        var where = over && item.grade ? " in " + item.grade : "";
-        var wantText = over
-            ? (item.qty > 0 ? "Only " + item.qty + where + " in stock" : "None" + where + " in stock")
-            : "";
+        var over = false;
+        var wantText = "";
+
+        if (mixed) {
+            // A mix is judged grade by grade. Taking sixty from a grade holding
+            // forty is over stock even when the item as a whole has plenty.
+            var short = [];
+            var keys = Object.keys(split);
+            for (var i = 0; i < keys.length; i++) {
+                var held = heldFor(link.value, keys[i]);
+                var wanted = parseInt(split[keys[i]], 10);
+                if (!held || isNaN(wanted) || wanted <= held.qty) { continue; }
+                over = true;
+                short.push((held.qty > 0 ? "only " + held.qty : "none") + (held.grade ? " in " + held.grade : ""));
+            }
+            wantText = over ? "Not enough: " + short.join(", ") : "";
+        } else {
+            var item = link && link.value
+                ? heldFor(link.value, gradeField ? gradeField.value : null)
+                : null;
+            var entered = parseFloat(qtyInput.value);
+            // Unlinked line, stock list not loaded, or nothing typed yet - no
+            // claim to make, so make none.
+            over = item !== null && !isNaN(entered) && entered > item.qty;
+
+            var where = over && item.grade ? " in " + item.grade : "";
+            wantText = over
+                ? (item.qty > 0 ? "Only " + item.qty + where + " in stock" : "None" + where + " in stock")
+                : "";
+        }
 
         var hasClass = qtyInput.classList.contains("nmp-over-stock");
         var hasText = warn ? warn.textContent : "";
@@ -287,6 +480,12 @@
         var gradeId = gradeField ? gradeField.value : "";
         var held = link && link.value && gradeId ? heldFor(link.value, gradeId) : null;
         var name = held && held.grade ? held.grade : "";
+
+        // A mixed line has no single grade to name; the boxes underneath say
+        // what it is made of.
+        if (name === "" && link && link.value && Object.keys(readSplit(row.querySelector(SPLIT_SELECTOR))).length > 0) {
+            name = "MIXED GRADES";
+        }
 
         if (label.textContent === name) { return; }
 
@@ -376,6 +575,19 @@
                         grade: grades[g].grade
                     });
                 }
+
+                // And, where there is more than one grade to mix, the mixed
+                // sale: one line for the lot, made up behind the scenes.
+                if (grades.length > 1) {
+                    bucket.push({
+                        name: row.name,
+                        id: row.id,
+                        qty: row.qty,
+                        gradeId: null,
+                        grade: "mixed grades",
+                        mixed: true
+                    });
+                }
             }
         }
 
@@ -448,7 +660,14 @@
         setter.call(field, picked.name + parts.rest);
         // Link the line to the stock item, or clear any previous link when the
         // pick came from the master name list rather than their own stock.
-        setLink(field, picked.id || "", picked.gradeId || "", picked.grade || "");
+        //
+        // A mixed pick carries no single grade: it starts with the mix filled
+        // in from what is on the shelf, for the quantity on the line, and the
+        // boxes underneath are there to correct it to what actually shipped.
+        var row = field.closest(ROW_SELECTOR);
+        var split = picked.mixed ? autoSplit(picked.id, qtyOn(row) || 1) : {};
+        setLink(field, picked.id || "", picked.gradeId || "", picked.mixed ? "MIXED GRADES" : (picked.grade || ""), split);
+        if (picked.mixed) { checkRow(row); }
         // Let the Live Component pick up the new value.
         field.dispatchEvent(new Event("input", { bubbles: true }));
         field.dispatchEvent(new Event("change", { bubbles: true }));
@@ -475,6 +694,39 @@
             load();
             field = e.target;
         }
+    });
+
+    // The mix boxes. Typing only moves the counter; the hidden field is written
+    // when the box is left, because writing it re-renders the line and would
+    // take the box away mid-keystroke.
+    document.addEventListener("input", function (e) {
+        if (!e.target.matches || !e.target.matches("[data-mix-grade]")) { return; }
+        var row = e.target.closest(ROW_SELECTOR);
+        if (!row) { return; }
+        var boxes = row.querySelectorAll("[data-mix-grade]");
+        var typed = {};
+        for (var i = 0; i < boxes.length; i++) {
+            typed[boxes[i].getAttribute("data-mix-grade")] = boxes[i].value;
+        }
+        marking = true;
+        try { mixCounter(row, typed); } finally { marking = false; }
+    });
+
+    document.addEventListener("change", function (e) {
+        if (e.target.matches && e.target.matches("[data-mix-grade]")) {
+            commitMix(e.target.closest(ROW_SELECTOR));
+        }
+    });
+
+    document.addEventListener("click", function (e) {
+        var button = e.target.closest ? e.target.closest("[data-mix-auto]") : null;
+        if (!button) { return; }
+        e.preventDefault();
+        var row = button.closest(ROW_SELECTOR);
+        var link = row ? row.querySelector(LINK_SELECTOR) : null;
+        if (!link || !link.value) { return; }
+        writeSplit(row.querySelector(SPLIT_SELECTOR), autoSplit(link.value, qtyOn(row)));
+        checkRow(row);
     });
 
     document.addEventListener("input", function (e) {

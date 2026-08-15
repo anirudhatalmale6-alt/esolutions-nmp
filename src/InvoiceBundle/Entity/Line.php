@@ -45,6 +45,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Throwable;
 
 #[ORM\Table(name: Line::TABLE_NAME)]
 #[ORM\Entity(repositoryClass: LineRepository::class)]
@@ -158,6 +160,27 @@ class Line implements LineInterface, Stringable
     #[ORM\JoinColumn(name: 'stock_grade_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     protected ?StockGrade $stockGrade = null;
 
+    /**
+     * Internal only: when one line covers more than one grade.
+     *
+     * Stock is sometimes sold as a mix - a hundred handsets made up of sixty
+     * Grade A and forty Grade B - and the customer is shown one line for a
+     * hundred, with no mention of grades. That is a selling decision and not
+     * something the system should force into the open by splitting the line in
+     * two on the customer's invoice.
+     *
+     * So the customer sees one line, and this records what it was really made
+     * of: grade id => quantity. The stock comes out of those exact grades, and
+     * this never appears on the PDF or the public invoice view.
+     *
+     * Null / empty on the ordinary case, where the line sells one grade and
+     * stockGrade above says which.
+     *
+     * @var array<string, int>|null
+     */
+    #[ORM\Column(name: 'grade_split', type: Types::JSON, nullable: true)]
+    protected ?array $gradeSplit = null;
+
     #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'lines')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(
@@ -233,6 +256,136 @@ class Line implements LineInterface, Stringable
     public function getStockGrade(): ?StockGrade
     {
         return $this->stockGrade;
+    }
+
+    /**
+     * What this line is really made of, when it is a mix.
+     *
+     * Cleaned on the way in: anything that is not a grade id with a positive
+     * whole number against it is dropped, and an empty result is stored as null
+     * so "not a mix" has exactly one representation.
+     *
+     * @param array<string, int|string>|null $gradeSplit
+     */
+    public function setGradeSplit(?array $gradeSplit): static
+    {
+        $clean = [];
+
+        foreach ($gradeSplit ?? [] as $gradeId => $quantity) {
+            $gradeId = trim((string) $gradeId);
+            $quantity = is_numeric($quantity) ? (int) round((float) $quantity) : 0;
+
+            if ($gradeId === '' || ! Ulid::isValid($gradeId) || $quantity <= 0) {
+                continue;
+            }
+
+            $clean[$gradeId] = ($clean[$gradeId] ?? 0) + $quantity;
+        }
+
+        $this->gradeSplit = $clean === [] ? null : $clean;
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getGradeSplit(): array
+    {
+        return $this->gradeSplit ?? [];
+    }
+
+    public function isMixedGrade(): bool
+    {
+        return $this->getGradeSplit() !== [];
+    }
+
+    /**
+     * How many units the mix accounts for. Has to come to the line quantity,
+     * or some of what was sold came out of nowhere.
+     */
+    public function gradeSplitTotal(): int
+    {
+        return array_sum($this->getGradeSplit());
+    }
+
+    /**
+     * A sale has to say which grade it came out of - that is how the business
+     * works, and it is the only thing keeping the grade figures and the item
+     * total from drifting apart. Either one grade, or a mix that adds up.
+     *
+     * Silent while live stock tracking is off for the business: nothing is
+     * moving quantities yet, so there is nothing to keep honest and no reason
+     * to stand in the way of an invoice.
+     */
+    #[Assert\Callback]
+    public function validateGrades(ExecutionContextInterface $context): void
+    {
+        $model = $this->stockModel;
+
+        if (! $model instanceof StockModel || ! $this->tracksStock()) {
+            return;
+        }
+
+        $grades = [];
+
+        foreach ($model->getGrades() as $grade) {
+            $grades[(string) $grade->getId()] = $grade->getGrade();
+        }
+
+        if ($grades === []) {
+            return;
+        }
+
+        $split = $this->getGradeSplit();
+
+        if ($split === []) {
+            if (! $this->stockGrade instanceof StockGrade) {
+                $context->buildViolation('Choose which grade of %model% is being sold, or set the mix.')
+                    ->setParameter('%model%', $model->getName())
+                    ->atPath('description')
+                    ->addViolation();
+            }
+
+            return;
+        }
+
+        foreach (array_keys($split) as $gradeId) {
+            if (! isset($grades[$gradeId])) {
+                $context->buildViolation('The mix on %model% points at a grade that is not on this item.')
+                    ->setParameter('%model%', $model->getName())
+                    ->atPath('description')
+                    ->addViolation();
+
+                return;
+            }
+        }
+
+        $sold = (int) round((float) ($this->qty ?? 0));
+        $mixed = $this->gradeSplitTotal();
+
+        if ($mixed !== $sold) {
+            $context->buildViolation('The mix on %model% comes to %mixed% but the line sells %sold%.')
+                ->setParameter('%model%', $model->getName())
+                ->setParameter('%mixed%', (string) $mixed)
+                ->setParameter('%sold%', (string) $sold)
+                ->atPath('description')
+                ->addViolation();
+        }
+    }
+
+    /**
+     * Whether the business behind this line is keeping its own stock figures.
+     * A line being added to an invoice may not have been given the company yet
+     * (that happens as it is saved), so the invoice is asked as well.
+     */
+    private function tracksStock(): bool
+    {
+        try {
+            return ($this->getCompany() ?? $this->invoice?->getCompany())?->hasLiveStock() === true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function setImei(?string $imei): static

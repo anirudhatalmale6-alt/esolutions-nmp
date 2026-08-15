@@ -176,7 +176,12 @@
                                         {# And which grade of it, because that is what is actually sold
                                            and what the quantity comes out of. #}
                                         {{ form_widget(item.stockGrade) }}
+                                        {# And, when the line is sold as a mix, what the mix is made of.
+                                           The customer's copy shows one line for the lot; this is what
+                                           tells the warehouse which grades it really came out of. #}
+                                        {{ form_widget(item.gradeSplit) }}
                                         <span class="nmp-grade-badge" data-stock-grade-label></span>
+                                        <div class="nmp-mix" data-grade-mix></div>
                                         {{ form_errors(item.description) }}
                                     </div>
                                     <div class="column-price">

@@ -23,8 +23,11 @@ use SolidInvoice\CoreBundle\Repository\StockMovementRepository;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Entity\Line;
 use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
+use function abs;
 use function array_keys;
 use function array_unique;
+use function arsort;
+use function floor;
 use function is_numeric;
 use function round;
 
@@ -46,6 +49,11 @@ use function round;
  * is so many Grade A and so many Grade B, priced and sold separately. Movements
  * name the grade they came out of, and the model total is simply what its
  * grades add up to.
+ *
+ * A line can also be a MIX - a hundred handsets sold as one line that are
+ * really sixty Grade A and forty Grade B. The customer's copy says a hundred
+ * and nothing more; the stock still comes out of both grades, in the amounts
+ * the line records.
  */
 final class StockPoster
 {
@@ -167,7 +175,23 @@ final class StockPoster
                         continue;
                     }
 
-                    $this->add($desired, $model, $line->getStockGrade(), self::units($qty));
+                    $split = $line->getGradeSplit();
+                    $units = self::units($qty);
+
+                    if ($split === []) {
+                        $this->add($desired, $model, $line->getStockGrade(), $units);
+
+                        continue;
+                    }
+
+                    // The line was sold as a mix, so a part-return comes back in
+                    // the same proportions it went out in. Nobody records which
+                    // of the hundred handsets the customer sent back, and a
+                    // return spread the way the sale was spread is the only
+                    // answer that cannot be argued with.
+                    foreach ($this->shareOut($model, $split, $units) as [$grade, $share]) {
+                        $this->add($desired, $model, $grade, $share);
+                    }
                 }
             }
         }
@@ -236,10 +260,131 @@ final class StockPoster
                 continue;
             }
 
-            $this->add($desired, $model, $line->getStockGrade(), -self::units($line->getQty()));
+            $this->addLine($desired, $model, $line->getStockGrade(), $line->getGradeSplit(), -self::units($line->getQty()));
         }
 
         return $desired;
+    }
+
+    /**
+     * One document line, whether it sells a single grade or a mix of them.
+     *
+     * @param array<string, array{model: StockModel, grade: ?StockGrade, quantity: int}> $desired
+     * @param array<string, int> $split
+     * @param int $quantity signed: negative going out, positive coming in
+     */
+    private function addLine(array &$desired, StockModel $model, ?StockGrade $grade, array $split, int $quantity): void
+    {
+        if ($split === []) {
+            $this->add($desired, $model, $grade, $quantity);
+
+            return;
+        }
+
+        $sign = $quantity < 0 ? -1 : 1;
+        $allocated = 0;
+
+        foreach ($this->resolveSplit($model, $split) as [$splitGrade, $units]) {
+            $this->add($desired, $model, $splitGrade, $sign * $units);
+            $allocated += $units;
+        }
+
+        // A mix that does not come to the line quantity leaves units nowhere:
+        // the item total would be short by exactly the difference. The form
+        // will not save one, but a line that arrived by another road - the API,
+        // or a mix edited after the fact - still has to move everything it
+        // sold, so what is left over moves without a grade rather than quietly
+        // going missing.
+        $remainder = abs($quantity) - $allocated;
+
+        if ($remainder !== 0) {
+            $this->add($desired, $model, null, $sign * $remainder);
+        }
+    }
+
+    /**
+     * The grades of an item named by a mix, in the item's own order, with
+     * anything that is not a live positive quantity on this item left out.
+     *
+     * @param array<string, int> $split
+     * @return list<array{0: StockGrade, 1: int}>
+     */
+    private function resolveSplit(StockModel $model, array $split): array
+    {
+        $entries = [];
+
+        foreach ($model->getGrades() as $grade) {
+            $units = $split[(string) $grade->getId()] ?? null;
+
+            if (! is_numeric($units)) {
+                continue;
+            }
+
+            $units = (int) $units;
+
+            if ($units > 0) {
+                $entries[] = [$grade, $units];
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Spread a quantity across a mix in the proportions the mix was sold in.
+     *
+     * Whole handsets only, and the shares always come to the exact quantity
+     * asked for - the largest fractions get the odd unit, so 10 returned
+     * against a 60/40 mix is 6 and 4, and 5 against the same is 3 and 2 rather
+     * than 2 and 2 with one unit lost to rounding.
+     *
+     * @param array<string, int> $split
+     * @return list<array{0: StockGrade, 1: int}>
+     */
+    private function shareOut(StockModel $model, array $split, int $quantity): array
+    {
+        $entries = $this->resolveSplit($model, $split);
+        $total = 0;
+
+        foreach ($entries as [, $units]) {
+            $total += $units;
+        }
+
+        if ($entries === [] || $total <= 0 || $quantity <= 0) {
+            return [];
+        }
+
+        $shares = [];
+        $fractions = [];
+        $assigned = 0;
+
+        foreach ($entries as $i => [, $units]) {
+            $exact = $quantity * $units / $total;
+            $shares[$i] = (int) floor($exact);
+            $fractions[$i] = $exact - $shares[$i];
+            $assigned += $shares[$i];
+        }
+
+        arsort($fractions);
+
+        foreach (array_keys($fractions) as $i) {
+            if ($assigned >= $quantity) {
+                break;
+            }
+
+            ++$shares[$i];
+            ++$assigned;
+        }
+
+        $out = [];
+
+        foreach ($entries as $i => [$grade]) {
+            if ($shares[$i] > 0) {
+                $out[] = [$grade, $shares[$i]];
+            }
+        }
+
+        return $out;
     }
 
     /**

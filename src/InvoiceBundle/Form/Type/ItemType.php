@@ -16,6 +16,7 @@ namespace SolidInvoice\InvoiceBundle\Form\Type;
 use Doctrine\Persistence\ManagerRegistry;
 use Money\Currency;
 use Override;
+use SolidInvoice\CoreBundle\Form\Transformer\GradeSplitTransformer;
 use SolidInvoice\CoreBundle\Form\Transformer\StockGradeTransformer;
 use SolidInvoice\CoreBundle\Form\Transformer\StockModelTransformer;
 use SolidInvoice\InvoiceBundle\Entity\Line;
@@ -40,6 +41,7 @@ class ItemType extends AbstractType
         private readonly ManagerRegistry $registry,
         private readonly StockModelTransformer $stockModelTransformer,
         private readonly StockGradeTransformer $stockGradeTransformer,
+        private readonly GradeSplitTransformer $gradeSplitTransformer,
     ) {
     }
 
@@ -105,6 +107,21 @@ class ItemType extends AbstractType
                 ],
             ]
         )->get('stockGrade')->addModelTransformer($this->stockGradeTransformer);
+
+        // Where the line is a mix of grades sold as one line. Hidden, and never
+        // rendered on anything the customer sees - the whole point of a mix is
+        // that the customer is buying "a hundred handsets", not "sixty of one
+        // grade and forty of another".
+        $builder->add(
+            'gradeSplit',
+            HiddenType::class,
+            [
+                'required' => false,
+                'attr' => [
+                    'data-grade-split-field' => true,
+                ],
+            ]
+        )->get('gradeSplit')->addModelTransformer($this->gradeSplitTransformer);
 
         // Internal IMEI capture for this line (comma-separated, entered via the
         // per-line IMEI popup). Hidden input; never shown to the customer.

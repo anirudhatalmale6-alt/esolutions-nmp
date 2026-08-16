@@ -14,12 +14,12 @@ declare(strict_types=1);
 namespace SolidInvoice\UserBundle\DTO;
 
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Validator\Constraints\UsablePassword;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\IsTrue;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\PasswordStrength;
 
 #[UniqueEntity(['email'], entityClass: User::class)]
 final class Registration
@@ -30,15 +30,17 @@ final class Registration
     ]
     public ?string $email = null;
 
+    // PasswordStrength scored on entropy alone and turned away anything short,
+    // however it was built - "Nmp@2026" included - so people gave up on signing
+    // up. UsablePassword asks for length and variety instead, and says which of
+    // the two is missing.
     #[
         NotBlank(message: 'Please enter a password'),
         Length(
-            min: 8,
             max: 4096,
             // max length allowed by Symfony for security reasons
-            minMessage: 'Your password should be at least {{ limit }} characters',
         ),
-        PasswordStrength(minScore: PasswordStrength::STRENGTH_WEAK)]
+        UsablePassword(emailProperty: 'email')]
     public ?string $plainPassword = null;
 
     #[IsTrue(message: 'You must accept the terms and conditions to register')]

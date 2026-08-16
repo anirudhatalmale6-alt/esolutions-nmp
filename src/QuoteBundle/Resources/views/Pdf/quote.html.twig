@@ -51,10 +51,10 @@
     <tr>
         <td class="header-left" style="width: 50%; vertical-align: top;">
             {# Company Logo #}
-            {% set logo = setting('system/company/logo') %}
+            {% set logo = company_setting(quote.company, 'system/company/logo') %}
             {% if logo is not empty %}
                 <div class="company-logo" style="margin-bottom: 10px;">
-                    {{ app_logo(50) }}
+                    {{ app_logo(50, quote.company) }}
                 </div>
             {% endif %}
 

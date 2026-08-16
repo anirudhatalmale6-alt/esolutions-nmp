@@ -88,9 +88,10 @@
                     {# Header with Logo and Invoice Info #}
                     <div class="row">
                         <div class="col-6">
-                            {% if app_logo() is not empty %}
+                            {# The issuing business's own logo - see Pdf/invoice.html.twig. #}
+                            {% if app_logo(80, invoice.company) is not empty %}
                                 <div class="ext-doc-logo mb-3">
-                                    {{ app_logo(80) }}
+                                    {{ app_logo(80, invoice.company) }}
                                 </div>
                             {% endif %}
                             <h2 class="ext-doc-company-name mb-1">{{ invoice.company.name|default(company_name()) }}</h2>

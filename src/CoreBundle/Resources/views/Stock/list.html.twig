@@ -101,9 +101,13 @@
                 {{ ux_icon('tabler:box-off', {width: 40, height: 40}) }}
                 <p class="mt-3 mb-1">{{ 'No stock yet.'|trans }}</p>
                 {% if is_granted('ROLE_MANAGER') %}
+                <p class="mb-0 small">
+                    {{ 'Two ways in: type your items in one at a time, or fill in the blank sheet and upload it. If you run Tally, upload its stock summary as it comes.'|trans }}
+                </p>
                 <div class="mt-3 d-flex gap-2 justify-content-center flex-wrap">
                     <a href="{{ path('_stock_item_new') }}" class="btn btn-sm btn-primary">{{ 'Add an item by hand'|trans }}</a>
-                    <a href="{{ path('_stock_import') }}" class="btn btn-sm btn-outline-primary">{{ 'Import a Tally stock file'|trans }}</a>
+                    <a href="{{ path('_stock_template') }}" class="btn btn-sm btn-outline-primary">{{ 'Download blank template'|trans }}</a>
+                    <a href="{{ path('_stock_import') }}" class="btn btn-sm btn-outline-secondary">{{ 'Upload a stock file'|trans }}</a>
                 </div>
                 {% endif %}
             </div>

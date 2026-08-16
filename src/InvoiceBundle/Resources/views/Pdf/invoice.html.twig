@@ -80,11 +80,13 @@
 <table class="invoice-header-table" cellpadding="0" cellspacing="0">
     <tr>
         <td class="header-left" style="width: 50%; vertical-align: top;">
-            {# Company Logo #}
-            {% set logo = setting('system/company/logo') %}
+            {# Company Logo. Read from the business that issued the invoice, the
+               same as its name and address below - not from whichever company
+               the person printing it is signed into. #}
+            {% set logo = company_setting(invoice.company, 'system/company/logo') %}
             {% if logo is not empty %}
                 <div class="company-logo" style="margin-bottom: 14px;">
-                    {{ app_logo(80) }}
+                    {{ app_logo(80, invoice.company) }}
                 </div>
             {% endif %}
 

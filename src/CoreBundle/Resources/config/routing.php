@@ -34,6 +34,7 @@ use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
+use SolidInvoice\CoreBundle\Action\Stock\StockTemplate;
 use SolidInvoice\CoreBundle\Action\Stock\ListStock;
 use SolidInvoice\CoreBundle\Action\Stock\ManageStockItem;
 use SolidInvoice\CoreBundle\Action\Stock\PublicStock;
@@ -91,6 +92,13 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_stock_import', '/stock/import')
         ->controller(ImportStock::class);
+
+    // The blank sheet to fill in, for a business that has no Tally export to
+    // start from.
+    $routingConfigurator
+        ->add('_stock_template', '/stock/template.xlsx')
+        ->controller(StockTemplate::class)
+        ->methods(['GET']);
 
     // Why a quantity is what it is: every in and out, with the document behind
     // it. Optionally narrowed to one item with ?model=<id>.

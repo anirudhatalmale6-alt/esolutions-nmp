@@ -13,13 +13,13 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\Form\Type;
 
+use SolidInvoice\UserBundle\Validator\Constraints\UsablePassword;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\PasswordStrength;
 
 /**
  * @extends AbstractType<mixed>
@@ -39,8 +39,9 @@ final class ChangePasswordFormType extends AbstractType
                 'first_options' => [
                     'constraints' => [
                         new NotBlank(message: 'Please enter a password'),
-                        new Length(min: 8, max: 4096, minMessage: 'Your password should be at least {{ limit }} characters'),
-                        new PasswordStrength(minScore: PasswordStrength::STRENGTH_MEDIUM),
+                        new Length(max: 4096),
+                        // The same rule as signing up - see UsablePassword.
+                        new UsablePassword(),
                     ],
                     'label' => 'New password',
                 ],

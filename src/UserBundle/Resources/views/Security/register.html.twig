@@ -81,8 +81,16 @@
                                             </span>
                                         </a>
                                     </span>
-                                    {{ form_errors(form.plainPassword) }}
                                 </div>
+
+                                {# Say what is wanted BEFORE they guess at it. The
+                                   rule used to be invisible until the form came
+                                   back rejecting perfectly sensible passwords. #}
+                                <div class="form-hint mt-1">
+                                    {{ 'At least 10 characters, using two kinds of character - letters and a number is enough. A longer phrase works on its own.'|trans }}
+                                </div>
+
+                                {{ form_errors(form.plainPassword) }}
                             </div>
 
                             {# Terms & Conditions Checkbox #}

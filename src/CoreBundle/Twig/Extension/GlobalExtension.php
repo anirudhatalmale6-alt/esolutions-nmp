@@ -151,7 +151,16 @@ class GlobalExtension extends AbstractExtension implements GlobalsInterface
         $logo = $showDefault ? self::DEFAULT_LOGO : null;
 
         if ($this->installed && ! $showOnlyAppIcon) {
-            $logo = $this->companySelector->getCompany() instanceof Ulid ? $this->systemConfig->get('system/company/logo', $company) : self::DEFAULT_LOGO;
+            if ($company instanceof Company) {
+                // A named company is the business that ISSUED the document being
+                // rendered. Read its own logo, whoever is looking and whichever
+                // company they happen to be signed into - and without needing an
+                // ambient company at all, so a PDF built by a queue worker is
+                // branded the same as one downloaded from the screen.
+                $logo = $this->systemConfig->getForCompany($company, 'system/company/logo');
+            } else {
+                $logo = $this->companySelector->getCompany() instanceof Ulid ? $this->systemConfig->get('system/company/logo') : self::DEFAULT_LOGO;
+            }
 
             if (null === $logo) {
                 $logo = $showDefault ? self::DEFAULT_LOGO : null;

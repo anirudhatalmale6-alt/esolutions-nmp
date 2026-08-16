@@ -58,9 +58,9 @@
                         {# Header with Logo and Quote Info #}
                         <div class="row">
                             <div class="col-6">
-                                {% if app_logo() is not empty %}
+                                {% if app_logo(80, quote.company) is not empty %}
                                     <div class="ext-doc-logo mb-3">
-                                        {{ app_logo(80) }}
+                                        {{ app_logo(80, quote.company) }}
                                     </div>
                                 {% endif %}
                                 <h2 class="ext-doc-company-name mb-1">{{ quote.company.name|default(company_name()) }}</h2>

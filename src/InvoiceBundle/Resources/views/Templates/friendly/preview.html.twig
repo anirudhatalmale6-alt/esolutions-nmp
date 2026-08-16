@@ -11,7 +11,7 @@
         <div class="card-body p-5">
             <div class="d-flex justify-content-between mb-4">
                 <div>
-                    {% if app_logo() is not empty %}{{ app_logo(40) }}{% endif %}
+                    {% if app_logo(40, invoice.company) is not empty %}{{ app_logo(40, invoice.company) }}{% endif %}
                     <div class="fs-5 fw-bold mt-2">{{ company_name() }}</div>
                 </div>
                 <div class="text-end">

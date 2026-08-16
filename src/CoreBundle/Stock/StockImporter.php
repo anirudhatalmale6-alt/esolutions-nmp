@@ -80,7 +80,14 @@ final class StockImporter
         $reader = IOFactory::createReaderForFile($filePath);
         $reader->setReadDataOnly(true);
         $spreadsheet = $reader->load($filePath);
-        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, false, false);
+
+        // Our own blank template ships with a filled-in "Example" sheet beside
+        // the real one. Excel remembers whichever sheet the person was last
+        // looking at, so going by the active sheet alone would happily import the
+        // example. A sheet actually named "Stock" wins when there is one.
+        $sheet = $spreadsheet->getSheetByName('Stock') ?? $spreadsheet->getActiveSheet();
+
+        $rows = $sheet->toArray(null, true, false, false);
 
         $grouped = $this->groupIntoModels($this->extractRows($rows));
 

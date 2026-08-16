@@ -13,11 +13,11 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\DTO;
 
+use SolidInvoice\UserBundle\Validator\Constraints\UsablePassword;
 use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotCompromisedPassword;
-use Symfony\Component\Validator\Constraints\PasswordStrength;
 
 /**
  * @see \SolidInvoice\UserBundle\Tests\DTO\ChangePasswordTest
@@ -29,13 +29,14 @@ final class ChangePassword
     public ?string $currentPassword = null;
 
     #[NotBlank(message: 'Please enter a password')]
-    #[Length(min: 8, max: 4096, minMessage: 'Your password must be at least {{ limit }} characters long')]
-    #[PasswordStrength(
-        minScore: PasswordStrength::STRENGTH_MEDIUM,
-        message: 'Your password is too weak. Please use a stronger password with a mix of letters, numbers, and symbols.'
-    )]
+    #[Length(max: 4096)]
+    // Same rule as signing up - see Registration. The old one here was stricter
+    // still (STRENGTH_MEDIUM), so anyone who managed to register then could not
+    // change their password to anything they would remember.
+    #[UsablePassword]
     #[NotCompromisedPassword(
-        message: 'This password has been leaked in a data breach, please use a different password.'
+        message: 'This password has been leaked in a data breach, please use a different password.',
+        skipOnError: true,
     )]
     public ?string $plainPassword = null;
 }

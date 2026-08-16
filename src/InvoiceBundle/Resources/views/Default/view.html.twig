@@ -438,6 +438,15 @@
                                                 <strong>{{ 'Grade'|trans }}:</strong> {{ item.stockGrade.grade }}
                                             </div>
                                         {% endif %}
+                                        {# Whatever was written about this line for the office. Same
+                                           treatment as the grade breakdown above: on screen for staff,
+                                           no-print so a printed copy of this page cannot carry it, and
+                                           nowhere near the customer's document. #}
+                                        {% if item.internalNote is not empty %}
+                                            <div class="line-note no-print text-secondary" style="font-size:.8125rem;margin-top:.4rem;line-height:1.5;">
+                                                <strong>{{ 'Internal note'|trans }}:</strong> {{ item.internalNote|nl2br }}
+                                            </div>
+                                        {% endif %}
                                         {# Internal IMEI record for warranty/claim tracking - staff-facing only,
                                            never shown on the customer PDF or the public invoice view. #}
                                         {% if item.imei is not empty %}

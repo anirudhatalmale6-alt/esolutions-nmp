@@ -182,6 +182,11 @@
                                         {{ form_widget(item.gradeSplit) }}
                                         <span class="nmp-grade-badge" data-stock-grade-label></span>
                                         <div class="nmp-mix" data-grade-mix></div>
+                                        {# Where private wording goes. The box above is the customer's
+                                           line and is printed word for word; this one never leaves the
+                                           office. #}
+                                        {{ form_widget(item.internalNote) }}
+                                        {{ form_errors(item.internalNote) }}
                                         {{ form_errors(item.description) }}
                                     </div>
                                     <div class="column-price">
@@ -494,6 +499,24 @@
             }
         }
         .column-total .item-total-value { white-space: nowrap; }
+        /* The internal note sits under the description and has to look unlike
+           it, so nobody mistakes one for the other while typing. */
+        .column-description textarea.nmp-note-input {
+            margin-top: .3rem;
+            font-size: .78rem;
+            line-height: 1.35;
+            min-height: 0;
+            padding: .2rem .45rem;
+            color: var(--bs-secondary-color, #6c757d);
+            background: var(--bs-secondary-bg, #f6f8fa);
+            border-style: dashed;
+        }
+        .column-description textarea.nmp-note-input::placeholder { font-style: italic; }
+        .column-description textarea.nmp-note-input:focus {
+            color: var(--bs-body-color);
+            background: var(--bs-body-bg, #fff);
+            border-style: solid;
+        }
         .imei-line-btn { position: relative; }
         .imei-dot { position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #f4c430; box-shadow: 0 0 0 2px var(--bs-body-bg, #fff); }
         .imei-dot[hidden] { display: none; }

@@ -123,6 +123,24 @@ class ItemType extends AbstractType
             ]
         )->get('gradeSplit')->addModelTransformer($this->gradeSplitTransformer);
 
+        // Anything about this line the customer must not read. The description
+        // is printed exactly as typed, so this is where "Mix Grade", the
+        // shipment it came off, or what was agreed on the phone belongs.
+        $builder->add(
+            'internalNote',
+            TextareaType::class,
+            [
+                'required' => false,
+                'label' => false,
+                'attr' => [
+                    'class' => 'nmp-note-input',
+                    'rows' => 1,
+                    'placeholder' => 'Internal note - never printed',
+                    'data-internal-note-field' => true,
+                ],
+            ]
+        );
+
         // Internal IMEI capture for this line (comma-separated, entered via the
         // per-line IMEI popup). Hidden input; never shown to the customer.
         $builder->add(

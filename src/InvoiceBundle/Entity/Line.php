@@ -181,6 +181,18 @@ class Line implements LineInterface, Stringable
     #[ORM\Column(name: 'grade_split', type: Types::JSON, nullable: true)]
     protected ?array $gradeSplit = null;
 
+    /**
+     * Internal only: anything about this line the customer must not read.
+     *
+     * The description is the customer's line and is printed exactly as typed,
+     * so a note written there - "Mix Grade", "off the Hong Kong lot", whatever
+     * was agreed on the phone - goes out on the invoice. This is where that
+     * belongs instead. Shown on the staff view, never on the PDF, the public
+     * link, or a printed copy of the staff view.
+     */
+    #[ORM\Column(name: 'internal_note', type: Types::TEXT, nullable: true)]
+    protected ?string $internalNote = null;
+
     #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'lines')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[ApiProperty(
@@ -307,6 +319,52 @@ class Line implements LineInterface, Stringable
     public function gradeSplitTotal(): int
     {
         return array_sum($this->getGradeSplit());
+    }
+
+    public function getInternalNote(): ?string
+    {
+        $note = trim((string) $this->internalNote);
+
+        return $note === '' ? null : $note;
+    }
+
+    public function setInternalNote(?string $internalNote): self
+    {
+        $note = trim((string) $internalNote);
+
+        $this->internalNote = $note === '' ? null : $note;
+
+        return $this;
+    }
+
+    /**
+     * The words that must never reach a customer's copy.
+     *
+     * Grading is how the stock is bought and sorted, and it is deliberately not
+     * something the customer is told - a lot sold as a mix is sold as a lot.
+     * The description is printed exactly as typed, so a note like "Mix Grade"
+     * written there goes out on the invoice, which is what this refuses.
+     */
+    private const string GRADE_WORDS = '/\b(grade|grades|grading|graded)\b/i';
+
+    /**
+     * Nothing about grading may be typed into the line the customer reads.
+     *
+     * This is not about stock accounting, so unlike the check below it applies
+     * whether or not the business is keeping live figures - the customer's copy
+     * is the customer's copy either way. The internal note is the way to record
+     * it, and the message says so.
+     */
+    #[Assert\Callback]
+    public function validateDescriptionIsCustomerSafe(ExecutionContextInterface $context): void
+    {
+        if (preg_match(self::GRADE_WORDS, (string) $this->description) !== 1) {
+            return;
+        }
+
+        $context->buildViolation('The description is printed on the customer\'s invoice, so it cannot mention grading. Put it in the internal note instead - that is never printed.')
+            ->atPath('description')
+            ->addViolation();
     }
 
     /**

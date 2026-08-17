@@ -27,6 +27,7 @@ use SolidInvoice\InvoiceBundle\Test\Factory\InvoiceFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Twig\Environment;
@@ -85,6 +86,7 @@ final class PublicViewLinkGateTest extends KernelTestCase
             $container->get(Generator::class),
             $container->get(Environment::class),
             $gate,
+            $container->get(Security::class),
         );
     }
 

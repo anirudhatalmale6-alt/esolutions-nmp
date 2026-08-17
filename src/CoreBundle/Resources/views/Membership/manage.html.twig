@@ -322,6 +322,17 @@
                                 <span class="text-secondary">— {{ 'invoices take stock out and purchases put it in, instead of quantities coming from Tally'|trans }}</span>
                             </span>
                         </label>
+                        {# Sold by the place, not by the plan. Switching it off
+                           leaves whatever they wrote alone - the advert simply
+                           stops being drawn, so paying again next month puts it
+                           straight back. #}
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="classifieds_access" value="1"{{ row.classifiedsAccess ? ' checked' }}>
+                            <span class="form-check-label">
+                                {{ 'Classified advert'|trans }}
+                                <span class="text-secondary">— {{ 'this business may run a paid advert on the Marketplace; you still decide which of the four places it gets'|trans }}</span>
+                            </span>
+                        </label>
                     </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-primary">

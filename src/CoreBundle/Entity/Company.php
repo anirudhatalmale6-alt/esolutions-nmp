@@ -150,6 +150,19 @@ class Company implements Stringable, SubscribableInterface
     private bool $liveStock = false;
 
     /**
+     * TRUE when this business may run a paid classified advert on the
+     * Marketplace home page.
+     *
+     * There are four places on that page and the platform owner sells them, so
+     * this is not something a plan buys - it is switched on by name, for as long
+     * as it has been paid for, and switched off again without touching anything
+     * else the business has. Off, the member never sees the Classifieds page at
+     * all; their advert, if they had one, simply stops being drawn.
+     */
+    #[ORM\Column(name: 'classifieds_access', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $classifiedsAccess = false;
+
+    /**
      * Where the business trades from. Asked on the second page of sign-up, so
      * the super-user panel has something real to look at when deciding whether
      * to hand out the trusted badge, instead of a name and an email address.
@@ -490,6 +503,18 @@ class Company implements Stringable, SubscribableInterface
     public function setLiveStock(bool $liveStock): self
     {
         $this->liveStock = $liveStock;
+
+        return $this;
+    }
+
+    public function hasClassifiedsAccess(): bool
+    {
+        return $this->classifiedsAccess;
+    }
+
+    public function setClassifiedsAccess(bool $classifiedsAccess): self
+    {
+        $this->classifiedsAccess = $classifiedsAccess;
 
         return $this;
     }

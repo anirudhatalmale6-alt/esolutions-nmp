@@ -95,6 +95,19 @@ final class MembershipManager
         return $company->isVerified();
     }
 
+    /**
+     * Whether this company may run a paid classified advert.
+     *
+     * Not part of any plan on purpose - there are only four places on the page
+     * and the platform owner sells them one at a time. A lapsed member loses it
+     * like everything else, so an advert cannot outlive the membership that paid
+     * for it.
+     */
+    public function hasClassifiedsAccess(Company $company): bool
+    {
+        return $company->hasClassifiedsAccess() && $this->isActive($company);
+    }
+
     // ---- Current-company convenience (safe on pages with no company context) ----
 
     public function currentCompany(): ?Company
@@ -127,6 +140,17 @@ final class MembershipManager
         $company = $this->currentCompany();
 
         return $company !== null && $this->hasMarketplaceAccess($company);
+    }
+
+    /**
+     * Does the company the user is currently in have a classified advert slot
+     * paid for? False on public pages, which is the safe answer.
+     */
+    public function currentHasClassifiedsAccess(): bool
+    {
+        $company = $this->currentCompany();
+
+        return $company !== null && $this->hasClassifiedsAccess($company);
     }
 
     // ---- Mutations (used by the super-user panel; Stripe checkout later) ----
@@ -167,6 +191,21 @@ final class MembershipManager
     public function setMarketplaceAccess(Company $company, bool $marketplaceAccess): void
     {
         $company->setMarketplaceAccess($marketplaceAccess);
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Sell a business a classified advert slot, or take it back.
+     *
+     * Taking it back deliberately leaves whatever they wrote alone. The advert
+     * stops being drawn because the page only draws adverts from businesses that
+     * still have this, so nothing is lost if they pay again next month - and the
+     * owner does not have to remember to clear a slot by hand.
+     */
+    public function setClassifiedsAccess(Company $company, bool $classifiedsAccess): void
+    {
+        $company->setClassifiedsAccess($classifiedsAccess);
 
         $this->entityManager->flush();
     }

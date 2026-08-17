@@ -71,5 +71,31 @@ final class MarketplaceMenu
                 'role' => 'ROLE_ADMIN',
             ],
         ]);
+
+        // A classified advert is not part of any plan - there are four places on
+        // the Marketplace and the platform owner sells them one at a time. So the
+        // item only appears for a business that has been sold one, rather than
+        // appearing for everybody with an "upgrade" badge on it that upgrading
+        // would not actually satisfy.
+        if ($this->membership->currentHasClassifiedsAccess()) {
+            $marketplace->addChild('marketplace.classifieds', [
+                'route' => '_marketplace_classifieds',
+                'label' => 'My Advert',
+                'extras' => [
+                    'icon' => 'photo',
+                    'role' => 'ROLE_ADMIN',
+                ],
+            ]);
+        }
+
+        // The owner's side of the same thing: who is in which of the four places.
+        $marketplace->addChild('marketplace.ads', [
+            'route' => '_marketplace_ads',
+            'label' => 'Adverts',
+            'extras' => [
+                'icon' => 'photo',
+                'role' => 'ROLE_SUPER_ADMIN',
+            ],
+        ]);
     }
 }

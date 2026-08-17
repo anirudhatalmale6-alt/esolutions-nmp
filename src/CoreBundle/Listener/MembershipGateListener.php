@@ -79,6 +79,9 @@ final readonly class MembershipGateListener implements EventSubscriberInterface
         // public shop-window pages (viewable while gated)
         '_home',
         '_marketplace',
+        // The pictures on that page. Gating these would leave a gated member
+        // looking at a Marketplace full of broken image icons.
+        '_marketplace_media',
         '_store_front',
         '_stock_public',
         '_stock_public_member',

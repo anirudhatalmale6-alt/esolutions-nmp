@@ -1,0 +1,125 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # The platform owner's advert desk. Two halves: the four places on the
+ # Marketplace and who is in them, then every advert that has been written,
+ # placed or not. Super-user only - the action checks it too.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:photo', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Marketplace Adverts'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <h3 class="mb-1">{{ 'The four places'|trans }}</h3>
+        <p class="text-secondary" style="max-width: 760px;">
+            {{ 'These sit at the top of the Marketplace, under the search box. Putting an advert into a place that is already taken moves the other one out - there is only ever one advert in a place.'|trans }}
+        </p>
+
+        <div class="row g-3 mb-4">
+            {% for slot, ad in slots %}
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="border rounded h-100 p-3">
+                        <div class="text-secondary small mb-2">{{ 'Place %n%'|trans({'%n%': slot}) }}</div>
+                        {% if ad %}
+                            {% set image = marketplace_media(ad.imagePath) %}
+                            {% if image %}
+                                <img src="{{ image }}" alt="{{ ad.title }}" class="d-block rounded mb-2" style="width: 100%; height: auto;">
+                            {% endif %}
+                            <div class="fw-semibold">{{ ad.title }}</div>
+                            <div class="text-secondary small">{{ ad.businessName ?: 'Our own advert'|trans }}</div>
+                        {% else %}
+                            <div class="text-secondary py-4 text-center">{{ 'Empty'|trans }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <h3 class="mb-1">{{ 'Every advert'|trans }}</h3>
+        <p class="text-secondary" style="max-width: 760px;">
+            {{ 'Members with the Classifieds button switched on write their own advert. Nothing appears on the Marketplace until you give it a place here.'|trans }}
+        </p>
+
+        {% if ads is empty %}
+            <div class="text-secondary py-4">{{ 'Nobody has written an advert yet.'|trans }}</div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                    <tr>
+                        <th style="width: 140px;">{{ 'Picture'|trans }}</th>
+                        <th>{{ 'Advert'|trans }}</th>
+                        <th>{{ 'Business'|trans }}</th>
+                        <th>{{ 'Where'|trans }}</th>
+                        <th class="text-end">{{ 'Action'|trans }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for ad in ads %}
+                        {% set image = marketplace_media(ad.imagePath) %}
+                        <tr>
+                            <td>
+                                {% if image %}
+                                    <img src="{{ image }}" alt="{{ ad.title }}" class="rounded" style="width: 120px; height: auto;">
+                                {% else %}
+                                    <span class="text-secondary small">{{ 'No picture'|trans }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ ad.title }}</div>
+                                {% if ad.caption %}<div class="text-secondary small">{{ ad.caption }}</div>{% endif %}
+                                {% if ad.linkUrl %}<div class="text-secondary small text-truncate" style="max-width: 320px;">{{ ad.linkUrl }}</div>{% endif %}
+                            </td>
+                            <td>{{ ad.businessName ?: 'Our own advert'|trans }}</td>
+                            <td>
+                                {% if ad.slot %}
+                                    <span class="badge bg-green text-white">{{ 'Place %n%'|trans({'%n%': ad.slot}) }}</span>
+                                {% else %}
+                                    <span class="text-secondary small">{{ 'Not showing'|trans }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="{{ path('_marketplace_ads') }}" class="d-inline-flex align-items-center gap-1">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('marketplace.ads') }}">
+                                    <input type="hidden" name="ad" value="{{ ad.id }}">
+                                    <input type="hidden" name="action" value="place">
+                                    <select name="slot" class="form-select form-select-sm" style="width: auto;" aria-label="{{ 'Place'|trans }}">
+                                        {% for slot in 1..slotCount %}
+                                            <option value="{{ slot }}"{% if ad.slot == slot %} selected{% endif %}>{{ 'Place %n%'|trans({'%n%': slot}) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-primary">{{ 'Put up'|trans }}</button>
+                                </form>
+
+                                {% if ad.slot %}
+                                    <form method="post" action="{{ path('_marketplace_ads') }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('marketplace.ads') }}">
+                                        <input type="hidden" name="ad" value="{{ ad.id }}">
+                                        <input type="hidden" name="action" value="pull">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Take down'|trans }}</button>
+                                    </form>
+                                {% endif %}
+
+                                <form method="post" action="{{ path('_marketplace_ads') }}" class="d-inline"
+                                      onsubmit="return confirm('{{ 'Delete this advert? The picture goes with it.'|trans|e('js') }}');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('marketplace.ads') }}">
+                                    <input type="hidden" name="ad" value="{{ ad.id }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Delete'|trans }}</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </twig:Ui:Card>
+{% endblock %}

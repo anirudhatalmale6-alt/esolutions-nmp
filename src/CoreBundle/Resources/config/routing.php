@@ -24,6 +24,12 @@ use SolidInvoice\CoreBundle\Action\Expense\ManageExpense;
 use SolidInvoice\CoreBundle\Action\Receipt\DeleteReceipt;
 use SolidInvoice\CoreBundle\Action\Receipt\ListReceipts;
 use SolidInvoice\CoreBundle\Action\Receipt\ManageReceipt;
+use SolidInvoice\CoreBundle\Action\Community\RemovePost;
+use SolidInvoice\CoreBundle\Action\Community\ReplyToPost;
+use SolidInvoice\CoreBundle\Action\Community\WritePost;
+use SolidInvoice\CoreBundle\Action\Marketplace\AdDesk;
+use SolidInvoice\CoreBundle\Action\Marketplace\Classifieds;
+use SolidInvoice\CoreBundle\Action\Marketplace\Media as MarketplaceMedia;
 use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
 use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
 use SolidInvoice\CoreBundle\Action\Membership\Pending as MembershipPending;
@@ -368,6 +374,51 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_marketplace_settings', '/settings/marketplace')
         ->controller(StockListingSettings::class)
         ->methods(['GET', 'POST']);
+
+    // Marketplace pictures - classified adverts and the photos on community
+    // posts. Open, like the page that shows them: a buyer with no account still
+    // has to see the stock. The folder is a company id, or "platform" for the
+    // owner's own adverts; the filename is one MediaStore wrote, so both are
+    // pinned down here as well as checked again before anything is read.
+    $routingConfigurator
+        ->add('_marketplace_media', '/marketplace/media/{folder}/{file}')
+        ->controller(MarketplaceMedia::class)
+        ->requirements([
+            'folder' => '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|platform',
+            'file' => '[A-Za-z0-9._-]{1,128}',
+        ])
+        ->methods(['GET']);
+
+    // The member writes their own classified advert; the platform owner decides
+    // which four are on the page.
+    $routingConfigurator
+        ->add('_marketplace_classifieds', '/marketplace/classifieds')
+        ->controller(Classifieds::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_marketplace_ads', '/marketplace/adverts')
+        ->controller(AdDesk::class)
+        ->methods(['GET', 'POST']);
+
+    // The community feed under the adverts. Reading is open to anyone; writing
+    // needs an account, which is why these are POST-only and live behind login.
+    $routingConfigurator
+        ->add('_community_post', '/marketplace/community')
+        ->controller(WritePost::class)
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_community_reply', '/marketplace/community/{id}/reply')
+        ->controller(ReplyToPost::class)
+        ->requirements(['id' => '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}'])
+        ->methods(['POST']);
+
+    $routingConfigurator
+        ->add('_community_remove', '/marketplace/community/{id}/remove')
+        ->controller(RemovePost::class)
+        ->requirements(['id' => '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}'])
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_sales_by_client', '/sales-by-client')

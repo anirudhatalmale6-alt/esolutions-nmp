@@ -1,0 +1,98 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # The member's own classified advert. Only reachable by a business the platform
+ # owner has sold a place to, so the page says plainly where the advert stands -
+ # written, or actually on the Marketplace - rather than leaving them to guess.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:photo', {width: 24, height: 24, class: 'me-2'}) }}{{ 'My Advert'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        {% if ad and ad.slot %}
+            <div class="alert alert-success d-flex align-items-start gap-3" role="alert">
+                {{ ux_icon('tabler:circle-check', {width: 24, height: 24, class: 'flex-shrink-0'}) }}
+                <div>
+                    <strong class="d-block">{{ 'Your advert is live'|trans }}</strong>
+                    {{ 'It is showing on the Marketplace home page. Anything you change here appears there straight away.'|trans }}
+                </div>
+            </div>
+        {% elseif ad %}
+            <div class="alert alert-info d-flex align-items-start gap-3" role="alert">
+                {{ ux_icon('tabler:clock', {width: 24, height: 24, class: 'flex-shrink-0'}) }}
+                <div>
+                    <strong class="d-block">{{ 'With us'|trans }}</strong>
+                    {{ 'Your advert is written and waiting for one of the four places on the Marketplace. We will put it up shortly.'|trans }}
+                </div>
+            </div>
+        {% endif %}
+
+        <h3 class="mb-1">{{ 'Your classified advert'|trans }}</h3>
+        <p class="text-secondary" style="max-width: 720px;">
+            {{ 'There are four advert places at the top of the Marketplace, right under the search box, and everybody who opens the page sees them. Put your best picture in - a phone deal, a bulk offer, your shop.'|trans }}
+        </p>
+
+        <form method="post" action="{{ path('_marketplace_classifieds') }}" enctype="multipart/form-data" class="mt-4" style="max-width: 720px;">
+            <input type="hidden" name="_token" value="{{ csrf_token('marketplace.classified') }}">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="ad-title">{{ 'Headline'|trans }}</label>
+                <input class="form-control" type="text" id="ad-title" name="title" maxlength="120" required
+                       value="{{ ad ? ad.title : '' }}" placeholder="{{ 'e.g. iPhone 16 Pro Max - 50 pcs available'|trans }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="ad-caption">{{ 'One line underneath'|trans }} <span class="text-secondary fw-normal">({{ 'optional'|trans }})</span></label>
+                <input class="form-control" type="text" id="ad-caption" name="caption" maxlength="255"
+                       value="{{ ad and ad.caption ? ad.caption : '' }}" placeholder="{{ 'e.g. Sealed, UAE spec, ready to ship'|trans }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="ad-link">{{ 'Where it should go when tapped'|trans }} <span class="text-secondary fw-normal">({{ 'optional'|trans }})</span></label>
+                <input class="form-control" type="text" id="ad-link" name="link_url" maxlength="255"
+                       value="{{ ad and ad.linkUrl ? ad.linkUrl : '' }}" placeholder="{{ 'e.g. your website, or leave empty for your WhatsApp'|trans }}">
+                <div class="form-hint mt-1">
+                    {{ 'Leave this empty and a tap opens a WhatsApp chat with the number on your Marketplace listing.'|trans }}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="ad-image">{{ 'Picture'|trans }}</label>
+                <input class="form-control" type="file" id="ad-image" name="image" accept="{{ accept }}">
+                <div class="form-hint mt-1">
+                    {% if ad and ad.imagePath %}
+                        <span class="text-success">
+                            {{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}
+                            {{ 'A picture is on file. Choose another only if you want to replace it.'|trans }}
+                        </span>
+                    {% else %}
+                        {{ 'A wide picture works best - about twice as wide as it is tall. JPG, PNG or WEBP, up to %mb% MB.'|trans({'%mb%': maxMb}) }}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if ad and ad.imagePath %}
+                <div class="mb-3">
+                    <span class="form-label fw-semibold d-block">{{ 'How it looks now'|trans }}</span>
+                    <a href="{{ path('_marketplace') }}" class="d-inline-block border rounded overflow-hidden" style="max-width: 360px;">
+                        <img src="{{ marketplace_media(ad.imagePath) }}"
+                             alt="{{ ad.title }}" class="d-block" style="width: 100%; height: auto;">
+                    </a>
+                </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary">
+                {{ ux_icon('tabler:device-floppy', {width: 18, height: 18, class: 'me-1'}) }}
+                {{ 'Save advert'|trans }}
+            </button>
+        </form>
+    </twig:Ui:Card>
+{% endblock %}

@@ -17,6 +17,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\SupportTicket;
 use SolidInvoice\CoreBundle\Enum\SupportTicketStatus;
+use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
 
 /**
@@ -24,6 +25,8 @@ use SolidWorx\Platform\PlatformBundle\Repository\EntityRepository;
  */
 class SupportTicketRepository extends EntityRepository
 {
+    use WithoutCompanyFilter;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, SupportTicket::class);
@@ -93,29 +96,6 @@ class SupportTicketRepository extends EntityRepository
     public function findAllForOwnerUnscoped(): array
     {
         return $this->withoutCompanyFilter(fn (): array => $this->findAllForOwner());
-    }
-
-    /**
-     * @template T
-     * @param callable(): T $callback
-     * @return T
-     */
-    private function withoutCompanyFilter(callable $callback): mixed
-    {
-        $filters = $this->getEntityManager()->getFilters();
-        $wasEnabled = $filters->isEnabled('company');
-
-        if ($wasEnabled) {
-            $filters->disable('company');
-        }
-
-        try {
-            return $callback();
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable('company');
-            }
-        }
     }
 
     /**

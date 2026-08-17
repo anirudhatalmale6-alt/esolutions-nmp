@@ -144,6 +144,7 @@ final class MembershipManage extends AbstractController
                 // The grant itself, as ticked on this page...
                 'marketplaceGranted' => $company->hasMarketplaceAccess(),
                 'liveStock' => $company->hasLiveStock(),
+                'classifiedsAccess' => $company->hasClassifiedsAccess(),
                 // ...and whether the business can actually reach the Marketplace
                 // today, which Premium also satisfies. Shown so a Premium company
                 // does not read as shut out just because the box is unticked.
@@ -245,6 +246,11 @@ final class MembershipManage extends AbstractController
         // switching it on is always a decision somebody made rather than
         // something that happened to them.
         $this->membership->setLiveStock($company, $liveStock);
+
+        // Whether they may run a paid classified advert. Independent of the plan
+        // for the same reason the Marketplace grant is: the four places on that
+        // page are sold one at a time, by name.
+        $this->membership->setClassifiedsAccess($company, $request->request->getBoolean('classifieds_access'));
 
         // Work out the expiry: no plan or a "lifetime" term means no expiry;
         // otherwise one year from today.

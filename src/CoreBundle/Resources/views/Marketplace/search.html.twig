@@ -99,6 +99,82 @@
             :root { --bg:#0f1216; --card:#171b22; --ink:#e8ebef; --muted:#98a2ad; --line:#272d37; --chip:#222831; --accent:#e9ecf1; --accent-ink:#12151a; }
             form.search input[type=text]:focus { border-color:#3a4150; }
         }
+
+        /* ---- Paid classified adverts ------------------------------------
+           Four places, sold by the platform owner. Two across on a phone, four
+           across on a laptop: the point of a paid place is that it is seen
+           without scrolling, and one banner per row would push the fourth
+           advertiser off the screen. Every picture is drawn in the same 4:3 box
+           whatever was uploaded, so one badly cropped photo cannot make the row
+           ragged. */
+        .adsrow { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-top:18px; }
+        .ad { display:block; background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; text-decoration:none; color:inherit; }
+        .ad img { display:block; width:100%; aspect-ratio:4/3; object-fit:cover; background:var(--chip); }
+        /* The three lines are spans, because the whole card is a link and a link
+           may not contain block-level markup. They are made to behave like lines
+           here rather than running into one another. */
+        .adbody { display:block; padding:10px 12px 12px; }
+        .ad .adtitle { display:block; font-weight:600; font-size:.92rem; line-height:1.3; word-break:break-word; }
+        .ad .adcap { display:block; color:var(--muted); font-size:.8rem; margin-top:3px; line-height:1.35; }
+        .ad .adby { display:block; color:var(--muted); font-size:.72rem; margin-top:6px; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        @media (min-width: 560px) { .adsrow { grid-template-columns:repeat(4, 1fr); } }
+
+        /* ---- Community feed ---------------------------------------------
+           Members posting stock, prices and warnings to each other. Small
+           pictures on purpose - this is a trading noticeboard, not a photo
+           album, and most of the people reading it are on mobile data. */
+        .sechead { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:26px 4px 10px; }
+        .sechead h2 { margin:0; font-size:.95rem; font-weight:600; }
+        /* The one-line explanation is there for somebody seeing the page for the
+           first time. On a narrow phone it wraps onto two lines beside the
+           heading and looks like a mistake, so it steps out of the way. */
+        .sechead .hint { color:var(--muted); font-size:.78rem; text-align:right; }
+        @media (max-width: 430px) { .sechead .hint { display:none; } }
+
+        .post { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px; }
+        .phead { display:flex; align-items:center; gap:10px; }
+        .pavatar { width:38px; height:38px; border-radius:50%; background:var(--chip); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:1rem; flex:0 0 auto; }
+        .pwho { flex:1 1 auto; min-width:0; }
+        .pwho .pname { font-weight:600; font-size:.92rem; line-height:1.3; word-break:break-word; }
+        .pwho .pwhen { color:var(--muted); font-size:.76rem; margin-top:1px; }
+        .pbody { margin-top:10px; font-size:.94rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+        /* Three across on a phone rather than four - at four, two pictures on a
+           post come out as thumbnails nobody can make anything out in. */
+        .pimgs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:10px; }
+        @media (min-width: 560px) { .pimgs { grid-template-columns:repeat(4, 1fr); } }
+        .pimgs a { display:block; border-radius:10px; overflow:hidden; }
+        .pimgs img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:var(--chip); }
+        .pfoot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+        .plink { background:none; border:0; padding:0; color:var(--muted); font-size:.78rem; cursor:pointer; font-family:inherit; }
+
+        .comments { margin-top:10px; border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:9px; }
+        .comment { font-size:.88rem; line-height:1.45; word-break:break-word; }
+        .comment .cwho { font-weight:600; }
+        .comment .cwhen { color:var(--muted); font-size:.72rem; margin-left:6px; }
+
+        /* The boxes for writing. Only drawn for signed-in members - a guest sees
+           the feed and a line telling them what signing in gets them, which is
+           the whole reason the feed is public in the first place. */
+        .writer { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px; }
+        .writer textarea { width:100%; min-height:74px; resize:vertical; padding:11px 13px; font:inherit; font-size:.94rem; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:11px; outline:none; }
+        .writer textarea:focus { border-color:#c3c8d0; }
+        .wrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap; }
+        .wfile { font-size:.8rem; color:var(--muted); max-width:100%; }
+        .wbtn { padding:10px 18px; font-size:.9rem; font-weight:600; border:0; border-radius:11px; background:var(--accent); color:var(--accent-ink); cursor:pointer; }
+        .replybox { display:flex; gap:8px; margin-top:10px; }
+        .replybox input { flex:1; min-width:0; padding:9px 13px; font:inherit; font-size:.88rem; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:11px; outline:none; }
+        .replybox input:focus { border-color:#c3c8d0; }
+        .replybox button { padding:0 15px; font-size:.85rem; font-weight:600; border:0; border-radius:11px; background:var(--chip); color:var(--ink); cursor:pointer; }
+        .joinline { text-align:center; color:var(--muted); font-size:.85rem; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:10px; }
+        .joinline a { color:var(--ink); font-weight:600; }
+        .flash { border-radius:12px; padding:11px 14px; margin-top:12px; font-size:.88rem; }
+        .flash.ok { background:#e7f7ec; color:#14622f; }
+        .flash.err { background:#fdeceb; color:#8a1c14; }
+        @media (prefers-color-scheme: dark) {
+            .flash.ok { background:#12321f; color:#8fe0ab; }
+            .flash.err { background:#3a1a18; color:#f3a49c; }
+            .writer textarea:focus, .replybox input:focus { border-color:#3a4150; }
+        }
     </style>
 </head>
 <body>
@@ -184,6 +260,140 @@
                 </div>
             {% endfor %}
         {% endif %}
+    {% endif %}
+
+    {# Anything the last post or reply had to say. The page is standalone, so it
+       renders its own flashes rather than inheriting an app layout's. #}
+    {% for message in app.flashes('success') %}
+        <div class="flash ok">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="flash err">{{ message }}</div>
+    {% endfor %}
+
+    {# ---- Paid classified adverts ----------------------------------------
+       The four places the platform owner sells. Drawn only when there is
+       something in them: four empty boxes on a new portal look broken, not
+       available. #}
+    {% if ads is not empty %}
+        <div class="adsrow">
+            {% for ad in ads %}
+                {% set image = marketplace_media(ad.imagePath) %}
+                {% if image %}
+                    {% if ad.linkUrl %}
+                        <a class="ad" href="{{ ad.linkUrl }}" target="_blank" rel="noopener nofollow">
+                    {% else %}
+                        <span class="ad">
+                    {% endif %}
+                        <img src="{{ image }}" alt="{{ ad.title }}" loading="lazy">
+                        <span class="adbody">
+                            <span class="adtitle">{{ ad.title }}</span>
+                            {% if ad.caption %}<span class="adcap">{{ ad.caption }}</span>{% endif %}
+                            {# The advertiser is named only to members, for the
+                               same reason a seller is: a guest is meant to
+                               register, not to walk away with the contact. #}
+                            {% if loggedIn and ad.businessName %}<span class="adby">{{ ad.businessName }}</span>{% endif %}
+                        </span>
+                    {% if ad.linkUrl %}</a>{% else %}</span>{% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# ---- Community feed -------------------------------------------------- #}
+    <div class="sechead">
+        <h2>{{ 'Community'|trans }}</h2>
+        <span class="hint">{{ 'Stock, prices and warnings, from members'|trans }}</span>
+    </div>
+
+    {% if canPost %}
+        <form class="writer" method="post" action="{{ path('_community_post') }}" enctype="multipart/form-data">
+            <input type="hidden" name="_token" value="{{ csrf_token('community.post') }}">
+            <textarea name="body" maxlength="2000" placeholder="{{ 'What have you got? Stock, prices, what you are looking for...'|trans }}"></textarea>
+            <div class="wrow">
+                <label class="wfile">
+                    {{ 'Pictures'|trans }}
+                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,.webp" multiple>
+                </label>
+                <button type="submit" class="wbtn">{{ 'Post'|trans }}</button>
+            </div>
+        </form>
+    {% elseif not loggedIn %}
+        <div class="joinline">
+            {{ 'Members post their stock here.'|trans }}
+            <a href="{{ path('_login_main') }}">{{ 'Log in'|trans }}</a>
+            {{ 'or'|trans }}
+            <a href="{{ path('_register') }}">{{ 'register'|trans }}</a>
+            {{ 'to join in.'|trans }}
+        </div>
+    {% endif %}
+
+    {% if feed is empty %}
+        <div class="empty">{{ 'Nothing posted yet.'|trans }}</div>
+    {% else %}
+        {% for entry in feed %}
+            {% set post = entry.post %}
+            {# A guest sees what was said but not who said it - the same rule the
+               search results follow, and the reason a buyer signs up. #}
+            {% set who = loggedIn ? (post.businessName ?: post.authorName ?: 'Member'|trans) : 'A member'|trans %}
+            <div class="post">
+                <div class="phead">
+                    <div class="pavatar">{{ who|trim|first|upper }}</div>
+                    <div class="pwho">
+                        <div class="pname">{{ who }}</div>
+                        <div class="pwhen">{{ post.created ? post.created|date('j M Y, H:i') : '' }}</div>
+                    </div>
+                </div>
+
+                {% if post.body %}<div class="pbody">{{ post.body }}</div>{% endif %}
+
+                {% if post.images is not empty %}
+                    <div class="pimgs">
+                        {% for image in post.images %}
+                            {% set url = marketplace_media(image) %}
+                            {% if url %}
+                                <a href="{{ url }}" target="_blank" rel="noopener">
+                                    <img src="{{ url }}" alt="" loading="lazy">
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if entry.comments is not empty %}
+                    <div class="comments">
+                        {% for comment in entry.comments %}
+                            {% set cwho = loggedIn ? (comment.businessName ?: comment.authorName ?: 'Member'|trans) : 'A member'|trans %}
+                            <div class="comment">
+                                <span class="cwho">{{ cwho }}</span>
+                                <span class="cwhen">{{ comment.created ? comment.created|date('j M, H:i') : '' }}</span>
+                                <div>{{ comment.body }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if canPost %}
+                    <form class="replybox" method="post" action="{{ path('_community_reply', {id: post.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('community.reply') }}">
+                        <input type="text" name="body" maxlength="1000" placeholder="{{ 'Reply'|trans }}" aria-label="{{ 'Reply'|trans }}">
+                        <button type="submit">{{ 'Send'|trans }}</button>
+                    </form>
+                {% endif %}
+
+                {# Only the business that wrote it and the platform owner. #}
+                {% if entry.canRemove %}
+                    <div class="pfoot">
+                        <span></span>
+                        <form method="post" action="{{ path('_community_remove', {id: post.id}) }}"
+                              onsubmit="return confirm('{{ 'Remove this post?'|trans|e('js') }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('community.remove') }}">
+                            <button type="submit" class="plink">{{ 'Remove'|trans }}</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
     {% endif %}
 
     <footer class="foot">{{ 'Powered by Sunny'|trans }}</footer>

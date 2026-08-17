@@ -101,23 +101,41 @@
         }
 
         /* ---- Paid classified adverts ------------------------------------
-           Four places, sold by the platform owner. Two across on a phone, four
-           across on a laptop: the point of a paid place is that it is seen
-           without scrolling, and one banner per row would push the fourth
-           advertiser off the screen. Every picture is drawn in the same 4:3 box
-           whatever was uploaded, so one badly cropped photo cannot make the row
-           ragged. */
-        .adsrow { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-top:18px; }
-        .ad { display:block; background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; text-decoration:none; color:inherit; }
-        .ad img { display:block; width:100%; aspect-ratio:4/3; object-fit:cover; background:var(--chip); }
+           An advert is a BANNER - wide artwork with writing already inside it.
+           Two of those side by side on a phone gave each one about 170 pixels,
+           which is narrower than the artwork's own headline needs, and the 4:3
+           box then cropped the sides off. So: one per row on a phone, full
+           width, and the whole picture shown rather than cropped to fit. Two
+           across once there is room, four on a laptop where each one is still
+           wide enough to read. */
+        /* On a phone they swipe sideways rather than stacking. Four full-width
+           banners one under the other is over a thousand pixels of advertising
+           before the feed starts, which buries the thing people came back for.
+           Sideways, each advert is still full size and the next one peeks in at
+           the edge so it is obvious there are more. */
+        .adsrow { display:flex; gap:12px; margin-top:18px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:2px; }
+        .adsrow::-webkit-scrollbar { display:none; }
+        .ad { flex:0 0 86%; scroll-snap-align:start; display:block; background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; text-decoration:none; color:inherit; }
+        /* contain, never cover: whatever shape the advertiser uploaded is shown
+           whole. A banner with its own text cannot afford to lose its edges, and
+           the backdrop keeps the row tidy when shapes differ. */
+        .ad img { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; background:var(--chip); }
         /* The three lines are spans, because the whole card is a link and a link
            may not contain block-level markup. They are made to behave like lines
            here rather than running into one another. */
-        .adbody { display:block; padding:10px 12px 12px; }
-        .ad .adtitle { display:block; font-weight:600; font-size:.92rem; line-height:1.3; word-break:break-word; }
-        .ad .adcap { display:block; color:var(--muted); font-size:.8rem; margin-top:3px; line-height:1.35; }
-        .ad .adby { display:block; color:var(--muted); font-size:.72rem; margin-top:6px; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        @media (min-width: 560px) { .adsrow { grid-template-columns:repeat(4, 1fr); } }
+        .adbody { display:block; padding:12px 14px 14px; }
+        .ad .adtitle { display:block; font-weight:600; font-size:1.02rem; line-height:1.3; word-break:break-word; }
+        .ad .adcap { display:block; color:var(--muted); font-size:.88rem; margin-top:4px; line-height:1.4; }
+        .ad .adby { display:block; color:var(--muted); font-size:.74rem; margin-top:7px; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Two across, never four. The page is a 680px reading column whatever
+           the screen, so four in a row would be 160px each even on a laptop -
+           the same unreadable banner, just on a bigger monitor. */
+        @media (min-width: 620px) {
+            .adsrow { display:grid; grid-template-columns:repeat(2, 1fr); overflow:visible; }
+            .ad { flex:none; }
+            .ad .adtitle { font-size:.95rem; }
+            .ad .adcap { font-size:.82rem; }
+        }
 
         /* ---- Community feed ---------------------------------------------
            Members posting stock, prices and warnings to each other. Small
@@ -145,9 +163,14 @@
         .pimgs { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:11px; }
         .pimgs a { display:block; border-radius:10px; overflow:hidden; background:var(--chip); }
         .pimgs img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:var(--chip); }
-        .pimgs.n1 { grid-template-columns:minmax(0, 320px); }
-        .pimgs.n1 img { aspect-ratio:4/3; }
-        .pimgs.n2 { grid-template-columns:repeat(2, minmax(0, 190px)); }
+        /* A lone picture is usually the whole point of the post - a banner, a
+           price list, a photo of the boxes. It gets the full width of the card
+           and keeps its own shape, capped so a tall one cannot run off the
+           screen. Nothing is cropped: writing inside the picture has to survive.
+           Several pictures still tile as squares, where cropping is fine. */
+        .pimgs.n1 { grid-template-columns:1fr; }
+        .pimgs.n1 img { aspect-ratio:auto; height:auto; max-height:420px; object-fit:contain; }
+        .pimgs.n2 { grid-template-columns:repeat(2, 1fr); }
         .pimgs.n3 { grid-template-columns:repeat(3, 1fr); }
         .pfoot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
         .plink { background:none; border:0; padding:0; color:var(--muted); font-size:.78rem; cursor:pointer; font-family:inherit; }
@@ -169,9 +192,14 @@
         .writer { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px; }
         .writer textarea { width:100%; min-height:74px; resize:vertical; padding:11px 13px; font:inherit; font-size:.94rem; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:11px; outline:none; }
         .writer textarea:focus { border-color:#c3c8d0; }
-        .wrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap; }
-        .wfile { font-size:.8rem; color:var(--muted); max-width:100%; }
-        .wbtn { padding:10px 18px; font-size:.9rem; font-weight:600; border:0; border-radius:11px; background:var(--accent); color:var(--accent-ink); cursor:pointer; }
+        .wrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:11px; }
+        /* The real file input is off-screen rather than display:none, so it can
+           still be reached by keyboard and by a screen reader. */
+        .wrow input[type=file] { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+        .wupload { display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border:1px solid var(--line); border-radius:11px; background:var(--bg); color:var(--ink); font-size:.86rem; font-weight:600; cursor:pointer; }
+        .wupload svg { width:17px; height:17px; display:block; flex:0 0 auto; }
+        .wupload:hover { border-color:#c3c8d0; }
+        .wbtn { padding:10px 20px; font-size:.9rem; font-weight:600; border:0; border-radius:11px; background:var(--accent); color:var(--accent-ink); cursor:pointer; }
         .replybox { display:flex; gap:8px; margin-top:10px; }
         .replybox input { flex:1; min-width:0; padding:9px 13px; font:inherit; font-size:.88rem; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:11px; outline:none; }
         .replybox input:focus { border-color:#c3c8d0; }
@@ -185,6 +213,7 @@
             .flash.ok { background:#12321f; color:#8fe0ab; }
             .flash.err { background:#3a1a18; color:#f3a49c; }
             .writer textarea:focus, .replybox input:focus { border-color:#3a4150; }
+            .wupload:hover { border-color:#3a4150; }
         }
     </style>
 </head>
@@ -323,11 +352,17 @@
         <form class="writer" method="post" action="{{ path('_community_post') }}" enctype="multipart/form-data">
             <input type="hidden" name="_token" value="{{ csrf_token('community.post') }}">
             <textarea name="body" maxlength="2000" placeholder="{{ 'What have you got? Stock, prices, what you are looking for...'|trans }}"></textarea>
+            {# The browser's own file input is three different widgets depending
+               on the browser, and on a phone it wrapped onto its own line and
+               pushed Post underneath it. Hidden, with a label acting as the
+               button, so the row is always "add photos" on the left and "Post"
+               on the right. #}
             <div class="wrow">
-                <label class="wfile">
-                    {{ 'Pictures'|trans }}
-                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,.webp" multiple>
+                <label class="wupload" for="post-images">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h3l1.5-2h7L17 5h3a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm8 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z"/></svg>
+                    <span class="wupload-label">{{ 'Add photos'|trans }}</span>
                 </label>
+                <input type="file" id="post-images" name="images[]" accept=".jpg,.jpeg,.png,.webp" multiple>
                 <button type="submit" class="wbtn">{{ 'Post'|trans }}</button>
             </div>
         </form>
@@ -348,7 +383,7 @@
             {% set post = entry.post %}
             {# A guest sees what was said but not who said it - the same rule the
                search results follow, and the reason a buyer signs up. #}
-            {% set who = loggedIn ? (post.businessName ?: post.authorName ?: 'Member'|trans) : 'A member'|trans %}
+            {% set who = loggedIn ? (post.businessName ?: post.authorName ?: 'Member'|trans) : 'B2B Member'|trans %}
             {% set place = loggedIn ? entry.location : '' %}
             <div class="post">
                 <div class="phead">
@@ -399,7 +434,7 @@
                 {% if entry.comments is not empty %}
                     <div class="comments">
                         {% for comment in entry.comments %}
-                            {% set cwho = loggedIn ? (comment.businessName ?: comment.authorName ?: 'Member'|trans) : 'A member'|trans %}
+                            {% set cwho = loggedIn ? (comment.businessName ?: comment.authorName ?: 'Member'|trans) : 'B2B Member'|trans %}
                             <div class="comment">
                                 <span class="cwho">{{ cwho }}</span>
                                 <span class="cwhen">{{ comment.created ? comment.created|date('j M, H:i') : '' }}</span>
@@ -434,5 +469,28 @@
 
     <footer class="foot">{{ 'Powered by Sunny'|trans }}</footer>
 </div>
+
+{# The only script on the page: say how many photos were picked. Without it the
+   member taps Add photos, chooses three, and the button looks exactly as it did
+   before - so they tap it again, or post with nothing attached. #}
+<script>
+    (function () {
+        var input = document.getElementById('post-images');
+
+        if (!input) { return; }
+
+        var label = document.querySelector('.wupload-label');
+
+        if (!label) { return; }
+
+        var idle = label.textContent;
+
+        input.addEventListener('change', function () {
+            var n = input.files ? input.files.length : 0;
+
+            label.textContent = n === 0 ? idle : (n === 1 ? '1 photo' : n + ' photos');
+        });
+    })();
+</script>
 </body>
 </html>

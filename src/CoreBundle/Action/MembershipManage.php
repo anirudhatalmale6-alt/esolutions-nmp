@@ -18,6 +18,7 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
+use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,7 +26,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
+use function array_filter;
+use function implode;
 use function in_array;
 
 /**
@@ -145,6 +149,11 @@ final class MembershipManage extends AbstractController
                 // does not read as shut out just because the box is unticked.
                 'marketplaceAccess' => $this->membership->hasMarketplaceAccess($company),
                 'users' => $users,
+                'contactVerified' => $company->isContactVerified(),
+                'location' => $this->location($company),
+                // Only the documents that were actually sent in, so the panel shows
+                // three buttons or none rather than three greyed-out ones.
+                'documents' => $this->documents($company),
                 // A company the platform owner belongs to (any super-admin member)
                 // can't be deleted from here, so the owner can't wipe themselves out.
                 'canDelete' => ! $hasSuperAdmin,
@@ -152,6 +161,41 @@ final class MembershipManage extends AbstractController
         }
 
         return $rows;
+    }
+
+    /**
+     * "Dubai, United Arab Emirates" from the two columns, skipping whichever is
+     * missing. An unknown country code is shown as it was stored rather than
+     * dropped - if something odd is in that column the owner should see it.
+     */
+    private function location(Company $company): string
+    {
+        $city = (string) $company->getCity();
+        $code = (string) $company->getCountry();
+
+        $country = $code !== '' && Countries::exists($code) ? Countries::getName($code, 'en') : $code;
+
+        return implode(', ', array_filter([$city, $country], static fn (string $part): bool => $part !== ''));
+    }
+
+    /**
+     * @return list<array{kind: string, label: string}>
+     */
+    private function documents(Company $company): array
+    {
+        $documents = [];
+
+        foreach ([
+            [VerificationStore::ID_FRONT, 'National ID - front', $company->getIdFrontPath()],
+            [VerificationStore::ID_BACK, 'National ID - back', $company->getIdBackPath()],
+            [VerificationStore::PASSPORT, 'Passport', $company->getPassportPath()],
+        ] as [$kind, $label, $path]) {
+            if ($path !== null) {
+                $documents[] = ['kind' => $kind, 'label' => $label];
+            }
+        }
+
+        return $documents;
     }
 
     private function handleSave(Request $request): Response
@@ -186,6 +230,11 @@ final class MembershipManage extends AbstractController
 
         // Persist verification first so it is stored even for a None/Basic plan.
         $this->membership->setVerified($company, $verified);
+
+        // Whether anyone has actually reached them on that number. Its own tick,
+        // not part of the badge - one is a fact, the other is a judgement.
+        $company->setContactVerified($request->request->getBoolean('contact_verified'));
+        $this->entityManager->flush();
 
         // The Marketplace grant is deliberately independent of the plan - that is
         // the whole point of it - so it is stored whatever the plan below says.

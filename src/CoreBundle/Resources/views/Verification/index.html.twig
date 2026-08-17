@@ -1,0 +1,83 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:shield-check', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Get Verified'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        {# The state of play, said plainly. Somebody who sent documents in
+           yesterday should not have to guess whether they arrived. #}
+        {% if company.verified %}
+            <div class="alert alert-success d-flex align-items-start gap-3" role="alert">
+                {{ ux_icon('tabler:shield-check', {width: 24, height: 24, class: 'flex-shrink-0'}) }}
+                <div>
+                    <strong class="d-block">{{ 'You are verified'|trans }}</strong>
+                    {{ 'Your Trusted badge is active. Other members can see that this business has been checked.'|trans }}
+                </div>
+            </div>
+        {% elseif company.awaitingVerification %}
+            <div class="alert alert-info d-flex align-items-start gap-3" role="alert">
+                {{ ux_icon('tabler:clock', {width: 24, height: 24, class: 'flex-shrink-0'}) }}
+                <div>
+                    <strong class="d-block">{{ 'With us for review'|trans }}</strong>
+                    {{ 'We received your documents'|trans }}{% if company.verificationSubmittedAt %} {{ 'on'|trans }} {{ company.verificationSubmittedAt|date('j M Y') }}{% endif %}.
+                    {{ 'These are checked by a person, not a machine, so it can take a day or so.'|trans }}
+                </div>
+            </div>
+        {% endif %}
+
+        <h3 class="mb-1">{{ 'The Trusted badge'|trans }}</h3>
+        <p class="text-secondary" style="max-width: 720px;">
+            {{ 'Members trade with people they have never met. The badge is how they know who they are dealing with - it says we have seen this business\'s identity documents and checked them by hand. It is also what a Premium account is granted on.'|trans }}
+        </p>
+
+        <div class="alert alert-light border d-flex align-items-start gap-3" role="alert" style="max-width: 720px;">
+            {{ ux_icon('tabler:lock', {width: 20, height: 20, class: 'flex-shrink-0 mt-1 text-secondary'}) }}
+            <div class="small text-secondary">
+                {{ 'These documents are stored privately and can only be opened by the person who reviews them. They are never shown on your profile, in the marketplace, or to any other member.'|trans }}
+            </div>
+        </div>
+
+        <form method="post" action="{{ path('_verification') }}" enctype="multipart/form-data" class="mt-4">
+            <input type="hidden" name="_token" value="{{ csrf_token('verification.documents') }}">
+
+            <div class="row" style="max-width: 900px;">
+                {% for document in documents %}
+                    <div class="col-12 col-lg-4 mb-4">
+                        <label class="form-label fw-semibold" for="doc-{{ document.kind }}">{{ document.label|trans }}</label>
+                        <input class="form-control" type="file" id="doc-{{ document.kind }}" name="{{ document.kind }}" accept="{{ accept }}">
+                        <div class="form-hint mt-1">
+                            {% if document.path %}
+                                <span class="text-success">
+                                    {{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}
+                                    {{ 'Received'|trans }}
+                                </span>
+                                &middot; {{ 'choose a file to replace it'|trans }}
+                            {% else %}
+                                {{ 'Not sent yet'|trans }}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <p class="text-secondary small">
+                {{ 'JPG, PNG, WEBP or PDF, up to %max% MB each. A clear photo taken on your phone is fine.'|trans({'%max%': maxMb}) }}
+            </p>
+
+            <button type="submit" class="btn btn-primary">
+                {{ ux_icon('tabler:upload', {width: 18, height: 18, class: 'me-1'}) }}
+                {{ 'Send for review'|trans }}
+            </button>
+            <a href="{{ path('_dashboard') }}" class="btn btn-link text-secondary">{{ 'Not now'|trans }}</a>
+        </form>
+    </twig:Ui:Card>
+{% endblock %}

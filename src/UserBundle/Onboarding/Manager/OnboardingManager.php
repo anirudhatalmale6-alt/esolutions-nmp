@@ -13,26 +13,22 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\Onboarding\Manager;
 
-use Brick\Math\BigNumber;
 use Carbon\CarbonImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use JsonException;
-use SolidInvoice\ClientBundle\Entity\Client;
-use SolidInvoice\ClientBundle\Entity\Contact;
-use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
-use SolidInvoice\InvoiceBundle\Entity\Invoice;
-use SolidInvoice\InvoiceBundle\Entity\Line;
-use SolidInvoice\InvoiceBundle\Enum\InvoiceStatus;
-use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Enum\UserSettingType;
 use SolidInvoice\UserBundle\Onboarding\DTO\OnboardingData;
 use SolidInvoice\UserBundle\Repository\UserSettingRepository;
 use function json_decode;
 use function json_encode;
+use function mb_strrpos;
+use function mb_substr;
+use function preg_replace;
+use function trim;
 
 /**
  * @see \SolidInvoice\UserBundle\Tests\Onboarding\Manager\OnboardingManagerTest
@@ -42,8 +38,6 @@ final readonly class OnboardingManager
     public function __construct(
         private EntityManagerInterface $entityManager,
         private CompanyRepository $companyRepository,
-        private ClientRepository $clientRepository,
-        private InvoiceRepository $invoiceRepository,
         private UserSettingRepository $userSettingRepository,
     ) {
     }
@@ -104,7 +98,7 @@ final readonly class OnboardingManager
     /**
      * Complete onboarding process
      */
-    public function completeOnboarding(User $user, OnboardingData $data, ?string $referralCode = null, ?string $referralName = null): ?Invoice
+    public function completeOnboarding(User $user, OnboardingData $data, ?string $referralCode = null, ?string $referralName = null): void
     {
         // 1. Create company
         $company = $this->createCompany($data);
@@ -127,25 +121,19 @@ final readonly class OnboardingManager
         }
 
         $user->addCompany($company);
+
+        // 2. The person, not the business. Their name was being asked for on a
+        // profile page most people never opened, which is why every account in
+        // the panel showed an email address and nothing else.
+        $this->applyFullName($user, $data->fullName);
+
+        if ($data->contactNumber !== null && $data->contactNumber !== '') {
+            $user->setMobile($data->contactNumber);
+        }
+
         $this->entityManager->persist($user);
 
-        // 2. Create client (if not skipped)
-        $client = null;
-        if ($data->clientName && $data->clientEmail) {
-            $client = $this->createClient($data, $company);
-        } else {
-            $this->markStepSkipped($user, 'client');
-        }
-
-        // 3. Create invoice (if not skipped and client exists)
-        $invoice = null;
-        if ($data->invoiceDescription && $data->invoiceAmount && $client instanceof Client) {
-            $invoice = $this->createInvoice($data, $client, $company);
-        } else {
-            $this->markStepSkipped($user, 'invoice');
-        }
-
-        // 4. Mark onboarding complete
+        // 3. Mark onboarding complete
         $this->userSettingRepository->saveSetting($user, UserSettingType::OnboardComplete, 'true');
         $this->userSettingRepository->saveSetting(
             $user,
@@ -154,8 +142,6 @@ final readonly class OnboardingManager
         );
 
         $this->entityManager->flush();
-
-        return $invoice;
     }
 
     /**
@@ -191,8 +177,12 @@ final readonly class OnboardingManager
     private function createCompany(OnboardingData $data): Company
     {
         $company = new Company();
-        $company->setName($data->companyName);
-        $company->currency = $data->companyCurrency ?? 'USD';
+        $company->setName((string) $data->companyName);
+        $company->currency = $data->companyCurrency ?? 'AED';
+        $company
+            ->setCity($data->city)
+            ->setCountry($data->country)
+            ->setContactNumber($data->contactNumber);
 
         $this->companyRepository->save($company);
 
@@ -200,52 +190,32 @@ final readonly class OnboardingManager
     }
 
     /**
-     * Helper: Create client from data
+     * One box on the form, two columns in the database.
+     *
+     * People write their name the way they say it, so the split is the last
+     * space: everything before it is the first name, the remainder is the
+     * surname. A single word (some members go by one name) becomes the first
+     * name with no surname rather than being rejected - the form already made
+     * sure something was typed, and arguing about the shape of a stranger's name
+     * is not sign-up's job.
      */
-    private function createClient(OnboardingData $data, Company $company): Client
+    private function applyFullName(User $user, ?string $fullName): void
     {
-        $client = new Client();
-        $client->setName($data->clientName);
-        $client->setCompany($company);
-        $client->setCurrencyCode($company->currency);
+        $fullName = trim((string) preg_replace('/\s+/u', ' ', (string) $fullName));
 
-        // Create a contact with the email
-        $contact = new Contact();
-        $contact->setFirstName($data->clientName);
-        $contact->setEmail($data->clientEmail);
-        $contact->setClient($client);
+        if ($fullName === '') {
+            return;
+        }
 
-        $client->addContact($contact);
+        $split = mb_strrpos($fullName, ' ');
 
-        $this->clientRepository->save($client);
+        if ($split === false) {
+            $user->setFirstName($fullName);
 
-        return $client;
-    }
+            return;
+        }
 
-    /**
-     * Helper: Create invoice from data
-     */
-    private function createInvoice(OnboardingData $data, Client $client, Company $company): Invoice
-    {
-        $invoice = new Invoice();
-        $invoice->setClient($client);
-        $invoice->setCompany($company);
-        $invoice->setInvoiceId('1');
-        $invoice->setStatus(InvoiceStatus::Draft);
-
-        // Create a single line item
-        $line = new Line();
-        $line->setDescription($data->invoiceDescription);
-
-        // Parse amount and create Money object
-        $amount = BigNumber::of($data->invoiceAmount);
-        $line->setPrice($amount);
-        $line->setQty(1);
-
-        $invoice->addLine($line);
-
-        $this->invoiceRepository->save($invoice);
-
-        return $invoice;
+        $user->setFirstName(mb_substr($fullName, 0, $split));
+        $user->setLastName(mb_substr($fullName, $split + 1));
     }
 }

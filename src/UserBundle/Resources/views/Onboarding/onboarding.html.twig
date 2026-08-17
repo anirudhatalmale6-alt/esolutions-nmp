@@ -19,10 +19,11 @@
                 <div class="row align-items-center mb-2">
                     <div class="col">
                         <div class="d-flex justify-content-between align-items-center">
+                            {# Two steps now. Adding a client and writing a first
+                               invoice used to sit in the middle of joining, and
+                               they were the wrong thing to ask a stranger for. #}
                             {% set steps = [
-                                {name: 'company', label: 'onboarding.progress.company'|trans({}, 'onboarding'), icon: 'building'},
-                                {name: 'client', label: 'onboarding.progress.client'|trans({}, 'onboarding'), icon: 'users'},
-                                {name: 'invoice', label: 'onboarding.progress.invoice'|trans({}, 'onboarding'), icon: 'file-invoice'},
+                                {name: 'company', label: 'Your details', icon: 'building'},
                                 {name: 'complete', label: 'onboarding.progress.complete'|trans({}, 'onboarding'), icon: 'circle-check'}
                             ] %}
                             {% for step in steps %}

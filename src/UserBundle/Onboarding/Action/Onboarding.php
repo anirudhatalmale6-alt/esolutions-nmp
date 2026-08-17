@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\Onboarding\Action;
 
-use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\UserBundle\Action\Register;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Onboarding\DTO\OnboardingData;
@@ -61,55 +60,32 @@ final class Onboarding extends AbstractController
         // Check if we're on the complete step after invoice submission (auto-complete with invoice data)
 
         if ($form->isSubmitted() && $form->isValid()) {
-            if ($form->getCursor()->getCurrentStep() === 'invoice') {
+            if ($form->isFinished()) {
                 $formData = $form->getData();
                 assert($formData instanceof OnboardingData);
 
-                // If we have invoice data, complete onboarding immediately and redirect to invoice
-                if ($formData->invoiceDescription && $formData->invoiceAmount) {
-                    [$referralCode, $referralName] = $this->consumeReferral($request);
-                    $invoice = $this->onboardingManager->completeOnboarding($user, $formData, $referralCode, $referralName);
-                    $form->reset();
-
-                    if ($invoice instanceof Invoice) {
-                        $this->addFlash('success', 'onboarding.flash.invoice_created');
-                        return $this->redirectToRoute('_invoices_view', ['id' => $invoice->getId()]);
-                    }
-                }
-            } elseif ($form->isFinished()) {
-                $formData = $form->getData();
-                assert($formData instanceof OnboardingData);
-
-                // Save all data and get created invoice
                 [$referralCode, $referralName] = $this->consumeReferral($request);
-                $invoice = $this->onboardingManager->completeOnboarding($user, $formData, $referralCode, $referralName);
+                $this->onboardingManager->completeOnboarding($user, $formData, $referralCode, $referralName);
 
                 // Clear form data from session
                 $form->reset();
 
-                // If an invoice was created, redirect to invoice detail page
-                if ($invoice instanceof Invoice) {
-                    $this->addFlash('success', 'onboarding.flash.invoice_created');
-                    return $this->redirectToRoute('_invoices_view', ['id' => $invoice->getId()]);
-                }
-
-                // Otherwise, redirect to dashboard
+                // Straight to the dashboard. It used to land on a freshly created
+                // invoice, which was the wrong first thing to see - the account
+                // has no customers, no stock and nothing to bill for yet.
                 $this->addFlash('success', 'onboarding.flash.onboarding_complete');
-                return $this->redirectToRoute('_dashboard');
-            } else {
-                $this->onboardingManager->setCurrentStep($user, $form->getCursor()->getCurrentStep());
-            }
-        }
 
-        $formData = $form->getData();
-        assert($formData instanceof OnboardingData);
+                return $this->redirectToRoute('_dashboard');
+            }
+
+            $this->onboardingManager->setCurrentStep($user, $form->getCursor()->getCurrentStep());
+        }
 
         // Render current step
         return $this->render('@SolidInvoiceUser/Onboarding/onboarding.html.twig', [
             'form' => $form->getStepForm(),
             'currentStep' => $form->getCursor()->getCurrentStep(),
             'progress' => $this->calculateProgress($form),
-            'hasClient' => $formData->clientName !== null && $formData->clientName !== '',
         ]);
     }
 

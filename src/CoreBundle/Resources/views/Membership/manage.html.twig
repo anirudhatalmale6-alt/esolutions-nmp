@@ -177,6 +177,35 @@
                     </div>
                 </div>
                 <div class="col-sm-6">
+                    <div class="text-secondary small">{{ 'Contact person'|trans }}</div>
+                    <div class="fw-bold">
+                        {% if primaryUser and (primaryUser.firstName or primaryUser.lastName) %}
+                            {{ (primaryUser.firstName ~ ' ' ~ primaryUser.lastName)|trim }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="text-secondary small">{{ 'Contact number'|trans }}</div>
+                    <div class="fw-bold">
+                        {% if row.company.contactNumber %}
+                            {{ row.company.contactNumber }}
+                            {% if row.company.contactVerified %}
+                                <span class="text-success ms-1" title="{{ 'Number confirmed'|trans }}">{{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}</span>
+                            {% else %}
+                                <span class="text-secondary small ms-1">({{ 'not confirmed'|trans }})</span>
+                            {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="text-secondary small">{{ 'Based in'|trans }}</div>
+                    <div class="fw-bold">{{ row.location ?: '—' }}</div>
+                </div>
+                <div class="col-sm-6">
                     <div class="text-secondary small">{{ 'Custom domain'|trans }}</div>
                     <div class="fw-bold">{{ row.company.customDomain ?: '—' }}</div>
                 </div>
@@ -192,6 +221,39 @@
                     </div>
                 </div>
             </div>
+
+            <hr class="my-4">
+
+            {# --- Identity documents ---
+               What the Verified tick below is actually a judgement about. It used
+               to be ticked with nothing but a name and an email address on screen. #}
+            <h4 class="mb-2">
+                {{ ux_icon('tabler:id-badge-2', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Identity documents'|trans }}
+                {% if row.company.awaitingVerification %}
+                    <span class="badge bg-info-lt ms-1">{{ 'Waiting for review'|trans }}</span>
+                {% endif %}
+            </h4>
+            {% if row.documents|length > 0 %}
+                <p class="text-secondary small mb-2">
+                    {% if row.company.verificationSubmittedAt %}
+                        {{ 'Sent on'|trans }} {{ row.company.verificationSubmittedAt|date('j M Y, H:i') }}.
+                    {% endif %}
+                    {{ 'Opens in a new tab. Only you can see these.'|trans }}
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% for document in row.documents %}
+                        <a class="btn btn-outline-secondary btn-sm"
+                           href="{{ path('_verification_document', {company: row.company.id, kind: document.kind}) }}"
+                           target="_blank" rel="noopener">
+                            {{ ux_icon('tabler:file-text', {width: 14, height: 14, class: 'me-1'}) }}{{ document.label|trans }}
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-secondary small mb-2">
+                    {{ 'Nothing sent in yet. Getting verified is optional, so a business can be trading here without it.'|trans }}
+                </p>
+            {% endif %}
 
             <hr class="my-4">
 
@@ -221,6 +283,18 @@
                         <label class="form-check">
                             <input class="form-check-input" type="checkbox" name="verified" value="1"{{ row.verified ? ' checked' }}>
                             <span class="form-check-label">{{ 'Verified'|trans }} <span class="text-secondary">— {{ 'required before Premium can be set'|trans }}</span></span>
+                        </label>
+                        {# A plain fact about one phone number, kept apart from the
+                           badge above it. Ticked after somebody has actually
+                           reached them - today that is a WhatsApp message and a
+                           reply, which costs nothing and is more convincing than
+                           an automated code. #}
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="contact_verified" value="1"{{ row.contactVerified ? ' checked' }}>
+                            <span class="form-check-label">
+                                {{ 'Number confirmed'|trans }}
+                                <span class="text-secondary">— {{ 'we have reached them on'|trans }} {{ row.company.contactNumber ?: 'no number given'|trans }}</span>
+                            </span>
                         </label>
                         <label class="form-check">
                             <input class="form-check-input" type="checkbox" name="complimentary" value="1"{{ row.complimentary ? ' checked' }}>

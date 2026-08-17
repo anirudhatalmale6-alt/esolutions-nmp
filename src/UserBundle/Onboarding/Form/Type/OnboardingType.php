@@ -15,9 +15,7 @@ namespace SolidInvoice\UserBundle\Onboarding\Form\Type;
 
 use SolidInvoice\UserBundle\Onboarding\DTO\OnboardingData;
 use SolidInvoice\UserBundle\Onboarding\Form\FormFlow\OnboardingNavigatorType;
-use SolidInvoice\UserBundle\Onboarding\Form\Step\ClientSetupStep;
 use SolidInvoice\UserBundle\Onboarding\Form\Step\CompanySetupStep;
-use SolidInvoice\UserBundle\Onboarding\Form\Step\InvoiceSetupStep;
 use Symfony\Component\Form\Flow\AbstractFlowType;
 use Symfony\Component\Form\Flow\DataStorage\SessionDataStorage;
 use Symfony\Component\Form\Flow\FormFlowBuilderInterface;
@@ -33,7 +31,8 @@ final class OnboardingType extends AbstractFlowType
 
     public function buildFormFlow(FormFlowBuilderInterface $builder, array $options): void
     {
-        // Step 1: Company Setup (Required)
+        // Step 1: the business profile (required). Everything the account was
+        // missing - trading name, who they are, where they are, how to reach them.
         $builder->addStep(
             name: 'company',
             type: CompanySetupStep::class,
@@ -43,45 +42,23 @@ final class OnboardingType extends AbstractFlowType
             ],
         );
 
-        // Step 2: Client Setup (Optional)
-        $builder->addStep(
-            name: 'client',
-            type: ClientSetupStep::class,
-            options: [
-                'inherit_data' => true,
-                'required' => false,
-            ],
-        );
-
-        $formData = $builder->getData();
-        assert($formData instanceof OnboardingData);
-
-        // Step 3: Invoice Setup (Optional - auto-skipped if client was skipped)
-        $builder->addStep(
-            name: 'invoice',
-            type: InvoiceSetupStep::class,
-            options: [
-                'inherit_data' => true,
-                'required' => false,
-                'currency' => $formData->companyCurrency,
-            ],
-        );
-
-        // Completion step (no form, just celebration)
+        // Step 2: done. Adding a client and writing a first invoice used to live
+        // between these two; both are gone. Somebody who joined ninety seconds
+        // ago does not yet know what this is, and asking them to invoice a real
+        // customer before they have looked around is how you lose them.
+        //
+        // Identity documents are not a step here either. They are optional by
+        // design, and an upload cannot survive being carried through a
+        // multi-page flow in the session - so the trusted badge is its own page
+        // (_verification), offered on the way out and available forever after.
         $builder->addStep(
             name: 'complete',
             options: ['mapped' => false]
         );
 
-        // Add navigation buttons
         $builder->add(
             'navigator',
             OnboardingNavigatorType::class,
-            options: [
-                'next_button_label' => $formData->currentStep === 'invoice'
-                    ? 'onboarding.navigation.create_invoice'
-                    : 'onboarding.navigation.continue',
-            ],
         );
     }
 

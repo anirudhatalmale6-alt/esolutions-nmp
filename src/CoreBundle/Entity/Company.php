@@ -150,6 +150,62 @@ class Company implements Stringable, SubscribableInterface
     private bool $liveStock = false;
 
     /**
+     * Where the business trades from. Asked on the second page of sign-up, so
+     * the super-user panel has something real to look at when deciding whether
+     * to hand out the trusted badge, instead of a name and an email address.
+     */
+    #[ORM\Column(name: 'city', type: Types::STRING, length: 100, nullable: true)]
+    private ?string $city = null;
+
+    /**
+     * ISO 3166-1 alpha-2, e.g. AE. Stored as a code rather than a typed-in
+     * country name so two businesses in the same place always match.
+     */
+    #[ORM\Column(name: 'country', type: Types::STRING, length: 2, nullable: true)]
+    private ?string $country = null;
+
+    /**
+     * The business contact number in full international form (+971...). This is
+     * the one thing the owner most wants before trusting a stranger, so it is
+     * asked at sign-up rather than left for the profile page nobody visits.
+     */
+    #[ORM\Column(name: 'contact_number', type: Types::STRING, length: 32, nullable: true)]
+    private ?string $contactNumber = null;
+
+    /**
+     * TRUE once somebody has actually reached that number and had a reply.
+     *
+     * Deliberately separate from {@see $verified}: the badge is a judgement about
+     * the whole business, this is a plain fact about one phone number. Ticked by
+     * hand today; if a paid SMS provider is ever wired in, it sets the same flag.
+     */
+    #[ORM\Column(name: 'contact_verified', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $contactVerified = false;
+
+    /**
+     * Paths to the identity documents uploaded for the trusted badge, relative to
+     * var/verification. NEVER under public/ - these are passports and national
+     * IDs, and they are served only through a controller that checks the reader
+     * is the platform owner.
+     */
+    #[ORM\Column(name: 'id_front_path', type: Types::STRING, length: 255, nullable: true)]
+    private ?string $idFrontPath = null;
+
+    #[ORM\Column(name: 'id_back_path', type: Types::STRING, length: 255, nullable: true)]
+    private ?string $idBackPath = null;
+
+    #[ORM\Column(name: 'passport_path', type: Types::STRING, length: 255, nullable: true)]
+    private ?string $passportPath = null;
+
+    /**
+     * When the business last sent documents in. Drives the "waiting for review"
+     * state - a company with documents and no badge yet is a queue item, not a
+     * company that never bothered.
+     */
+    #[ORM\Column(name: 'verification_submitted_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $verificationSubmittedAt = null;
+
+    /**
      * The referral / sales link code that brought this company onto the platform
      * (see ReferralLink). NULL for companies that predate the referral system or
      * were created directly by the platform owner. Used to attribute a signup to
@@ -436,6 +492,131 @@ class Company implements Stringable, SubscribableInterface
         $this->liveStock = $liveStock;
 
         return $this;
+    }
+
+    public function getCity(): ?string
+    {
+        return $this->city;
+    }
+
+    public function setCity(?string $city): self
+    {
+        $this->city = $this->clean($city);
+
+        return $this;
+    }
+
+    public function getCountry(): ?string
+    {
+        return $this->country;
+    }
+
+    public function setCountry(?string $country): self
+    {
+        $country = $this->clean($country);
+        $this->country = $country === null ? null : strtoupper($country);
+
+        return $this;
+    }
+
+    public function getContactNumber(): ?string
+    {
+        return $this->contactNumber;
+    }
+
+    public function setContactNumber(?string $contactNumber): self
+    {
+        $this->contactNumber = $this->clean($contactNumber);
+
+        return $this;
+    }
+
+    public function isContactVerified(): bool
+    {
+        return $this->contactVerified;
+    }
+
+    public function setContactVerified(bool $contactVerified): self
+    {
+        $this->contactVerified = $contactVerified;
+
+        return $this;
+    }
+
+    public function getIdFrontPath(): ?string
+    {
+        return $this->idFrontPath;
+    }
+
+    public function setIdFrontPath(?string $idFrontPath): self
+    {
+        $this->idFrontPath = $this->clean($idFrontPath);
+
+        return $this;
+    }
+
+    public function getIdBackPath(): ?string
+    {
+        return $this->idBackPath;
+    }
+
+    public function setIdBackPath(?string $idBackPath): self
+    {
+        $this->idBackPath = $this->clean($idBackPath);
+
+        return $this;
+    }
+
+    public function getPassportPath(): ?string
+    {
+        return $this->passportPath;
+    }
+
+    public function setPassportPath(?string $passportPath): self
+    {
+        $this->passportPath = $this->clean($passportPath);
+
+        return $this;
+    }
+
+    public function getVerificationSubmittedAt(): ?\DateTimeImmutable
+    {
+        return $this->verificationSubmittedAt;
+    }
+
+    public function setVerificationSubmittedAt(?\DateTimeImmutable $verificationSubmittedAt): self
+    {
+        $this->verificationSubmittedAt = $verificationSubmittedAt;
+
+        return $this;
+    }
+
+    /**
+     * Has this business sent in anything at all for the trusted badge?
+     */
+    public function hasVerificationDocuments(): bool
+    {
+        return $this->idFrontPath !== null || $this->idBackPath !== null || $this->passportPath !== null;
+    }
+
+    /**
+     * Documents are in and nobody has judged them yet - the queue the owner works
+     * through. A company that is already verified is not waiting for anything.
+     */
+    public function isAwaitingVerification(): bool
+    {
+        return ! $this->verified && $this->hasVerificationDocuments();
+    }
+
+    /**
+     * An empty text box and a box full of spaces both mean "not given". Storing
+     * '' would make "have we got a city?" answer yes.
+     */
+    private function clean(?string $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     public function getReferredByCode(): ?string

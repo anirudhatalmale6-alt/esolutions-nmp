@@ -18,7 +18,6 @@ use SolidInvoice\ClientBundle\Repository\ClientRepository;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Test\Traits\DoctrineTestTrait;
 use SolidInvoice\InstallBundle\Test\EnsureApplicationInstalled;
-use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\InvoiceBundle\Repository\InvoiceRepository;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Enum\UserSettingType;
@@ -152,7 +151,7 @@ final class OnboardingManagerTest extends KernelTestCase
         self::assertNotNull($startedAtSetting);
     }
 
-    public function testCompleteOnboardingWithFullData(): void
+    public function testCompleteOnboardingStoresTheProfile(): void
     {
         $user = $this->createUser('test8@example.com');
         $this->em->persist($user);
@@ -160,34 +159,31 @@ final class OnboardingManagerTest extends KernelTestCase
 
         $data = new OnboardingData();
         $data->companyName = 'Test Company';
-        $data->companyCurrency = 'USD';
-        $data->clientName = 'Test Client';
-        $data->clientEmail = 'client@example.com';
-        $data->invoiceDescription = 'Test Service';
-        $data->invoiceAmount = '1000.00';
+        $data->fullName = 'Jane Smith';
+        $data->city = 'Dubai';
+        $data->country = 'AE';
+        $data->contactNumber = '+971 50 123 4567';
+        $data->companyCurrency = 'AED';
 
-        $invoice = $this->manager->completeOnboarding($user, $data);
+        $this->manager->completeOnboarding($user, $data);
 
-        self::assertInstanceOf(Invoice::class, $invoice);
         self::assertTrue($this->manager->isOnboardingComplete($user));
 
-        // Verify company was created
         self::assertCount(1, $user->getCompanies());
         $company = $user->getCompanies()->first();
         self::assertSame('Test Company', $company->getName());
+        self::assertSame('AED', $company->currency);
+        self::assertSame('Dubai', $company->getCity());
+        self::assertSame('AE', $company->getCountry());
+        self::assertSame('+971 50 123 4567', $company->getContactNumber());
 
-        // Verify client was created
-        $clients = $this->clientRepository->findBy(['company' => $company]);
-        self::assertCount(1, $clients);
-        self::assertSame('Test Client', $clients[0]->getName());
-
-        // Verify invoice was created
-        $invoices = $this->invoiceRepository->findBy(['company' => $company]);
-        self::assertCount(1, $invoices);
-        self::assertSame('Test Service', $invoices[0]->getLines()->first()->getDescription());
+        // The one name box becomes the two columns the rest of the app reads.
+        self::assertSame('Jane', $user->getFirstName());
+        self::assertSame('Smith', $user->getLastName());
+        self::assertSame('+971 50 123 4567', $user->getMobile());
     }
 
-    public function testCompleteOnboardingWithoutClientAndInvoice(): void
+    public function testCompleteOnboardingCreatesNoClientOrInvoice(): void
     {
         $user = $this->createUser('test9@example.com');
         $this->em->persist($user);
@@ -195,35 +191,26 @@ final class OnboardingManagerTest extends KernelTestCase
 
         $data = new OnboardingData();
         $data->companyName = 'Test Company';
+        $data->fullName = 'John Doe';
+        $data->city = 'Sharjah';
+        $data->country = 'AE';
+        $data->contactNumber = '+971 55 987 6543';
         $data->companyCurrency = 'EUR';
 
-        $invoice = $this->manager->completeOnboarding($user, $data);
+        $this->manager->completeOnboarding($user, $data);
 
-        self::assertNull($invoice);
         self::assertTrue($this->manager->isOnboardingComplete($user));
 
-        // Verify company was created
-        self::assertCount(1, $user->getCompanies());
         $company = $user->getCompanies()->first();
-        self::assertSame('Test Company', $company->getName());
         self::assertSame('EUR', $company->currency);
 
-        // Verify no clients or invoices were created
+        // Signing up no longer invents a customer or an invoice on the member's
+        // behalf - both used to be steps in the flow and both are gone.
         self::assertCount(0, $this->clientRepository->findBy(['company' => $company]));
         self::assertCount(0, $this->invoiceRepository->findBy(['company' => $company]));
-
-        // Verify steps were marked as skipped
-        $setting = $this->userSettingRepository->findOneBy([
-            'user' => $user,
-            'key' => UserSettingType::OnboardingSkipped,
-        ]);
-        self::assertNotNull($setting);
-        $skipped = json_decode((string) $setting->getValue(), true);
-        self::assertContains('client', $skipped);
-        self::assertContains('invoice', $skipped);
     }
 
-    public function testCompleteOnboardingWithClientButNoInvoice(): void
+    public function testCompleteOnboardingLeavesTheCompanyUnverified(): void
     {
         $user = $this->createUser('test10@example.com');
         $this->em->persist($user);
@@ -231,31 +218,22 @@ final class OnboardingManagerTest extends KernelTestCase
 
         $data = new OnboardingData();
         $data->companyName = 'Test Company';
+        $data->fullName = 'Jane Doe';
+        $data->city = 'Dubai';
+        $data->country = 'AE';
+        $data->contactNumber = '+971 50 000 0000';
         $data->companyCurrency = 'GBP';
-        $data->clientName = 'Jane Doe';
-        $data->clientEmail = 'jane@example.com';
 
-        $invoice = $this->manager->completeOnboarding($user, $data);
+        $this->manager->completeOnboarding($user, $data);
 
-        self::assertNull($invoice);
-        self::assertTrue($this->manager->isOnboardingComplete($user));
-
-        // Verify company and client were created
         $company = $user->getCompanies()->first();
-        self::assertCount(1, $this->clientRepository->findBy(['company' => $company]));
 
-        // Verify no invoice was created
-        self::assertCount(0, $this->invoiceRepository->findBy(['company' => $company]));
-
-        // Verify only invoice step was skipped
-        $setting = $this->userSettingRepository->findOneBy([
-            'user' => $user,
-            'key' => UserSettingType::OnboardingSkipped,
-        ]);
-        self::assertNotNull($setting);
-        $skipped = json_decode((string) $setting->getValue(), true);
-        self::assertContains('invoice', $skipped);
-        self::assertNotContains('client', $skipped);
+        // The trusted badge is granted by hand, after somebody has looked at the
+        // documents. Joining never grants it, and never confirms the number.
+        self::assertFalse($company->isVerified());
+        self::assertFalse($company->isContactVerified());
+        self::assertFalse($company->hasVerificationDocuments());
+        self::assertNull($company->getVerificationSubmittedAt());
     }
 
     public function testDismissOnboardingMarksAsComplete(): void

@@ -7,6 +7,16 @@
                 </span>
                 <span class="profile-nav-text">{{ 'Profile'|trans }}</span>
             </a>
+            {# Getting verified is optional and is offered at the end of sign-up,
+               so it has to be findable afterwards by somebody who said "later". #}
+            {% if is_granted('ROLE_ADMIN') %}
+                <a href="{{ path('_verification') }}" class="profile-nav-item{{ menuItem is defined and menuItem is same as('verification') ? ' active' : '' }}">
+                    <span class="profile-nav-icon">
+                        {{ ux_icon('tabler:id-badge-2', {width: 20, height: 20}) }}
+                    </span>
+                    <span class="profile-nav-text">{{ 'Get Verified'|trans }}</span>
+                </a>
+            {% endif %}
             {# "Stock Listing" now lives under the premium Marketplace item in the
                left sidebar (Marketplace > Share My Inventory) - its natural home. #}
             <a href="{{ path('_change_password') }}" class="profile-nav-item{{ menuItem is defined and menuItem is same as('change-password') ? ' active' : '' }}">

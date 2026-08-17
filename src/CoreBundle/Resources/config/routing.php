@@ -32,6 +32,8 @@ use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\Verification\GetVerified;
+use SolidInvoice\CoreBundle\Action\Verification\VerificationDocument;
 use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
 use SolidInvoice\CoreBundle\Action\Stock\ImportStock;
 use SolidInvoice\CoreBundle\Action\Stock\StockTemplate;
@@ -326,6 +328,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_membership_pending', '/membership/pending')
         ->controller(MembershipPending::class)
+        ->methods(['GET']);
+
+    // The trusted badge: the member sends documents in, the platform owner is the
+    // only one who can open them again.
+    $routingConfigurator
+        ->add('_verification', '/verification')
+        ->controller(GetVerified::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_verification_document', '/verification/{company}/{kind}')
+        ->controller(VerificationDocument::class)
+        ->requirements(['company' => '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}', 'kind' => 'id_front|id_back|passport'])
         ->methods(['GET']);
 
     // Public Marketplace stock search + each business's opt-in/WhatsApp settings.

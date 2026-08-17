@@ -14,10 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\UserBundle\Onboarding\Form\FormFlow;
 
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Flow\ButtonFlow;
-use Symfony\Component\Form\Flow\FormFlow;
 use Symfony\Component\Form\Flow\FormFlowCursor;
-use Symfony\Component\Form\Flow\Type\ButtonFlowType;
 use Symfony\Component\Form\Flow\Type\FinishFlowType;
 use Symfony\Component\Form\Flow\Type\NextFlowType;
 use Symfony\Component\Form\Flow\Type\PreviousFlowType;
@@ -52,24 +49,10 @@ final class OnboardingNavigatorType extends AbstractType
             ]
         );
 
-        // Skip button for optional steps only (client and invoice)
-        $builder->add(
-            'skip',
-            ButtonFlowType::class,
-            [
-                'label' => 'onboarding.navigation.skip',
-                'translation_domain' => 'onboarding',
-                'attr' => ['class' => 'btn btn-link text-muted', 'name' => 'skip'],
-                'validation_groups' => false,
-                'handler' => function (mixed $data, ButtonFlow $button, FormFlow $flow): void {
-                    do {
-                        $flow->moveNext();
-                    } while (! $flow->getCursor()->isLastStep());
-                },
-                'include_if' => fn (FormFlowCursor $cursor): bool =>
-                    in_array($cursor->getCurrentStep(), ['client', 'invoice'], true),
-            ]
-        );
+        // No skip button any more. The only step left asks for the profile, and
+        // that is the one thing sign-up cannot do without - it is what the owner
+        // reviews before handing out the trusted badge. The optional part of
+        // joining (identity documents) lives on its own page afterwards.
 
         $builder->add(
             'finish',

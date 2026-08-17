@@ -16,3 +16,9 @@ deploy script only copies `src`, `templates`, `public`, `migrations` and
 | `2026-08-17-add-stock-already-held.png` | Typing the name of an item you already hold: the warning and a link straight to that item, instead of adding the same handset twice. |
 | `2026-08-17-add-stock-grade-list.png` | The Grade boxes offering the grade names already in use, so Grade A does not become A Grade on the next item. |
 | `2026-08-17-add-stock-on-a-phone.png` | The same screen at phone width. |
+
+## 2026-08-17 - telling a member their support ticket was answered
+
+| File | What it shows |
+| --- | --- |
+| `2026-08-17-support-reply-notification.png` | The Support Desk: a reply now emails the person who raised the ticket, carries a "Send this on WhatsApp" button underneath it, and the line beside Send says which address is about to be written to (or that there is none). |

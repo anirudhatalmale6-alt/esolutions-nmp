@@ -19,12 +19,14 @@ use SolidInvoice\CoreBundle\Entity\SupportTicket;
 use SolidInvoice\CoreBundle\Enum\SupportTicketStatus;
 use SolidInvoice\CoreBundle\Repository\SupportTicketRepository;
 use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
+use SolidInvoice\CoreBundle\Support\SupportNotifier;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use function mb_substr;
+use function sprintf;
 use function trim;
 
 /**
@@ -47,6 +49,7 @@ final class SupportDesk extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly SupportTicketRepository $tickets,
+        private readonly SupportNotifier $notifier,
     ) {
     }
 
@@ -62,7 +65,44 @@ final class SupportDesk extends AbstractController
             'tickets' => $tickets,
             'statuses' => SupportTicketStatus::cases(),
             'bodyMax' => self::BODY_MAX,
+            'whatsapp' => $this->whatsappLinks($tickets),
         ]);
+    }
+
+    /**
+     * A WhatsApp link for every reply already written, keyed by the message it
+     * carries. Built here rather than in the template so a business with no
+     * number on file simply has no button, instead of a link that opens a
+     * contact picker.
+     *
+     * @param list<SupportTicket> $tickets
+     * @return array<string, string>
+     */
+    private function whatsappLinks(array $tickets): array
+    {
+        $links = [];
+
+        foreach ($tickets as $ticket) {
+            if ($this->notifier->numberFor($ticket->getCompany()) === '') {
+                continue;
+            }
+
+            foreach ($ticket->getMessages() as $message) {
+                $id = $message->getId();
+
+                if (! $message->isFromOwner() || $id === null) {
+                    continue;
+                }
+
+                $url = $this->notifier->whatsappUrl($ticket, $message->getBody());
+
+                if ($url !== null) {
+                    $links[(string) $id] = $url;
+                }
+            }
+        }
+
+        return $links;
     }
 
     private function handlePost(Request $request): Response
@@ -118,7 +158,22 @@ final class SupportDesk extends AbstractController
 
         $this->entityManager->flush();
 
-        $this->addFlash('success', $body === '' ? 'Status updated.' : 'Reply sent.');
+        if ($body === '') {
+            $this->addFlash('success', 'Status updated.');
+
+            return $this->redirectToRoute('_support_desk');
+        }
+
+        // Saying "Reply sent" and leaving it there was the whole problem: the
+        // reply went into the portal and the member was never told about it. Say
+        // exactly what left the building, and where it went.
+        $notified = $this->notifier->ownerReplied($ticket, $body, $ticket->getStatus() === SupportTicketStatus::Closed);
+
+        $this->addFlash(...match ($notified['outcome']) {
+            SupportNotifier::SENT => ['success', sprintf('Reply saved, and emailed to %s.', $notified['address'])],
+            SupportNotifier::NO_ADDRESS => ['warning', 'Reply saved. There is no email address on this ticket, so nobody was written to - use the WhatsApp button under your reply.'],
+            default => ['warning', sprintf('Reply saved, but the email to %s could not go out. Use the WhatsApp button under your reply, and check Settings, System Settings, Email.', $notified['address'])],
+        });
 
         return $this->redirectToRoute('_support_desk');
     }

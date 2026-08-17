@@ -59,12 +59,29 @@
             </div>
 
             {% for message in ticket.messages %}
+                {# A Ulid cannot be used as an array key directly, so it is turned
+                   into the string the controller keyed the links by. #}
+                {% set messageKey = message.id ~ '' %}
                 <div class="support-message {{ message.fromOwner ? 'from-owner' : '' }}">
                     <div class="text-secondary small mb-1">
                         <strong>{{ message.fromOwner ? 'You'|trans : (message.authorName ?: 'Member'|trans) }}</strong>
                         {% if message.created %}&middot; {{ message.created|date('j M Y, H:i') }}{% endif %}
                     </div>
                     <div>{{ message.body|nl2br }}</div>
+                    {# The reply is in the portal and an email has gone out, but
+                       email on shared hosting is never a certainty and members do
+                       not sit in the portal all day. This opens WhatsApp with the
+                       same reply already written, addressed to the number that
+                       business gave us. #}
+                    {% if message.fromOwner and whatsapp[messageKey] is defined %}
+                        <div class="mt-2">
+                            <a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener"
+                               href="{{ whatsapp[messageKey] }}">
+                                {{ ux_icon('tabler:brand-whatsapp', {width: 16, height: 16, class: 'me-1'}) }}
+                                {{ 'Send this on WhatsApp'|trans }}
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             {% endfor %}
 
@@ -87,6 +104,11 @@
                     </button>
                     <span class="text-secondary small">
                         {{ 'Leave the box empty to only change the status.'|trans }}
+                        {% if ticket.raisedByEmail %}
+                            {{ 'Sending also emails %email%.'|trans({'%email%': ticket.raisedByEmail}) }}
+                        {% else %}
+                            {{ 'There is no email address on this one - use WhatsApp.'|trans }}
+                        {% endif %}
                     </span>
                 </div>
             </form>

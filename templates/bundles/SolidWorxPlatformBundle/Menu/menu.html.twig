@@ -105,6 +105,16 @@
     {% endif %}
 {% endblock %}
 
+{# Count badge — a small number beside the menu title, for things that are
+   waiting on somebody (support replies, tickets in the queue). Inline with the
+   label rather than below it: unlike the upgrade prompt this is a single
+   character or two and must not push the item's height around. #}
+{% block countBadge %}
+    {% if item.extras.badge is defined and item.extras.badge %}
+        <span class="badge bg-red text-white ms-2">{{ item.extras.badge }}</span>
+    {% endif %}
+{% endblock %}
+
 {% block spanElement %}
     {% if item.hasChildren and item.displayChildren %}
         <a href="#" class="{{ item.parent.isRoot ? 'nav-link' : 'dropdown-item' }} dropdown-toggle{{ matcher.isCurrent(item) or matcher.isAncestor(item, options.matchingDepth) ? ' show' }}" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ matcher.isCurrent(item) or matcher.isAncestor(item, options.matchingDepth) ? 'true' : 'false' }}">
@@ -115,12 +125,14 @@
             {% endif %}
             <span class="nav-link-title">
                 {{ block('label') }}
+                {{ block('countBadge') }}
                 {{ block('planLabelBadge') }}
             </span>
         </a>
     {% else %}
         <span{{ ui.attributes(item.labelAttributes) }}>
             {{ block('label') }}
+            {{ block('countBadge') }}
             {{ block('planLabelBadge') }}
         </span>
     {% endif %}
@@ -135,6 +147,7 @@
         {% endif %}
         <span class="nav-link-title">
             {{ block('label') }}
+            {{ block('countBadge') }}
             {{ block('planLabelBadge') }}
         </span>
     </a>

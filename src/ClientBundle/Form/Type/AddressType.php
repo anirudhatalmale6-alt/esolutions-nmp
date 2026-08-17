@@ -26,11 +26,16 @@ class AddressType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $builder->add('street1');
-        $builder->add('street2');
-        $builder->add('city');
-        $builder->add('state');
-        $builder->add('zip');
+        // Street 2, State and Zip are gone from the form. They are still columns
+        // on the entity, and anything already stored in them is untouched and
+        // still prints on an invoice - they are simply not asked for any more.
+        //
+        // This is a UAE phone wholesaler's address book: there are no postal
+        // codes here, "state" means nothing to an emirate, and a second street
+        // line is a box people tab past. Five boxes where two would do is why
+        // adding a customer felt like paperwork.
+        $builder->add('street1', null, ['label' => 'Address', 'required' => false]);
+        $builder->add('city', null, ['required' => false]);
         $builder->add(
             'country',
             CountryType::class,

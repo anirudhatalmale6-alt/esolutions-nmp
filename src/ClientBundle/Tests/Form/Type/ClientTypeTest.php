@@ -45,12 +45,10 @@ final class ClientTypeTest extends FormTestCase
         $this->disabledFeatures = [];
 
         $company = $this->faker->company;
-        $url = $this->faker->url;
         $currencyCode = 'USD';
 
         $formData = [
             'name' => $company,
-            'website' => $url,
             'currencyCode' => $currencyCode,
             'contacts' => [],
             'addresses' => [],
@@ -58,13 +56,26 @@ final class ClientTypeTest extends FormTestCase
 
         $object = new Client();
         $object->setName($company);
-        $object->setWebsite($url);
         $object->setCurrencyCode($currencyCode);
 
         $this->assertFormData(ClientType::class, $formData, $object);
     }
 
-    public function testSubmitWithMultiCurrencyGatedOverridesEntityCurrency(): void
+    public function testTheFormOnlyAsksForWhatIsUsed(): void
+    {
+        $this->disabledFeatures = ['multi_currency'];
+
+        $form = $this->factory->create(ClientType::class, new Client());
+
+        // Website was dropped outright, and the currency box is not rendered at
+        // all when multi-currency is off - it used to sit there permanently
+        // greyed out with an upgrade advert beneath it.
+        self::assertFalse($form->has('website'));
+        self::assertFalse($form->has('currencyCode'));
+        self::assertTrue($form->has('whatsapp'));
+    }
+
+    public function testTheCurrencyIsStillSetWhenTheFieldIsNotShown(): void
     {
         $this->disabledFeatures = ['multi_currency'];
 
@@ -74,19 +85,16 @@ final class ClientTypeTest extends FormTestCase
 
         $form = $this->factory->create(ClientType::class, $object);
 
-        // The currencyCode field is disabled when gated, so the submitted value is ignored;
-        // the SUBMIT listener overrides the entity's currencyCode to the company default.
+        // No currency field to submit any more, but the SUBMIT listener still
+        // puts the company default on the entity - what gets saved is unchanged.
         $form->submit([
             'name' => $object->getName(),
-            'currencyCode' => 'EUR',
             'contacts' => [],
             'addresses' => [],
         ]);
 
         self::assertTrue($form->isSynchronized());
         self::assertSame('USD', $object->getCurrencyCode());
-        self::assertTrue($form->get('currencyCode')->isDisabled());
-        self::assertSame('multi_currency', $form->get('currencyCode')->getConfig()->getOption('feature_gated'));
     }
 
     /**

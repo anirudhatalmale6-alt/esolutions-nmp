@@ -215,31 +215,42 @@
 
         <div class="address-card-body">
             <div class="address-form-grid">
+                {# Every field is asked for only if the form actually has it.
+                   This same block draws the client's address and the company's
+                   own address in Settings, and the client form no longer asks
+                   for street 2, state or postal code - a hard reference would
+                   take that page down. #}
                 <div class="address-field address-field-street">
                     {{ form_row(form.street1, {
                         attr: { placeholder: '123 Main Street'|trans }
                     }) }}
                 </div>
-                <div class="address-field address-field-street">
-                    {{ form_row(form.street2, {
-                        attr: { placeholder: 'Apartment, suite, unit, etc.'|trans }
-                    }) }}
-                </div>
+                {% if form.street2 is defined %}
+                    <div class="address-field address-field-street">
+                        {{ form_row(form.street2, {
+                            attr: { placeholder: 'Apartment, suite, unit, etc.'|trans }
+                        }) }}
+                    </div>
+                {% endif %}
                 <div class="address-field address-field-city">
                     {{ form_row(form.city, {
                         attr: { placeholder: 'City'|trans }
                     }) }}
                 </div>
-                <div class="address-field address-field-state">
-                    {{ form_row(form.state, {
-                        attr: { placeholder: 'State/Province'|trans }
-                    }) }}
-                </div>
-                <div class="address-field address-field-zip">
-                    {{ form_row(form.zip, {
-                        attr: { placeholder: 'Postal Code'|trans }
-                    }) }}
-                </div>
+                {% if form.state is defined %}
+                    <div class="address-field address-field-state">
+                        {{ form_row(form.state, {
+                            attr: { placeholder: 'State/Province'|trans }
+                        }) }}
+                    </div>
+                {% endif %}
+                {% if form.zip is defined %}
+                    <div class="address-field address-field-zip">
+                        {{ form_row(form.zip, {
+                            attr: { placeholder: 'Postal Code'|trans }
+                        }) }}
+                    </div>
+                {% endif %}
                 <div class="address-field address-field-country">
                     {{ form_row(form.country) }}
                 </div>

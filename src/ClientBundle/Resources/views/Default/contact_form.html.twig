@@ -20,8 +20,8 @@
 
                 <div class="card-body">
                     {{ form_row(form.name) }}
-                    {{ form_row(form.website) }}
-                    {{ form_row(form.currencyCode) }}
+                    {% if form.whatsapp is defined %}{{ form_row(form.whatsapp) }}{% endif %}
+                    {% if form.currencyCode is defined %}{{ form_row(form.currencyCode) }}{% endif %}
                 </div>
             </div>
 

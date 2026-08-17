@@ -61,31 +61,19 @@
                             }) }}
                         </div>
 
-                        <div class="form-field">
-                            {{ form_row(form.website, {
-                                attr: {
-                                    placeholder: 'https://example.com'
-                                }
-                            }) }}
-                        </div>
-
-                        <div class="form-field">
+                        {# Website and Currency are no longer on this form. Both
+                           are still on the entity and both still show on the
+                           client's page when there is something to show - see
+                           ClientType for why they stopped being asked for. #}
+                        <div class="form-field form-field-wide">
                             {{ form_row(form.whatsapp) }}
                         </div>
 
-                        <div class="form-field">
-                            {{ form_row(form.currencyCode) }}
-                            {%- if form.currencyCode.vars.feature_gated_active ?? false %}
-                                <small class="form-hint text-muted feature-gated-hint">
-                                    {%- if form.currencyCode.vars.feature_gated_plan ?? null %}
-                                        {{ 'This feature is available on the %plan% plan. Upgrade to unlock it.'|trans({'%plan%': form.currencyCode.vars.feature_gated_plan}) }}
-                                    {%- else %}
-                                        {{ 'This feature requires a higher plan. Upgrade now to unlock it.'|trans }}
-                                    {%- endif %}
-                                    <a href="{{ path('saas_subscription_plans') }}" class="ms-1">{{ 'Upgrade Now'|trans }}</a>
-                                </small>
-                            {%- endif %}
-                        </div>
+                        {% if form.currencyCode is defined %}
+                            <div class="form-field">
+                                {{ form_row(form.currencyCode) }}
+                            </div>
+                        {% endif %}
 
                     </div>
                 </div>

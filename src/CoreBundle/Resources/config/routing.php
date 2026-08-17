@@ -32,6 +32,8 @@ use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\Support\MemberSupport;
+use SolidInvoice\CoreBundle\Action\Support\SupportDesk;
 use SolidInvoice\CoreBundle\Action\Verification\GetVerified;
 use SolidInvoice\CoreBundle\Action\Verification\VerificationDocument;
 use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
@@ -329,6 +331,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_membership_pending', '/membership/pending')
         ->controller(MembershipPending::class)
         ->methods(['GET']);
+
+    // The support desk. Members write in from _support; the owner answers every
+    // business from _support_desk. Logged in on both sides - this is not a public
+    // contact form.
+    $routingConfigurator
+        ->add('_support', '/support')
+        ->controller(MemberSupport::class)
+        ->methods(['GET', 'POST']);
+
+    $routingConfigurator
+        ->add('_support_desk', '/support/desk')
+        ->controller(SupportDesk::class)
+        ->methods(['GET', 'POST']);
 
     // The trusted badge: the member sends documents in, the platform owner is the
     // only one who can open them again.

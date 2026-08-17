@@ -26,7 +26,6 @@ use SolidInvoice\TaxBundle\Form\Type\TaxIdentifierType;
 use SolidWorx\Platform\PlatformBundle\Feature\FeatureGate;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
-use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
@@ -48,7 +47,11 @@ class ClientType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add('name', null, ['sanitize_html' => true, 'allow_single_quotes' => true]);
-        $builder->add('website', UrlType::class, ['required' => false]);
+
+        // "Website" is gone. It is still a column, still shown on the client's
+        // page when something is stored in it, and nothing already saved has
+        // been touched - it is simply not asked for any more. A phone trader's
+        // customer is another trader with a WhatsApp number, not a homepage.
         $builder->add('whatsapp', TextType::class, [
             'required' => false,
             'label' => 'WhatsApp / Mobile number',
@@ -68,17 +71,11 @@ class ClientType extends AbstractType
         } else {
             $defaultCurrency = $this->resolveDefaultCurrencyCode();
 
-            $builder->add(
-                'currencyCode',
-                CurrencyType::class,
-                [
-                    'placeholder' => 'client.form.currency.empty_value',
-                    'required' => false,
-                    'disabled' => true,
-                    'data' => $defaultCurrency,
-                    'feature_gated' => Feature::MultiCurrency->value,
-                ]
-            );
+            // No currency box at all when multi-currency is off. It used to be
+            // rendered permanently greyed out with an "Upgrade Now" link under
+            // it - a field nobody can use, advertising at somebody who is trying
+            // to add a customer. The currency is set below regardless, so
+            // nothing about what gets saved has changed.
 
             $builder->addEventListener(FormEvents::SUBMIT, static function (FormEvent $event) use ($defaultCurrency): void {
                 $client = $event->getData();

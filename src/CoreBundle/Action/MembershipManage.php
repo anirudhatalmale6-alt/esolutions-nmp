@@ -18,6 +18,7 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
+use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Repository\UserRepository;
@@ -50,6 +51,8 @@ use function in_array;
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class MembershipManage extends AbstractController
 {
+    use WithoutCompanyFilter;
+
     public function __construct(
         private readonly CompanyRepository $companyRepository,
         private readonly MembershipManager $membership,
@@ -85,30 +88,13 @@ final class MembershipManage extends AbstractController
     }
 
     /**
-     * Run $callback with the "company" Doctrine filter disabled, then restore it.
-     * The super-admin console must reach every company's accounts, which the
-     * current-company filter would otherwise hide.
-     *
-     * @template T
-     * @param callable(): T $callback
-     * @return T
+     * The console reads every business's accounts, so its queries run with the
+     * company filter borrowed - see the trait for why it is suspended and not
+     * disabled.
      */
-    private function withoutCompanyFilter(callable $callback): mixed
+    private function getEntityManager(): EntityManagerInterface
     {
-        $filters = $this->entityManager->getFilters();
-        $wasEnabled = $filters->isEnabled('company');
-
-        if ($wasEnabled) {
-            $filters->disable('company');
-        }
-
-        try {
-            return $callback();
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable('company');
-            }
-        }
+        return $this->entityManager;
     }
 
     /**

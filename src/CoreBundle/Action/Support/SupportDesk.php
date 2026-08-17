@@ -18,6 +18,7 @@ use SolidInvoice\CoreBundle\Entity\SupportMessage;
 use SolidInvoice\CoreBundle\Entity\SupportTicket;
 use SolidInvoice\CoreBundle\Enum\SupportTicketStatus;
 use SolidInvoice\CoreBundle\Repository\SupportTicketRepository;
+use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,6 +40,8 @@ use function trim;
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class SupportDesk extends AbstractController
 {
+    use WithoutCompanyFilter;
+
     private const int BODY_MAX = 5000;
 
     public function __construct(
@@ -121,25 +124,12 @@ final class SupportDesk extends AbstractController
     }
 
     /**
-     * @template T
-     * @param callable(): T $callback
-     * @return T
+     * The desk answers tickets from every business, so its queries run with the
+     * company filter borrowed - see the trait for why it is suspended and not
+     * disabled.
      */
-    private function withoutCompanyFilter(callable $callback): mixed
+    private function getEntityManager(): EntityManagerInterface
     {
-        $filters = $this->entityManager->getFilters();
-        $wasEnabled = $filters->isEnabled('company');
-
-        if ($wasEnabled) {
-            $filters->disable('company');
-        }
-
-        try {
-            return $callback();
-        } finally {
-            if ($wasEnabled) {
-                $filters->enable('company');
-            }
-        }
+        return $this->entityManager;
     }
 }

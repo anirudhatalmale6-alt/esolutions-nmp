@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use InvalidArgumentException;
 use Mpdf\MpdfException;
@@ -20,6 +21,7 @@ use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Contracts\EmailVerificationGateInterface;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Pdf\Generator;
+use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidInvoice\CoreBundle\Response\PdfResponse;
 use SolidInvoice\InvoiceBundle\Entity\Invoice;
 use SolidInvoice\QuoteBundle\Entity\Quote;
@@ -43,6 +45,8 @@ use Twig\Error\SyntaxError;
 
 class ViewBilling
 {
+    use WithoutCompanyFilter;
+
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly AuthorizationCheckerInterface $authorizationChecker,
@@ -98,11 +102,16 @@ class ViewBilling
     }
 
     /**
-     * Is the person reading this one of the issuing business's own people?
+     * Is the reader currently standing inside the business that issued this?
      *
-     * Deliberately membership of that exact company, not a role. A platform
-     * super-admin is not staff at a member's business, and sending them to the
-     * staff page would 404 on the company filter just the same.
+     * Deliberately the company they have ACTIVE, not merely one they belong to.
+     * The staff page resolves the document under the company filter, which is set
+     * from the active company - so somebody who owns three businesses and is
+     * currently inside the wrong one would be sent to a page that cannot find it.
+     * They get the customer's copy instead, which always works.
+     *
+     * A role is not enough either. A platform super-admin is not staff at a
+     * member's business, and would 404 on that page for the same reason.
      */
     private function readerWorksFor(?Company $company): bool
     {
@@ -110,21 +119,27 @@ class ViewBilling
             return false;
         }
 
-        $user = $this->security->getUser();
-
-        if (! $user instanceof User) {
+        if (! $this->security->getUser() instanceof User) {
             return false;
         }
 
-        $companyId = $company->getId();
+        $active = $this->companySelector->getCompany();
 
-        foreach ($user->getCompanies() as $own) {
-            if ($own instanceof Company && $own->getId()?->equals($companyId) === true) {
-                return true;
-            }
-        }
+        return $active !== null && $company->getId()?->equals($active) === true;
+    }
 
-        return false;
+    /**
+     * The customer's copy is a platform-wide read: see the note on the trait, and
+     * on the lookup below. ViewBilling is an action rather than a repository, so
+     * it hands the trait the manager the same way one would.
+     */
+    private function getEntityManager(): EntityManagerInterface
+    {
+        $manager = $this->registry->getManager();
+
+        assert($manager instanceof EntityManagerInterface);
+
+        return $manager;
     }
 
     /**
@@ -136,7 +151,21 @@ class ViewBilling
     {
         $repository = $this->registry->getRepository($options['repository']);
 
-        $entity = $repository->findOneBy(['uuid' => $options['uuid']]);
+        // Looked up across every business on purpose.
+        //
+        // This is the customer's link, and the customer has no company. But when
+        // the reader IS signed in, the company filter is already on and scoped to
+        // whichever business they currently have active - so asking for the
+        // invoice here found nothing whenever the reader was not standing inside
+        // the business that issued it, and the page 404'd. That is what the
+        // platform owner hit on every member's invoice: the row was there, his
+        // filter simply could not see it.
+        //
+        // The unguessable uuid in the URL is what authorises this, exactly as it
+        // does for the customer. Nothing else about the request is trusted, and
+        // the very next thing that happens is switchCompany() below, which points
+        // the filter at the ISSUING business for everything the page renders.
+        $entity = $this->withoutCompanyFilter(static fn () => $repository->findOneBy(['uuid' => $options['uuid']]));
 
         if (null === $entity) {
             throw new NotFoundHttpException(sprintf('"%s" with id %s does not exist', ucfirst((string) $options['entity']), $options['uuid']));

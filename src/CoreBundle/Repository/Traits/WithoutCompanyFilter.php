@@ -19,12 +19,19 @@ namespace SolidInvoice\CoreBundle\Repository\Traits;
  * The company filter is on for good reason - it is what keeps one member's
  * invoices out of another member's list. But a handful of things are
  * deliberately platform-wide: the support queue, the Marketplace, the community
- * feed. Those are read by people from every business, and on the public
- * Marketplace page there is no signed-in business at all, so a filter scoped to
- * "the company you are inside" silently returns nothing.
+ * feed, and the customer's copy of an invoice. Those are read by people from
+ * every business, and on a public page there is no signed-in business at all, so
+ * a filter scoped to "the company you are inside" silently returns nothing.
  *
- * The filter is put back exactly as it was found, including when the query
- * throws, so nothing else in the request is affected by having borrowed it.
+ * SUSPEND, never disable.
+ *
+ * Doctrine keeps a filter's parameters on the filter OBJECT, and enable() builds
+ * a brand new one. So disable() followed by enable() hands the request back a
+ * filter with no companyId on it - and CompanyFilter::addFilterConstraint
+ * returns an empty string when that parameter is missing. The filter is then
+ * still "on", still in the query hash, and constraining nothing: every query for
+ * the rest of that request sees every business's rows. suspend()/restore() keep
+ * the same object, parameters and all.
  */
 trait WithoutCompanyFilter
 {
@@ -39,14 +46,15 @@ trait WithoutCompanyFilter
         $wasEnabled = $filters->isEnabled('company');
 
         if ($wasEnabled) {
-            $filters->disable('company');
+            $filters->suspend('company');
         }
 
         try {
             return $callback();
         } finally {
-            if ($wasEnabled) {
-                $filters->enable('company');
+            // Put back exactly what was borrowed, including when the query threw.
+            if ($wasEnabled && $filters->isSuspended('company')) {
+                $filters->restore('company');
             }
         }
     }

@@ -22,16 +22,41 @@
 {% endblock %}
 
 {% block content %}
+    {# Whatever was typed on an attempt that came back with an error, so nothing
+       has to be typed twice. Falls back to the item on an edit, and to nothing
+       on a fresh form. #}
+    {% set typedName = name|default(model ? model.name : '') %}
+    {% set typedGrades = grades|default([]) %}
+
     <twig:Ui:Card>
+        {% if duplicate is defined and duplicate %}
+            <div class="alert alert-warning">
+                {{ 'You already hold an item with this name, so it was not added again.'|trans }}
+                <a href="{{ path('_stock_movements', {model: duplicate.id}) }}">
+                    {{ 'Open %name%'|trans({'%name%': duplicate.name}) }}</a>.
+            </div>
+        {% endif %}
+
         <form method="post" action="{{ model ? path('_stock_item_edit', {id: model.id}) : path('_stock_item_new') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('stock.item') }}">
 
             <div class="mb-3">
                 <label for="item-name" class="form-label">{{ 'Item name'|trans }}</label>
+                {# data-model-suggest turns on the picker below: this company's own
+                   stock first, then the portal-wide master model list, so the
+                   handset is spelled the way everything else on the portal
+                   already spells it. #}
                 <input type="text" name="name" id="item-name" class="form-control" style="max-width: 480px;"
-                       value="{{ model ? model.name : '' }}" placeholder="{{ 'e.g. SAMSUNG S22 128GB'|trans }}" required autofocus>
+                       value="{{ typedName }}" placeholder="{{ 'e.g. SAMSUNG S22 128GB'|trans }}"
+                       autocomplete="off" data-model-suggest required autofocus>
+                <div class="form-text text-danger" id="item-name-known" style="display: none;"></div>
                 <div class="form-text">
-                    {{ 'Use the same wording every time you buy this handset, so it stays one item rather than several.'|trans }}
+                    {{ 'Start typing and pick from the list - it shows what you already hold, then the shared model list everyone on the portal uses. Same wording every time keeps it one item rather than several.'|trans }}
+                    {# Only the platform owner can put a handset into the shared
+                       list, so only he is offered the way in. #}
+                    {% if is_granted('ROLE_SUPER_ADMIN') %}
+                        <a href="{{ path('_model_catalog_manage') }}">{{ 'Add a model to the shared list'|trans }}</a>.
+                    {% endif %}
                 </div>
             </div>
 
@@ -78,11 +103,19 @@
                     </tr>
                 </thead>
                 <tbody id="grade-rows">
-                    {% for i in 1..3 %}
+                    {# Three empty rows normally; on a form that came back with an
+                       error, every row that was typed, so the whole item does not
+                       have to be entered again. #}
+                    {% for i in 1..max(3, typedGrades|length) %}
+                        {% set typed = typedGrades[i - 1]|default({'name': '', 'qty': ''}) %}
                         <tr>
-                            <td><input type="text" name="grade_name[]" class="form-control" placeholder="{{ 'e.g. Grade A'|trans }}"></td>
+                            <td>
+                                <input type="text" name="grade_name[]" class="form-control" value="{{ typed.name }}"
+                                       placeholder="{{ 'e.g. Grade A'|trans }}" autocomplete="off" data-grade-suggest>
+                            </td>
                             {% if not model %}
-                                <td><input type="number" step="1" name="grade_qty[]" class="form-control text-end" placeholder="0"></td>
+                                <td><input type="number" step="1" name="grade_qty[]" class="form-control text-end"
+                                           value="{{ typed.qty }}" placeholder="0"></td>
                             {% endif %}
                         </tr>
                     {% endfor %}
@@ -115,5 +148,9 @@
                 if (inputs.length) { inputs[0].focus(); }
             });
         })();
+    </script>
+
+    <script>
+        {% include '@SolidInvoiceCore/Stock/_name_suggest.html.twig' %}
     </script>
 {% endblock content %}

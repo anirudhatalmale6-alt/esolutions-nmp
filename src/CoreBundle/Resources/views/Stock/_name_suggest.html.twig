@@ -1,0 +1,366 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #
+ # The model suggestion box on the Add / Edit stock item form.
+ #
+ # A stock item is matched by its NAME everywhere else on the portal: the Tally
+ # import finds the item it is updating by name, the invoice line picker is
+ # searched by name, and the Sales-by-Model report groups by name. So the one
+ # screen where a name is typed by hand is the one place a second spelling of the
+ # same handset can be created - and from that moment the same phone is two items
+ # carrying two separate quantities, and neither of them is right.
+ #
+ # It offers the same two lists the invoice line offers, in the same order:
+ #
+ #   1. What this company already holds (/stock/picker.json), with the quantity
+ #      in hand. These cannot be added a second time, so they are marked and the
+ #      note under the box points at the item that already exists.
+ #   2. The portal-wide master model list (/models/catalog.json) - the spelling
+ #      every vendor on the portal follows.
+ #
+ # The grade boxes suggest from the grade names already used across this
+ # company's own stock, so "Grade A" does not become "A Grade" on the next item.
+ #
+ # Everything is delegated off document, because "Add another grade" clones rows
+ # after this has run.
+ #}
+(function () {
+    "use strict";
+
+    if (window.__nmpStockSuggest) { return; }
+    window.__nmpStockSuggest = true;
+
+    var CATALOG_URL = {{ path('_model_catalog')|json_encode|raw }};
+    var STOCK_URL = {{ path('_stock_picker')|json_encode|raw }};
+    var MOVEMENTS_URL = {{ path('_stock_movements')|json_encode|raw }};
+    // The item being edited is not a duplicate of itself.
+    var EDITING_ID = {{ (model ? model.id ~ '' : '')|json_encode|raw }};
+
+    var MODEL_SELECTOR = "input[data-model-suggest]";
+    var GRADE_SELECTOR = "input[data-grade-suggest]";
+    var MAX_RESULTS = 12;
+
+    var catalog = null;      // master list: array of names
+    var stock = null;        // own stock: array of {id, name, qty, grades}
+    var held = null;         // lower-cased own name -> {id, name, qty}
+    var gradeNames = null;   // grade names already in use, alphabetical
+    var loading = false;
+
+    var box = null;          // the floating suggestion list
+    var field = null;        // the input it is currently attached to
+    var items = [];
+    var active = -1;
+
+    function load() {
+        if (loading || (catalog !== null && stock !== null)) { return; }
+        loading = true;
+
+        var wantCatalog = fetch(CATALOG_URL, { credentials: "same-origin" })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+
+        var wantStock = fetch(STOCK_URL, { credentials: "same-origin" })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+
+        Promise.all([wantCatalog, wantStock]).then(function (both) {
+            catalog = Array.isArray(both[0]) ? both[0] : [];
+            stock = Array.isArray(both[1]) ? both[1] : [];
+
+            held = {};
+            var grades = {};
+
+            for (var i = 0; i < stock.length; i++) {
+                var row = stock[i];
+                if (!row || typeof row.name !== "string") { continue; }
+                held[row.name.trim().toLowerCase()] = row;
+
+                var list = Array.isArray(row.grades) ? row.grades : [];
+                for (var g = 0; g < list.length; g++) {
+                    if (list[g] && typeof list[g].grade === "string" && list[g].grade.trim() !== "") {
+                        grades[list[g].grade.trim()] = true;
+                    }
+                }
+            }
+
+            gradeNames = Object.keys(grades).sort(function (a, b) {
+                return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+            });
+
+            // The name may already be typed - a form that came back with an
+            // error, or the browser restoring the page.
+            var name = document.querySelector(MODEL_SELECTOR);
+            if (name) { checkDuplicate(name); }
+        }).finally(function () { loading = false; });
+    }
+
+    function ensureBox() {
+        if (box) { return box; }
+
+        var style = document.createElement("style");
+        style.textContent =
+            ".nmp-ss{position:absolute;z-index:1080;background:var(--tblr-bg-surface,#fff);" +
+            "border:1px solid var(--tblr-border-color,#dadfe5);border-radius:6px;" +
+            "box-shadow:0 6px 18px -6px rgba(0,0,0,.35);max-height:260px;overflow-y:auto;" +
+            "font-size:.875rem;padding:.25rem 0;margin:0;list-style:none;}" +
+            ".nmp-ss li{padding:.35rem .75rem;cursor:pointer;white-space:nowrap;" +
+            "overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:.5rem;}" +
+            ".nmp-ss li.nmp-ss-on,.nmp-ss li:hover{background:var(--tblr-primary,#066fd1);color:#fff;}" +
+            ".nmp-ss .nmp-ss-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;}" +
+            ".nmp-ss .nmp-ss-tag{flex:0 0 auto;font-size:.7rem;font-weight:600;" +
+            "padding:.05rem .4rem;border-radius:10px;background:#e8f5e9;color:#2e7d32;}" +
+            ".nmp-ss .nmp-ss-tag.nmp-ss-have{background:#fff3e0;color:#e65100;}" +
+            ".nmp-ss li.nmp-ss-on .nmp-ss-tag,.nmp-ss li:hover .nmp-ss-tag{background:rgba(255,255,255,.25);color:#fff;}";
+        document.head.appendChild(style);
+
+        box = document.createElement("ul");
+        box.className = "nmp-ss";
+        box.style.display = "none";
+        // mousedown fires before the blur, so the pick is not lost.
+        box.addEventListener("mousedown", function (e) {
+            var li = e.target.closest("li");
+            if (!li) { return; }
+            e.preventDefault();
+            choose(parseInt(li.getAttribute("data-i"), 10));
+        });
+        document.body.appendChild(box);
+
+        return box;
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    // --- what to offer ------------------------------------------------------
+
+    function rankModels(query) {
+        var q = query.trim().toLowerCase();
+        if (q === "") { return []; }
+
+        var starts = [], contains = [];
+
+        // 1. Theirs first. Marked, because adding one of these again is exactly
+        //    the duplicate this box exists to prevent.
+        if (stock) {
+            for (var i = 0; i < stock.length; i++) {
+                var row = stock[i];
+                if (!row || typeof row.name !== "string") { continue; }
+                var at = row.name.toLowerCase().indexOf(q);
+                if (at < 0) { continue; }
+                (at === 0 ? starts : contains).push({ name: row.name, mine: true, qty: row.qty });
+            }
+        }
+
+        // 2. Then the master list, minus anything already listed above.
+        if (catalog) {
+            for (var j = 0; j < catalog.length; j++) {
+                var name = catalog[j];
+                if (typeof name !== "string") { continue; }
+                var lc = name.toLowerCase();
+                if (held && held[lc]) { continue; }
+                var pos = lc.indexOf(q);
+                if (pos === 0) { starts.push({ name: name, mine: false, qty: null }); }
+                else if (pos > 0) { contains.push({ name: name, mine: false, qty: null }); }
+            }
+        }
+
+        return starts.concat(contains).slice(0, MAX_RESULTS);
+    }
+
+    // Grade vocabularies are short - half a dozen names across the whole
+    // warehouse - so an empty box offers the lot rather than waiting for a
+    // letter. That is the fastest way to keep them spelled the same.
+    function rankGrades(query) {
+        if (!gradeNames) { return []; }
+
+        var q = query.trim().toLowerCase();
+        var starts = [], contains = [];
+
+        for (var i = 0; i < gradeNames.length; i++) {
+            var name = gradeNames[i];
+            var at = name.toLowerCase().indexOf(q);
+            if (q === "" || at === 0) { starts.push({ name: name, mine: false, qty: null }); }
+            else if (at > 0) { contains.push({ name: name, mine: false, qty: null }); }
+        }
+
+        return starts.concat(contains).slice(0, MAX_RESULTS);
+    }
+
+    // --- the box ------------------------------------------------------------
+
+    function render() {
+        ensureBox();
+
+        if (items.length === 0) { hide(); return; }
+
+        var html = "";
+
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            html += '<li data-i="' + i + '"' + (i === active ? ' class="nmp-ss-on"' : '') + '>' +
+                '<span class="nmp-ss-name">' + escapeHtml(it.name) + '</span>';
+            if (it.mine) {
+                html += '<span class="nmp-ss-tag nmp-ss-have">' +
+                    {{ 'already added'|trans|json_encode|raw }} +
+                    (it.qty > 0 ? " · " + escapeHtml(String(it.qty)) : "") +
+                    '</span>';
+            }
+            html += '</li>';
+        }
+
+        box.innerHTML = html;
+        position();
+        box.style.display = "block";
+    }
+
+    function position() {
+        if (!field || !box) { return; }
+        var r = field.getBoundingClientRect();
+        box.style.left = (window.scrollX + r.left) + "px";
+        box.style.top = (window.scrollY + r.bottom + 2) + "px";
+        box.style.minWidth = Math.max(r.width, 220) + "px";
+        box.style.maxWidth = Math.max(r.width, 360) + "px";
+    }
+
+    function hide() {
+        if (box) { box.style.display = "none"; }
+        items = [];
+        active = -1;
+    }
+
+    function choose(i) {
+        if (!field || i < 0 || i >= items.length) { return; }
+
+        field.value = items[i].name;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        hide();
+        field.focus();
+    }
+
+    function refresh(el) {
+        field = el;
+        items = el.matches(MODEL_SELECTOR) ? rankModels(el.value) : rankGrades(el.value);
+        active = -1;
+        render();
+    }
+
+    // --- "you already hold this" -------------------------------------------
+    //
+    // Said while it is being typed rather than after the form is sent back,
+    // because by then the answer is usually to go and open the item that
+    // exists instead - and that is one click from here.
+
+    function checkDuplicate(input) {
+        var note = document.getElementById("item-name-known");
+        if (!note || !held) { return; }
+
+        var typed = (input.value || "").trim().toLowerCase();
+        var hit = typed === "" ? null : held[typed];
+
+        if (hit && EDITING_ID !== "" && String(hit.id) === EDITING_ID) { hit = null; }
+
+        if (!hit) {
+            note.style.display = "none";
+            note.innerHTML = "";
+            return;
+        }
+
+        note.innerHTML = "";
+        note.appendChild(document.createTextNode(
+            {{ 'You already hold this item'|trans|json_encode|raw }} +
+            (hit.qty > 0 ? " (" + hit.qty + " " + {{ 'in hand'|trans|json_encode|raw }} + ")" : "") + ". "
+        ));
+
+        var link = document.createElement("a");
+        link.href = MOVEMENTS_URL + "?model=" + encodeURIComponent(String(hit.id));
+        link.textContent = {{ 'Open it instead'|trans|json_encode|raw }};
+        note.appendChild(link);
+        note.style.display = "block";
+
+        // Nothing in the list is worth picking now - the name is already his, so
+        // it cannot be added a second time whatever he chooses - and the open
+        // list would sit on top of the very line saying so.
+        hide();
+    }
+
+    // --- delegated events ---------------------------------------------------
+
+    document.addEventListener("focusin", function (e) {
+        if (!e.target.matches) { return; }
+        if (e.target.matches(MODEL_SELECTOR)) {
+            load();
+            field = e.target;
+        } else if (e.target.matches(GRADE_SELECTOR)) {
+            load();
+            refresh(e.target);
+        }
+    });
+
+    document.addEventListener("input", function (e) {
+        if (!e.target.matches) { return; }
+        if (!e.target.matches(MODEL_SELECTOR) && !e.target.matches(GRADE_SELECTOR)) { return; }
+
+        refresh(e.target);
+
+        if (e.target.matches(MODEL_SELECTOR)) { checkDuplicate(e.target); }
+    });
+
+    document.addEventListener("keydown", function (e) {
+        if (!field || !e.target.matches) { return; }
+        if (!e.target.matches(MODEL_SELECTOR) && !e.target.matches(GRADE_SELECTOR)) { return; }
+        if (!box || box.style.display === "none" || items.length === 0) { return; }
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            active = (active + 1) % items.length;
+            render();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            active = (active - 1 + items.length) % items.length;
+            render();
+        } else if (e.key === "Enter" || e.key === "Tab") {
+            // Only take Enter when something is highlighted, so Enter still
+            // submits the form the rest of the time.
+            if (active >= 0) {
+                e.preventDefault();
+                choose(active);
+                if (e.target.matches(MODEL_SELECTOR)) { checkDuplicate(e.target); }
+            }
+        } else if (e.key === "Escape") {
+            hide();
+        }
+    });
+
+    function suggests(el) {
+        return !!(el && el.matches && (el.matches(MODEL_SELECTOR) || el.matches(GRADE_SELECTOR)));
+    }
+
+    document.addEventListener("focusout", function (e) {
+        if (!suggests(e.target)) { return; }
+
+        // Late enough for a mousedown on the box to land first.
+        setTimeout(function () {
+            // Leaving one box for another - "Add another grade" focuses the row
+            // it just made - means the box now belongs to whatever was moved
+            // into, and closing it here would close the wrong one.
+            if (suggests(document.activeElement)) { return; }
+            hide();
+        }, 150);
+    });
+
+    window.addEventListener("scroll", function () { if (box && box.style.display !== "none") { position(); } }, true);
+    window.addEventListener("resize", function () { if (box && box.style.display !== "none") { position(); } });
+
+    // A form that came back with an error already has a name in it, so the
+    // lists are worth having before anything is touched.
+    if (document.querySelector(MODEL_SELECTOR)) { load(); }
+})();

@@ -91,10 +91,22 @@ final class ManageStockItem extends AbstractController
         if ($name === '') {
             $this->addFlash('error', 'Give the item a name.');
 
-            return $this->render('@SolidInvoiceCore/Stock/item.html.twig', ['model' => $model]);
+            return $this->form($request, $model);
         }
 
         $isNew = ! $model instanceof StockModel;
+
+        // The same name must not exist twice: the Tally import finds the item it
+        // is updating BY NAME, and so does the line-item picker, so a second
+        // spelling silently splits one handset into two quantities. Checked on a
+        // rename as well, not just when adding - itself excepted.
+        $clash = $this->existingNamed($name, $model);
+
+        if ($clash instanceof StockModel) {
+            $this->addFlash('error', sprintf('You already hold an item called "%s".', $clash->getName()));
+
+            return $this->form($request, $model, $clash);
+        }
 
         if ($isNew) {
             $company = $this->currentCompany();
@@ -103,12 +115,6 @@ final class ManageStockItem extends AbstractController
                 $this->addFlash('error', 'No active company selected.');
 
                 return $this->redirectToRoute('_stock_list');
-            }
-
-            if ($this->nameTaken($name)) {
-                $this->addFlash('error', sprintf('You already hold an item called "%s".', $name));
-
-                return $this->render('@SolidInvoiceCore/Stock/item.html.twig', ['model' => null]);
             }
 
             $model = new StockModel();
@@ -189,15 +195,57 @@ final class ManageStockItem extends AbstractController
         return $added;
     }
 
-    private function nameTaken(string $name): bool
+    /**
+     * Re-render the form with everything that was just typed still in it.
+     *
+     * An item can carry half a dozen grades with their opening figures; sending
+     * back an empty form over one rejected name means typing the lot again, and
+     * that is how a name ends up being changed to something nobody else uses
+     * just to get past the message.
+     */
+    private function form(Request $request, ?StockModel $model, ?StockModel $duplicate = null): Response
     {
-        foreach ($this->stockModelRepository->findAllOrdered() as $model) {
-            if (strtolower(trim($model->getName())) === strtolower($name)) {
-                return true;
+        $names = $request->request->all('grade_name');
+        $quantities = $request->request->all('grade_qty');
+        $grades = [];
+
+        if (is_array($names)) {
+            for ($i = 0, $count = count($names); $i < $count; $i++) {
+                $grades[] = [
+                    'name' => trim((string) ($names[$i] ?? '')),
+                    'qty' => trim((string) (is_array($quantities) ? ($quantities[$i] ?? '') : '')),
+                ];
             }
         }
 
-        return false;
+        return $this->render('@SolidInvoiceCore/Stock/item.html.twig', [
+            'model' => $model,
+            'name' => trim((string) $request->request->get('name')),
+            'grades' => $grades,
+            'duplicate' => $duplicate,
+        ]);
+    }
+
+    /**
+     * The item this company already holds under $name, if any. $self is the item
+     * being edited, which is not a duplicate of itself.
+     */
+    private function existingNamed(string $name, ?StockModel $self): ?StockModel
+    {
+        $wanted = strtolower(trim($name));
+        $selfId = $self instanceof StockModel && $self->getId() !== null ? (string) $self->getId() : null;
+
+        foreach ($this->stockModelRepository->findAllOrdered() as $model) {
+            if ($selfId !== null && (string) $model->getId() === $selfId) {
+                continue;
+            }
+
+            if (strtolower(trim($model->getName())) === $wanted) {
+                return $model;
+            }
+        }
+
+        return null;
     }
 
     private function currentCompany(): ?Company

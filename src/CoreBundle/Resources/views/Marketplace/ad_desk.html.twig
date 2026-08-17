@@ -42,6 +42,59 @@
             {% endfor %}
         </div>
 
+        {# The owner writing one himself. He sells these places, so he has to be
+           able to fill all four without waiting for a member to send something
+           in - and an empty place is better filled with our own advert than
+           left blank. #}
+        <h3 class="mb-1">{{ 'Write an advert'|trans }}</h3>
+        <p class="text-secondary" style="max-width: 760px;">
+            {{ 'For one of your own, or for a member who sent you the picture and the wording by WhatsApp. Leave the place empty to save it without putting it up yet.'|trans }}
+        </p>
+
+        <form method="post" action="{{ path('_marketplace_ads') }}" enctype="multipart/form-data" class="mb-4" style="max-width: 760px;">
+            <input type="hidden" name="_token" value="{{ csrf_token('marketplace.ads') }}">
+            <input type="hidden" name="action" value="create">
+
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold" for="new-title">{{ 'Headline'|trans }}</label>
+                    <input class="form-control" type="text" id="new-title" name="title" maxlength="120" required
+                           placeholder="{{ 'e.g. iPhone 16 Pro Max - 50 pcs'|trans }}">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold" for="new-caption">{{ 'One line underneath'|trans }}</label>
+                    <input class="form-control" type="text" id="new-caption" name="caption" maxlength="255"
+                           placeholder="{{ 'e.g. Sealed, UAE spec, ready to ship'|trans }}">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold" for="new-link">{{ 'Where a tap goes'|trans }}</label>
+                    <input class="form-control" type="text" id="new-link" name="link_url" maxlength="255"
+                           placeholder="{{ 'e.g. b2bnetwork.ae, or leave empty'|trans }}">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold" for="new-image">{{ 'Picture'|trans }}</label>
+                    <input class="form-control" type="file" id="new-image" name="image" accept=".jpg,.jpeg,.png,.webp" required>
+                    <div class="form-hint mt-1">{{ 'Landscape works best - about four wide to three tall.'|trans }}</div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold" for="new-slot">{{ 'Place'|trans }}</label>
+                    <select class="form-select" id="new-slot" name="slot">
+                        <option value="0">{{ 'Not on the page yet'|trans }}</option>
+                        {% for slot in 1..slotCount %}
+                            <option value="{{ slot }}">{{ 'Place %n%'|trans({'%n%': slot}) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        {{ ux_icon('tabler:plus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Save advert'|trans }}
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-4">
+
         <h3 class="mb-1">{{ 'Every advert'|trans }}</h3>
         <p class="text-secondary" style="max-width: 760px;">
             {{ 'Members with the Classifieds button switched on write their own advert. Nothing appears on the Marketplace until you give it a place here.'|trans }}
@@ -54,7 +107,7 @@
                 <table class="table align-middle">
                     <thead>
                     <tr>
-                        <th style="width: 140px;">{{ 'Picture'|trans }}</th>
+                        <th style="width: 210px;">{{ 'Picture'|trans }}</th>
                         <th>{{ 'Advert'|trans }}</th>
                         <th>{{ 'Business'|trans }}</th>
                         <th>{{ 'Where'|trans }}</th>
@@ -67,10 +120,21 @@
                         <tr>
                             <td>
                                 {% if image %}
-                                    <img src="{{ image }}" alt="{{ ad.title }}" class="rounded" style="width: 120px; height: auto;">
+                                    <img src="{{ image }}" alt="{{ ad.title }}" class="rounded mb-1" style="width: 120px; height: auto;">
                                 {% else %}
-                                    <span class="text-secondary small">{{ 'No picture'|trans }}</span>
+                                    <div class="text-secondary small mb-1">{{ 'No picture'|trans }}</div>
                                 {% endif %}
+                                {# Swapping the picture without making anyone
+                                   rewrite the wording - usually a member sends a
+                                   better one over WhatsApp. #}
+                                <form method="post" action="{{ path('_marketplace_ads') }}" enctype="multipart/form-data">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('marketplace.ads') }}">
+                                    <input type="hidden" name="ad" value="{{ ad.id }}">
+                                    <input type="hidden" name="action" value="picture">
+                                    <input class="form-control form-control-sm mb-1" type="file" name="image"
+                                           accept=".jpg,.jpeg,.png,.webp" aria-label="{{ 'New picture'|trans }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Replace'|trans }}</button>
+                                </form>
                             </td>
                             <td>
                                 <div class="fw-semibold">{{ ad.title }}</div>

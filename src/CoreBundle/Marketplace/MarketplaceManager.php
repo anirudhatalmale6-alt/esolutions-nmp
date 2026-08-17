@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Marketplace;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use SolidInvoice\CoreBundle\Entity\MarketplaceSetting;
@@ -23,6 +24,7 @@ use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
 use Throwable;
 use function bin2hex;
+use function is_string;
 use function mb_ord;
 use function mb_strtoupper;
 use function rtrim;
@@ -490,6 +492,60 @@ final class MarketplaceManager
         }
 
         return mb_chr(0x1F1E6 + (mb_ord($code[0]) - 65)) . mb_chr(0x1F1E6 + (mb_ord($code[1]) - 65));
+    }
+
+    /**
+     * Where a handful of businesses trade from and how to reach them, in ONE
+     * query.
+     *
+     * The community feed needs this for whoever is posting. Asking per post
+     * turned one page into thirty queries, and most of a busy feed is the same
+     * few businesses talking anyway.
+     *
+     * Only businesses that have actually put themselves on the Marketplace come
+     * back with a number - somebody who has not opted in should not have their
+     * WhatsApp handed out just because they posted.
+     *
+     * @param list<string> $binaryCompanyIds
+     * @return array<string, array{whatsapp: string, chatUrl: string, location: string, flag: string}>
+     */
+    public function contactsFor(array $binaryCompanyIds): array
+    {
+        if ($binaryCompanyIds === []) {
+            return [];
+        }
+
+        try {
+            $rows = $this->connection->fetchAllAssociative(
+                'SELECT company_id, listed, whatsapp, country, city FROM ' . MarketplaceSetting::TABLE_NAME . ' WHERE company_id IN (?)',
+                [$binaryCompanyIds],
+                [ArrayParameterType::BINARY]
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $contacts = [];
+
+        foreach ($rows as $row) {
+            $id = $row['company_id'];
+
+            if (! is_string($id)) {
+                continue;
+            }
+
+            $whatsapp = (bool) ($row['listed'] ?? false) ? (string) ($row['whatsapp'] ?? '') : '';
+            $country = $this->normalizeCountry((string) ($row['country'] ?? ''));
+
+            $contacts[Ulid::fromBinary($id)->toString()] = [
+                'whatsapp' => $whatsapp,
+                'chatUrl' => $whatsapp === '' ? '' : $this->chatUrl($whatsapp, 'the stock you posted'),
+                'location' => $this->location((string) ($row['city'] ?? ''), $country),
+                'flag' => $this->flag($country),
+            ];
+        }
+
+        return $contacts;
     }
 
     private function location(string $city, string $code): string

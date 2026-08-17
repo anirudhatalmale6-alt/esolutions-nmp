@@ -142,6 +142,12 @@ return static function (SecurityConfig $config): void {
             '/inventory/[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$|' .
             '/imei-unlock$|' .
             '/marketplace$|' .
+            // The pictures on that page. The page itself is public, so these have
+            // to be too - without this line a visitor who is not signed in is
+            // bounced to the login form for every advert and every photo on a
+            // post, and gets a page full of broken images. The folder is a
+            // company id (or "platform"), the filename one MediaStore wrote.
+            '/marketplace/media/(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|platform)/[A-Za-z0-9._-]{1,128}$|' .
             '/$|' .
             '/store$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .

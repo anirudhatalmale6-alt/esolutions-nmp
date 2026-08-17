@@ -138,14 +138,25 @@
         .pwho .pname { font-weight:600; font-size:.92rem; line-height:1.3; word-break:break-word; }
         .pwho .pwhen { color:var(--muted); font-size:.76rem; margin-top:1px; }
         .pbody { margin-top:10px; font-size:.94rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
-        /* Three across on a phone rather than four - at four, two pictures on a
-           post come out as thumbnails nobody can make anything out in. */
-        .pimgs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:10px; }
-        @media (min-width: 560px) { .pimgs { grid-template-columns:repeat(4, 1fr); } }
-        .pimgs a { display:block; border-radius:10px; overflow:hidden; }
+        /* Sized by how many there are. A single photo squeezed into a quarter of
+           the card was what made these posts look empty - one gets a proper
+           landscape frame, two share the row, three or four tile. Still small
+           pictures: this is a trading board, not an album. */
+        .pimgs { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:11px; }
+        .pimgs a { display:block; border-radius:10px; overflow:hidden; background:var(--chip); }
         .pimgs img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:var(--chip); }
+        .pimgs.n1 { grid-template-columns:minmax(0, 320px); }
+        .pimgs.n1 img { aspect-ratio:4/3; }
+        .pimgs.n2 { grid-template-columns:repeat(2, minmax(0, 190px)); }
+        .pimgs.n3 { grid-template-columns:repeat(3, 1fr); }
         .pfoot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
         .plink { background:none; border:0; padding:0; color:var(--muted); font-size:.78rem; cursor:pointer; font-family:inherit; }
+        /* The reason to read the feed at all: whoever posted the stock is one
+           tap away. Same green button as the search results, so it reads as the
+           same action. */
+        .pcta { display:flex; justify-content:flex-end; margin-top:12px; }
+        .pcta .chat { padding:9px 16px; font-size:.86rem; }
+        .pwhen .flag { font-size:.95rem; }
 
         .comments { margin-top:10px; border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:9px; }
         .comment { font-size:.88rem; line-height:1.45; word-break:break-word; }
@@ -179,6 +190,9 @@
 </head>
 <body>
 <div class="wrap">
+    {# The blue tick a verified business carries. Defined once, at page level:
+       the search results and the community feed both draw it. #}
+    {% set verifiedTick %}<span class="vbadge" title="{{ 'Verified business'|trans }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1d9bf0" d="M12 1.8l2.6 1.9 3.2-.2 1 3 2.6 1.8-1 3 1 3-2.6 1.8-1 3-3.2-.2L12 22.2l-2.6-1.9-3.2.2-1-3L2.6 15.7l1-3-1-3 2.6-1.8 1-3 3.2.2z"/><path fill="#fff" d="M10.6 14.6l-2.2-2.2-1.2 1.2 3.4 3.4 6-6-1.2-1.2z"/></svg></span>{% endset %}
     <div class="topbar">
         {% if loggedIn %}
             <a class="authlink solid" href="{{ path('_dashboard') }}">{{ 'My Portal'|trans }}</a>
@@ -205,7 +219,6 @@
             <div class="empty">{{ 'No listed seller has "%q%" in stock right now.'|trans({'%q%': query}) }}</div>
         {% else %}
             <div class="count">{{ '%n% seller(s)'|trans({'%n%': results|length}) }}</div>
-            {% set verifiedTick %}<span class="vbadge" title="{{ 'Verified business'|trans }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1d9bf0" d="M12 1.8l2.6 1.9 3.2-.2 1 3 2.6 1.8-1 3 1 3-2.6 1.8-1 3-3.2-.2L12 22.2l-2.6-1.9-3.2.2-1-3L2.6 15.7l1-3-1-3 2.6-1.8 1-3 3.2.2z"/><path fill="#fff" d="M10.6 14.6l-2.2-2.2-1.2 1.2 3.4 3.4 6-6-1.2-1.2z"/></svg></span>{% endset %}
             {% for g in results %}
                 {% set place = g.city ?: g.country %}
                 <div class="result">
@@ -336,19 +349,33 @@
             {# A guest sees what was said but not who said it - the same rule the
                search results follow, and the reason a buyer signs up. #}
             {% set who = loggedIn ? (post.businessName ?: post.authorName ?: 'Member'|trans) : 'A member'|trans %}
+            {% set place = loggedIn ? entry.location : '' %}
             <div class="post">
                 <div class="phead">
                     <div class="pavatar">{{ who|trim|first|upper }}</div>
                     <div class="pwho">
-                        <div class="pname">{{ who }}</div>
-                        <div class="pwhen">{{ post.created ? post.created|date('j M Y, H:i') : '' }}</div>
+                        <div class="pname">
+                            {{ who }}
+                            {# The blue tick a business earns by sending in its
+                               documents - the same one the search results show.
+                               Hidden from guests along with the name it sits
+                               beside, or it would say which business this is. #}
+                            {% if loggedIn and entry.verified %}{{ verifiedTick }}{% endif %}
+                        </div>
+                        <div class="pwhen">
+                            {% if place %}<span class="flag">{{ entry.flag }}</span> {{ place }} &middot; {% endif %}
+                            {{ post.created ? post.created|date('j M, H:i') : '' }}
+                        </div>
                     </div>
                 </div>
 
                 {% if post.body %}<div class="pbody">{{ post.body }}</div>{% endif %}
 
                 {% if post.images is not empty %}
-                    <div class="pimgs">
+                    {# One picture gets the width it deserves; several share the
+                       row. A lone photo squeezed into a quarter of the card was
+                       what made these posts look empty. #}
+                    <div class="pimgs n{{ post.images|length }}">
                         {% for image in post.images %}
                             {% set url = marketplace_media(image) %}
                             {% if url %}
@@ -357,6 +384,15 @@
                                 </a>
                             {% endif %}
                         {% endfor %}
+                    </div>
+                {% endif %}
+
+                {# The whole point of somebody posting stock is that you can reach
+                   them. Signed-in only, and only for a business that put its
+                   number on the Marketplace itself. #}
+                {% if loggedIn and entry.chatUrl %}
+                    <div class="pcta">
+                        <a class="chat" href="{{ entry.chatUrl }}" target="_blank" rel="noopener">{{ 'Chat Now'|trans }}</a>
                     </div>
                 {% endif %}
 

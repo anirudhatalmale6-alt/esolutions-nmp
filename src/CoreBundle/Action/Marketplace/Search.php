@@ -25,7 +25,9 @@ use SolidInvoice\CoreBundle\Repository\MarketplaceAdRepository;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Uid\Ulid;
 use function array_map;
+use function array_values;
 use function array_merge;
 use function trim;
 
@@ -136,10 +138,27 @@ final class Search
         $isOwner = $this->security->isGranted('ROLE_SUPER_ADMIN');
         $mine = $this->companySelector->getCompany();
 
+        // Where each poster trades from and how to reach them, in one query for
+        // the whole page rather than one per post.
+        $binaryIds = [];
+
+        foreach ($posts as $post) {
+            $companyId = $post->getCompany()?->getId();
+
+            if ($companyId instanceof Ulid) {
+                $binaryIds[$companyId->toString()] = $companyId->toBinary();
+            }
+        }
+
+        $contacts = $this->marketplace->contactsFor(array_values($binaryIds));
+
         $feed = [];
 
         foreach ($posts as $post) {
             $id = $post->getId();
+            $company = $post->getCompany();
+            $companyId = $company?->getId();
+            $contact = $companyId instanceof Ulid ? ($contacts[$companyId->toString()] ?? null) : null;
 
             $feed[] = [
                 'post' => $post,
@@ -147,7 +166,13 @@ final class Search
                 // Worked out here rather than in the template: the two companies
                 // come from different queries, so they are never the same object
                 // and only their ids can be compared.
-                'canRemove' => $isOwner || ($mine !== null && $post->getCompany()?->getId()?->equals($mine) === true),
+                'canRemove' => $isOwner || ($mine !== null && $companyId !== null && $companyId->equals($mine)),
+                'verified' => $company instanceof Company && $company->isVerified(),
+                'location' => $contact['location'] ?? '',
+                'flag' => $contact['flag'] ?? '',
+                // Only handed out to somebody signed in, and only for a business
+                // that actually put itself on the Marketplace.
+                'chatUrl' => $contact['chatUrl'] ?? '',
             ];
         }
 

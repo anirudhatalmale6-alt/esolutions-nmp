@@ -31,6 +31,7 @@ use SolidInvoice\CoreBundle\Action\Marketplace\AdDesk;
 use SolidInvoice\CoreBundle\Action\Marketplace\Classifieds;
 use SolidInvoice\CoreBundle\Action\Marketplace\Media as MarketplaceMedia;
 use SolidInvoice\CoreBundle\Action\Marketplace\Search as MarketplaceSearch;
+use SolidInvoice\CoreBundle\Action\Marketplace\SellerLogo;
 use SolidInvoice\CoreBundle\Action\Marketplace\StockListingSettings;
 use SolidInvoice\CoreBundle\Action\Membership\Pending as MembershipPending;
 use SolidInvoice\CoreBundle\Action\Membership\Upgrade as MembershipUpgrade;
@@ -412,6 +413,19 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->add('_marketplace_ads', '/marketplace/adverts')
         ->controller(AdDesk::class)
         ->methods(['GET', 'POST']);
+
+    // A seller's logo as a file the browser can cache, instead of the picture
+    // pasted into every search page. The id is the company's 32 hex characters,
+    // and the ?v= on the end is a fingerprint of the image itself.
+    //
+    // No .png on the end ON PURPOSE: the web server answers image extensions
+    // straight off disk without ever reaching PHP, so a generated image at a
+    // path ending in .png is a 404.
+    $routingConfigurator
+        ->add('_marketplace_logo', '/marketplace/seller-logo/{company}')
+        ->controller(SellerLogo::class)
+        ->requirements(['company' => '[0-9A-Fa-f]{32}'])
+        ->methods(['GET']);
 
     // The community feed under the adverts. Reading is open to anyone; writing
     // needs an account, which is why these are POST-only and live behind login.

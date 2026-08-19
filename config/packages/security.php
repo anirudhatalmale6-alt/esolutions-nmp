@@ -148,6 +148,12 @@ return static function (SecurityConfig $config): void {
             // post, and gets a page full of broken images. The folder is a
             // company id (or "platform"), the filename one MediaStore wrote.
             '/marketplace/media/(?:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}|platform)/[A-Za-z0-9._-]{1,128}$|' .
+            // The sellers' logos on that same page, for the same reason. They
+            // used to be pasted into the HTML, so they inherited the page's
+            // access by accident; now that they are fetched separately they
+            // need saying out loud, or the public Marketplace is a grid of
+            // broken images. The id is a company's 32 hex characters.
+            '/marketplace/seller-logo/[0-9A-Fa-f]{32}$|' .
             '/$|' .
             '/store$|' .
             '/payments/create/[a-zA-Z0-9-]{36}$|' .

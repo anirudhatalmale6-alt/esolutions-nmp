@@ -21,6 +21,7 @@ use SolidInvoice\CoreBundle\Entity\MarketplaceSetting;
 use SolidInvoice\CoreBundle\Form\Type\ImageUploadType;
 use SolidInvoice\SettingsBundle\Entity\Setting;
 use Symfony\Component\Intl\Countries;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Ulid;
 use Throwable;
 use function bin2hex;
@@ -38,6 +39,7 @@ use function count;
 use function explode;
 use function preg_replace;
 use function preg_split;
+use function sha1;
 use function str_contains;
 use function trim;
 
@@ -63,6 +65,7 @@ final class MarketplaceManager
 
     public function __construct(
         private readonly Connection $connection,
+        private readonly UrlGeneratorInterface $router,
     ) {
     }
 
@@ -415,8 +418,9 @@ final class MarketplaceManager
                 'flag' => $this->flag($countryCode),
                 // Human location line, e.g. "Dubai, United Arab Emirates".
                 'location' => $this->location($city, $countryCode),
-                // Ready-to-use data URI for the seller's logo, or '' if none.
-                'logo' => $this->logoDataUri((string) ($row['logo'] ?? '')),
+                // An address the browser fetches and caches, NOT the picture
+                // pasted into the page - see logoUrl().
+                'logo' => $this->logoUrl((string) ($row['vendorId'] ?? ''), (string) ($row['logo'] ?? '')),
             ];
         }
 
@@ -621,20 +625,68 @@ final class MarketplaceManager
      */
     private function logoDataUri(string $raw): string
     {
-        $raw = trim($raw);
-
-        if ($raw === '' || ! str_contains($raw, '|')) {
-            return '';
-        }
-
-        [$type, $data] = explode('|', $raw, 2);
-        $type = trim($type);
-        $data = trim($data);
+        [$type, $data] = self::splitStoredImage($raw);
 
         if ($type === '' || $data === '') {
             return '';
         }
 
         return 'data:image/' . $type . ';base64,' . $data;
+    }
+
+    /**
+     * A seller's logo as an ADDRESS the browser can fetch and keep, rather than
+     * the picture itself pasted into the page.
+     *
+     * Inlining them meant every logo on a search page was downloaded inside the
+     * HTML, on every search, uncacheable - and the page grew with each business
+     * that joined. The ?v= is a fingerprint of the image, so the address is
+     * stable until the seller uploads a different one and changes the moment
+     * they do.
+     *
+     * Returns '' when there is no logo, which is what the grid checks for
+     * before falling back to the B2B badge.
+     */
+    private function logoUrl(string $vendorIdHex, string $raw): string
+    {
+        [$type, $data] = self::splitStoredImage($raw);
+
+        if ($type === '' || $data === '' || $vendorIdHex === '') {
+            return '';
+        }
+
+        return $this->router->generate('_marketplace_logo', [
+            'company' => $vendorIdHex,
+            'v' => self::imageFingerprint($raw),
+        ]);
+    }
+
+    /**
+     * Images are stored in app_config as "type|base64" (both the invoice logo
+     * and the Marketplace one). Split it, or ['', ''] if there is nothing usable.
+     *
+     * @return array{string, string}
+     */
+    public static function splitStoredImage(string $raw): array
+    {
+        $raw = trim($raw);
+
+        if ($raw === '' || ! str_contains($raw, '|')) {
+            return ['', ''];
+        }
+
+        [$type, $data] = explode('|', $raw, 2);
+
+        return [trim($type), trim($data)];
+    }
+
+    /**
+     * Short, stable fingerprint of a stored image - the cache-busting part of
+     * its address, and its ETag. Not a security boundary, just "has this
+     * changed".
+     */
+    public static function imageFingerprint(string $raw): string
+    {
+        return substr(sha1(trim($raw)), 0, 12);
     }
 }

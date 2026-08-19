@@ -22,7 +22,12 @@
                 {{ block('children') }}
             </ul>
         {% else %}
-            {% set ddClass = 'dropdown-menu' ~ ( (matcher.isCurrent(item) or matcher.isAncestor(item, options.matchingDepth)) ? ' show' : '' ) %}
+            {# `always_open`: a section whose parent is a LINK has no chevron to
+               click - block `linkElement` renders a plain nav-link - so its
+               children could only ever be seen from inside the section. That
+               hid the advert pages from the one person who manages them. A
+               section that carries this extra stays open wherever you are. #}
+            {% set ddClass = 'dropdown-menu' ~ ( (matcher.isCurrent(item) or matcher.isAncestor(item, options.matchingDepth) or item.extras.always_open|default(false)) ? ' show' : '' ) %}
             <div class="{{ ddClass }}" data-bs-popper="static">
                 <div class="dropdown-menu-columns">
                     <div class="dropdown-menu-column">

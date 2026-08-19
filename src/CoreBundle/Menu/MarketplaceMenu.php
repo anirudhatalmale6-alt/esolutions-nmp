@@ -30,7 +30,11 @@ final class MarketplaceMenu
     #[MenuBuilder(name: 'sidebar', priority: 6, role: 'ROLE_USER')]
     public function sidebar(ItemInterface $menu): void
     {
-        $extras = ['icon' => 'crown'];
+        // Keep the section open wherever you are. Making "Marketplace" the link
+        // itself removed the chevron that used to expand it, so Share My
+        // Inventory, My Advert and Adverts were only visible once you were
+        // already on a marketplace page - which read as "where is advert gone".
+        $extras = ['icon' => 'crown', 'always_open' => true];
 
         // Premium unlocks the Marketplace, and so does a grant the platform owner
         // has made for this business by name - so ask for Marketplace access, not

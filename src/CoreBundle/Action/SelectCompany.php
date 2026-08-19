@@ -26,6 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Uid\Ulid;
+use function is_string;
 
 final readonly class SelectCompany
 {
@@ -63,6 +64,22 @@ final readonly class SelectCompany
             return new RedirectResponse($this->resolvePostLoginTarget($request));
         }
 
+        // Signing in lands HERE, not on the dashboard: the firewall's
+        // defaultTargetPath is this route (config/packages/security.php). So the
+        // remembered business has to be honoured here as well as in
+        // CompanyEventSubscriber - the subscriber deliberately leaves this route
+        // alone, which meant the list came back at every login even though the
+        // choice was being remembered correctly.
+        if (! $request->query->has('choose')) {
+            $remembered = $this->rememberedCompany($user);
+
+            if ($remembered instanceof Ulid) {
+                $request->getSession()->set('company', $remembered);
+
+                return new RedirectResponse($this->resolvePostLoginTarget($request));
+            }
+        }
+
         return ['companies' => $companies];
     }
 
@@ -84,6 +101,26 @@ final readonly class SelectCompany
         }
 
         throw new BadRequestHttpException('Invalid company');
+    }
+
+    /**
+     * The business this user was last in, or null if there isn't one, it cannot
+     * be read, or they are no longer a member of it. Same rule as
+     * CompanyEventSubscriber: the stored id is never trusted on its own.
+     */
+    private function rememberedCompany(User $user): ?Ulid
+    {
+        $value = $this->userSettingRepository->getSetting($user, UserSettingType::LastCompany)?->getValue();
+
+        if (! is_string($value) || ! Ulid::isValid($value)) {
+            return null;
+        }
+
+        $remembered = Ulid::fromString($value);
+
+        return $user->getCompanies()->exists(
+            static fn (int $key, Company $company): bool => $company->getId()?->equals($remembered) === true
+        ) ? $remembered : null;
     }
 
     /**

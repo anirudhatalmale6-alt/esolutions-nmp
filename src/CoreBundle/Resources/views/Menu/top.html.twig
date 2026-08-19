@@ -10,16 +10,22 @@
 {% if is_granted('IS_AUTHENTICATED_REMEMBERED') %}
     <header class="navbar navbar-expand-sm d-none d-lg-flex d-print-none">
         <div class="container-xl">
-            <div class="navbar-nav flex-row order-md-last">
-                {# The Marketplace is what members come here for, and it was
-                   buried in the side menu. One click, from every page. #}
-                <div class="nav-item me-3 d-flex align-items-center">
-                    <a href="{{ path('_marketplace') }}" class="btn btn-outline-primary">
-                        {{ ux_icon('tabler:building-store', {width: 16, height: 16}) }}
-                        {{ 'Marketplace'|trans }}
-                    </a>
-                </div>
+            {# The Marketplace is what members come here for, and it was buried in
+               the side menu. One click, from every page.
 
+               On the LEFT, not in the right-hand cluster: the company button
+               beside it carries a 25px logo, which makes it taller than a plain
+               button, and two buttons of visibly different heights sitting next
+               to each other looks like a mistake. Matching the height by hand
+               would break again the moment either one changes. #}
+            <div class="d-flex align-items-center me-3">
+                <a href="{{ path('_marketplace') }}" class="btn btn-outline-primary">
+                    {{ ux_icon('tabler:building-store', {width: 16, height: 16}) }}
+                    {{ 'Marketplace'|trans }}
+                </a>
+            </div>
+
+            <div class="navbar-nav flex-row order-md-last">
                 {% if not is_custom_domain() %}
                     <div class="nav-item dropdown">
                         <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-label="Open user menu">

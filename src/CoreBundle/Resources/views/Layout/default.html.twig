@@ -46,6 +46,16 @@
             </div>
 
             <div class="navbar-nav flex-row d-lg-none">
+                {# On a phone the top bar is hidden altogether, so without this the
+                   Marketplace is behind the hamburger - which is exactly how a
+                   member described it: log in, open the menu, find Marketplace,
+                   then search. This is the whole journey in one tap. #}
+                <div class="nav-item">
+                    <a href="{{ path('_marketplace') }}" class="nav-link px-2" aria-label="{{ 'Marketplace'|trans }}" title="{{ 'Marketplace'|trans }}">
+                        {{ ux_icon('tabler:building-store', {width: 22, height: 22}) }}
+                    </a>
+                </div>
+
                 <div class="nav-item dropdown">
                     <a href="#" class="nav-link d-flex lh-1 text-reset p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
                         <span class="avatar avatar-sm">

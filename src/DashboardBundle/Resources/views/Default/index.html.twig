@@ -15,6 +15,16 @@
     {{ ux_icon('tabler:layout-dashboard', {width: 20, height: 20}) }}&nbsp;{{ block('page_title') is defined ? block('page_title') }}
 {% endblock %}
 
+{% block heading %}
+    {# The first screen after signing in. The Marketplace is the reason most
+       members are here, so it gets a button on it rather than being something
+       you have to go looking for in the side menu. #}
+    <a href="{{ path('_marketplace') }}" class="btn btn-primary">
+        {{ ux_icon('tabler:building-store', {width: 18, height: 18}) }}
+        {{ 'Go to Marketplace'|trans }}
+    </a>
+{% endblock heading %}
+
 {% block content %}
     <div class="dashboard-page">
         <div class="row mb-4">

@@ -43,21 +43,19 @@ final class MarketplaceMenu
             $extras['plan_label'] = 'Premium';
         }
 
+        // The word "Marketplace" IS the way in - clicking it opens the page
+        // itself. It used to be a folder that had to be opened to reveal a
+        // "Search" item pointing at the very same page, which put the thing
+        // members come here for three clicks deep behind a menu they had to know
+        // to open. The rest of the section (sharing stock, adverts) appears
+        // underneath once you are inside it.
         $marketplace = $menu->addChild('marketplace', [
+            'route' => '_marketplace',
             'label' => 'Marketplace',
             'attributes' => [
                 'class' => 'premium-feature',
             ],
             'extras' => $extras,
-        ]);
-
-        // Searching the marketplace is open to every signed-in user.
-        $marketplace->addChild('marketplace.search', [
-            'route' => '_marketplace',
-            'label' => 'Search',
-            'extras' => [
-                'icon' => 'search',
-            ],
         ]);
 
         // Sharing your own stock onto the marketplace is the paid/premium side -

@@ -15,9 +15,11 @@ namespace SolidInvoice\UserBundle\Onboarding\Action;
 
 use SolidInvoice\UserBundle\Action\Register;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Enum\UserSettingType;
 use SolidInvoice\UserBundle\Onboarding\DTO\OnboardingData;
 use SolidInvoice\UserBundle\Onboarding\Form\Type\OnboardingType;
 use SolidInvoice\UserBundle\Onboarding\Manager\OnboardingManager;
+use SolidInvoice\UserBundle\Repository\UserSettingRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\Flow\FormFlowInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +33,7 @@ final class Onboarding extends AbstractController
 {
     public function __construct(
         private readonly OnboardingManager $onboardingManager,
+        private readonly UserSettingRepository $userSettingRepository,
     ) {
     }
 
@@ -39,10 +42,25 @@ final class Onboarding extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        // If already completed, redirect to dashboard
-        if ($this->onboardingManager->isOnboardingComplete($user)) {
+        // This page exists to create the ONE business behind a new account, so an
+        // account that already has one never sees it again. Without this, a user
+        // who reached the portal some other way and made a company there could
+        // come back to a half-finished onboarding session and finish it, ending up
+        // with the same business on the platform twice under one e-mail address.
+        // Extra businesses are added deliberately from Create company instead.
+        if (count($user->getCompanies()) > 0) {
+            if (! $this->onboardingManager->isOnboardingComplete($user)) {
+                $this->onboardingManager->dismissOnboarding($user);
+            }
+
             return $this->redirectToRoute('_dashboard');
         }
+
+        // No company. Whatever the "complete" flag says, there is nothing to use
+        // the portal with until this form is filled in, so it is shown again -
+        // an account whose company was deleted from the Memberships console keeps
+        // the flag, and sending it to the dashboard would bounce it straight back
+        // here for ever.
 
         // Initialize onboarding if not started
         $currentStep = $this->onboardingManager->getCurrentStep($user);
@@ -64,7 +82,7 @@ final class Onboarding extends AbstractController
                 $formData = $form->getData();
                 assert($formData instanceof OnboardingData);
 
-                [$referralCode, $referralName] = $this->consumeReferral($request);
+                [$referralCode, $referralName] = $this->consumeReferral($request, $user);
                 $this->onboardingManager->completeOnboarding($user, $formData, $referralCode, $referralName);
 
                 // Clear form data from session
@@ -95,9 +113,16 @@ final class Onboarding extends AbstractController
      * exactly once. Returns [code, name], both null when this was not a referral
      * signup (e.g. the platform owner's own company).
      *
+     * The session is only the fast path. It is emptied when the browser is closed,
+     * and somebody who signed up in the evening and came back the next morning was
+     * then treated as an unreferred stranger: no rep against their business and no
+     * Basic plan, so they finished sign-up and landed straight on the "pending
+     * approval" page. The same two values are written onto the account itself at
+     * registration, and that copy is what makes this survive.
+     *
      * @return array{0: ?string, 1: ?string}
      */
-    private function consumeReferral(Request $request): array
+    private function consumeReferral(Request $request, User $user): array
     {
         $session = $request->getSession();
 
@@ -106,6 +131,15 @@ final class Onboarding extends AbstractController
 
         $session->remove(Register::SESSION_REFERRAL_CODE);
         $session->remove(Register::SESSION_REFERRAL_NAME);
+
+        if (! is_string($code) || $code === '') {
+            $code = $this->userSettingRepository->getSetting($user, UserSettingType::ReferralCode)?->getValue();
+            $name = $this->userSettingRepository->getSetting($user, UserSettingType::ReferralName)?->getValue();
+        }
+
+        // Used up either way: this account gets stamped once, here.
+        $this->userSettingRepository->removeSetting($user, UserSettingType::ReferralCode);
+        $this->userSettingRepository->removeSetting($user, UserSettingType::ReferralName);
 
         return [
             is_string($code) && $code !== '' ? $code : null,

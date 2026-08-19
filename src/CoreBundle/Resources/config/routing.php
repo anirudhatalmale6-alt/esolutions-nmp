@@ -336,7 +336,10 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_membership_pending', '/membership/pending')
         ->controller(MembershipPending::class)
-        ->methods(['GET']);
+        // POST as well: a business whose account was created without its details
+        // (city, country, contact number) fills them in on this page, since it is
+        // the only page it can reach until it is approved.
+        ->methods(['GET', 'POST']);
 
     // The support desk. Members write in from _support; the owner answers every
     // business from _support_desk. Logged in on both sides - this is not a public

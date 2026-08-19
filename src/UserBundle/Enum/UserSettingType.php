@@ -24,4 +24,12 @@ enum UserSettingType: string
     case OnboardingCompletedAt = 'onboarding_completed_at';
     case OnboardingChecklistDismissed = 'onboarding_checklist_dismissed';
     case OnboardingEmailSequenceLastStep = 'onboarding_email_sequence_last_step';
+
+    // Which sales rep's link brought this account in. Captured at registration
+    // and kept on the account itself, not only in the session: somebody who
+    // signs up on their phone, closes the browser and finishes the next morning
+    // used to arrive as an unreferred stranger with no plan.
+    case ReferralCode = 'referral_code';
+
+    case ReferralName = 'referral_name';
 }

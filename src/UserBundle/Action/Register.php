@@ -19,9 +19,11 @@ use SolidInvoice\UserBundle\DTO\Registration;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Entity\UserInvitation;
 use SolidInvoice\UserBundle\Enum\PortalRole;
+use SolidInvoice\UserBundle\Enum\UserSettingType;
 use SolidInvoice\UserBundle\Form\Type\RegisterType;
 use SolidInvoice\UserBundle\Repository\UserInvitationRepository;
 use SolidInvoice\UserBundle\Repository\UserRepository;
+use SolidInvoice\UserBundle\Repository\UserSettingRepository;
 use SolidWorx\Toggler\ToggleInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -47,6 +49,7 @@ final class Register extends AbstractController
         private readonly Security $security,
         private readonly ToggleInterface $toggle,
         private readonly ReferralLinkRepository $referralRepository,
+        private readonly UserSettingRepository $userSettingRepository,
         #[Autowire('%env(SOLIDINVOICE_TURNSTILE_SITE_KEY)%')]
         private readonly ?string $turnstileSiteKey = null,
     ) {
@@ -147,6 +150,18 @@ final class Register extends AbstractController
             $user->setEnabled(true);
             $user->eraseCredentials();
             $this->userRepository->save($user);
+
+            // Keep the referral on the ACCOUNT as well as in the session. The
+            // session is all that carried it before, and a session does not
+            // survive a closed browser - somebody who signed up on their phone in
+            // the evening and finished the next morning arrived at onboarding as
+            // an unreferred stranger, so their company was created with no rep
+            // against it and no Basic plan, and they landed on the pending page
+            // instead of inside the portal.
+            if (! $invitation instanceof UserInvitation && $referral instanceof ReferralLink) {
+                $this->userSettingRepository->saveSetting($user, UserSettingType::ReferralCode, $referral->getCode());
+                $this->userSettingRepository->saveSetting($user, UserSettingType::ReferralName, $referral->getRepName());
+            }
 
             // Auto-login and redirect
             // OnboardingLoginListener will handle post-login redirect:

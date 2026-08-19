@@ -17,6 +17,14 @@ deploy script only copies `src`, `templates`, `public`, `migrations` and
 | `2026-08-17-add-stock-grade-list.png` | The Grade boxes offering the grade names already in use, so Grade A does not become A Grade on the next item. |
 | `2026-08-17-add-stock-on-a-phone.png` | The same screen at phone width. |
 
+## 2026-08-19 - the sign-up hole, and asking for what is missing
+
+| File | What it shows |
+| --- | --- |
+| `2026-08-19-signup-details-missing.png` | What a business with no city, country or contact number now sees instead of a page whose only button was "Log out": we ask them for it, so you have something to approve. |
+| `2026-08-19-signup-details-refused.png` | A local number with no country code is refused, and what they typed stays in the boxes. |
+| `2026-08-19-signup-details-on-a-phone.png` | The same page at phone width. |
+
 ## 2026-08-17 - telling a member their support ticket was answered
 
 | File | What it shows |

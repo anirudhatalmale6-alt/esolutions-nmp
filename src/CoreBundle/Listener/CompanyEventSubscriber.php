@@ -104,6 +104,19 @@ final readonly class CompanyEventSubscriber implements EventSubscriberInterface
                 return;
             }
 
+            // Nobody with an account but no business yet gets sent anywhere except
+            // sign-up. The old route out of here was "select a company" -> "create
+            // a company", a bare box asking only for a name, which left the
+            // business with no city, no country, no contact number, no sales rep
+            // against it and no plan - so it sat on the pending-approval page and
+            // the owner had no idea who had just joined.
+            if (count($user->getCompanies()) === 0) {
+                $event->setResponse(new RedirectResponse($this->router->generate('_onboarding')));
+                $event->stopPropagation();
+
+                return;
+            }
+
             $event->setResponse(new RedirectResponse($this->router->generate('_select_company')));
             $event->stopPropagation();
         }

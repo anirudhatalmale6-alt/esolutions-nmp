@@ -51,6 +51,17 @@ final class CreateCompany extends AbstractController
         $user = $this->security->getUser();
         assert($user instanceof User);
 
+        // This page adds a SECOND (third, fourth...) business to an account that
+        // already has one. The first one is created by sign-up, which asks for the
+        // things a business on this network has to have - who they trade as, where
+        // they are, a number to reach them on - and stamps the referring rep and
+        // the Basic plan on it. Reaching this page with no business at all, by a
+        // typed URL or an old bookmark, produced a nameless-city, no-plan company
+        // stuck on the pending-approval page, so it goes back to sign-up instead.
+        if ($user->getCompanies()->isEmpty()) {
+            return new RedirectResponse($this->router->generate('_onboarding'));
+        }
+
         $form = $this->createForm(CompanyType::class);
         $form->handleRequest($request);
 

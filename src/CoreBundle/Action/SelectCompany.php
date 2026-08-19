@@ -45,8 +45,12 @@ final readonly class SelectCompany
 
         $companies = $user->getCompanies();
 
+        // An account with no business goes to sign-up, not to the bare create-a-
+        // company box. That box asks for a name and a currency and nothing else,
+        // so a business that came in through it had no city, no country, no
+        // contact number, no rep and no plan - see CompanyEventSubscriber.
         if ($companies->count() === 0) {
-            return new RedirectResponse($this->router->generate('_create_company'));
+            return new RedirectResponse($this->router->generate('_onboarding'));
         }
 
         if ($companies->count() === 1) {

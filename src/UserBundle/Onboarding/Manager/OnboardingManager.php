@@ -21,14 +21,11 @@ use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Enum\UserSettingType;
+use SolidInvoice\UserBundle\Name\FullName;
 use SolidInvoice\UserBundle\Onboarding\DTO\OnboardingData;
 use SolidInvoice\UserBundle\Repository\UserSettingRepository;
 use function json_decode;
 use function json_encode;
-use function mb_strrpos;
-use function mb_substr;
-use function preg_replace;
-use function trim;
 
 /**
  * @see \SolidInvoice\UserBundle\Tests\Onboarding\Manager\OnboardingManagerTest
@@ -190,32 +187,12 @@ final readonly class OnboardingManager
     }
 
     /**
-     * One box on the form, two columns in the database.
-     *
-     * People write their name the way they say it, so the split is the last
-     * space: everything before it is the first name, the remainder is the
-     * surname. A single word (some members go by one name) becomes the first
-     * name with no surname rather than being rejected - the form already made
-     * sure something was typed, and arguing about the shape of a stranger's name
-     * is not sign-up's job.
+     * One box on the form, two columns in the database - the same split the
+     * "complete your details" form uses, so a name typed on either page ends up
+     * stored the same way.
      */
     private function applyFullName(User $user, ?string $fullName): void
     {
-        $fullName = trim((string) preg_replace('/\s+/u', ' ', (string) $fullName));
-
-        if ($fullName === '') {
-            return;
-        }
-
-        $split = mb_strrpos($fullName, ' ');
-
-        if ($split === false) {
-            $user->setFirstName($fullName);
-
-            return;
-        }
-
-        $user->setFirstName(mb_substr($fullName, 0, $split));
-        $user->setLastName(mb_substr($fullName, $split + 1));
+        FullName::applyTo($user, $fullName);
     }
 }

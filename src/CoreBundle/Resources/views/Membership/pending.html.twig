@@ -16,19 +16,80 @@
         </div>
         <div class="card card-md">
             <div class="card-body text-center p-4 p-md-5">
-                <span class="avatar avatar-lg rounded-circle bg-yellow-lt mb-3">
-                    {{ ux_icon('tabler:clock-hour-4', {width: 32, height: 32, class: 'text-yellow'}) }}
-                </span>
-                <h1 class="h2 mb-2">{{ 'Your account is pending approval'|trans }}</h1>
-                <p class="text-secondary mb-4">
-                    {% if company %}{{ company.name }} — {% endif %}{{ 'thanks for signing up. B2B Network is a members-only portal for wholesalers and distributors, so every new account is reviewed before it goes live. We will approve your account shortly, and once it is approved you can choose a plan and get started.'|trans }}
-                </p>
-                <div class="hr-text">{{ 'What happens next'|trans }}</div>
-                <ul class="list-unstyled text-start mx-auto" style="max-width: 460px;">
-                    <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'Our team reviews your account'|trans }}</span></li>
-                    <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'Once approved, you pick Basic or Premium'|trans }}</span></li>
-                    <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'You are ready to trade on the network'|trans }}</span></li>
-                </ul>
+                {% if needsDetails|default(false) %}
+                    {# Some accounts were created before sign-up asked for any of
+                       this, so the owner has a business name and nothing else to
+                       approve. Asking here is the only way to reach them: until
+                       they are approved, this is the one page they can open. #}
+                    <span class="avatar avatar-lg rounded-circle bg-azure-lt mb-3">
+                        {{ ux_icon('tabler:id-badge-2', {width: 32, height: 32, class: 'text-azure'}) }}
+                    </span>
+                    <h1 class="h2 mb-2">{{ 'We need a few details before we can approve you'|trans }}</h1>
+                    <p class="text-secondary mb-4">
+                        {% if company %}{{ company.name }} — {% endif %}{{ 'B2B Network is a members-only portal for wholesalers and distributors, and we do not yet have enough on your account to review it. It takes a minute.'|trans }}
+                    </p>
+
+                    <form method="post" class="text-start mx-auto" style="max-width: 460px;" novalidate>
+                        <input type="hidden" name="_token" value="{{ csrf_token('membership_details') }}">
+
+                        <div class="mb-3">
+                            <label class="form-label required" for="pending-full-name">{{ 'Your full name'|trans }}</label>
+                            <input type="text" class="form-control {% if errors.fullName is defined %}is-invalid{% endif %}"
+                                   id="pending-full-name" name="fullName" value="{{ values.fullName }}"
+                                   placeholder="{{ 'First and last name'|trans }}" autocomplete="name" autofocus>
+                            {% if errors.fullName is defined %}<div class="invalid-feedback">{{ errors.fullName }}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 col-md-6 mb-3">
+                                <label class="form-label required" for="pending-city">{{ 'City'|trans }}</label>
+                                <input type="text" class="form-control {% if errors.city is defined %}is-invalid{% endif %}"
+                                       id="pending-city" name="city" value="{{ values.city }}"
+                                       placeholder="{{ 'Dubai'|trans }}" autocomplete="address-level2">
+                                {% if errors.city is defined %}<div class="invalid-feedback">{{ errors.city }}</div>{% endif %}
+                            </div>
+                            <div class="col-12 col-md-6 mb-3">
+                                <label class="form-label required" for="pending-country">{{ 'Country'|trans }}</label>
+                                <select class="form-select {% if errors.country is defined %}is-invalid{% endif %}"
+                                        id="pending-country" name="country" autocomplete="country">
+                                    <option value="">{{ 'Choose your country'|trans }}</option>
+                                    {% for code, name in countries %}
+                                        <option value="{{ code }}" {% if values.country == code %}selected{% endif %}>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if errors.country is defined %}<div class="invalid-feedback">{{ errors.country }}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label required" for="pending-contact-number">{{ 'Contact number'|trans }}</label>
+                            <input type="tel" class="form-control {% if errors.contactNumber is defined %}is-invalid{% endif %}"
+                                   id="pending-contact-number" name="contactNumber" value="{{ values.contactNumber }}"
+                                   placeholder="+971 50 123 4567" autocomplete="tel" inputmode="tel">
+                            {% if errors.contactNumber is defined %}<div class="invalid-feedback">{{ errors.contactNumber }}</div>{% endif %}
+                            <div class="form-text">{{ 'Include the country code. This is the number we use to reach you about your account.'|trans }}</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            {{ ux_icon('tabler:send', {width: 18, height: 18, class: 'me-1'}) }}
+                            {{ 'Send my details'|trans }}
+                        </button>
+                    </form>
+                {% else %}
+                    <span class="avatar avatar-lg rounded-circle bg-yellow-lt mb-3">
+                        {{ ux_icon('tabler:clock-hour-4', {width: 32, height: 32, class: 'text-yellow'}) }}
+                    </span>
+                    <h1 class="h2 mb-2">{{ 'Your account is pending approval'|trans }}</h1>
+                    <p class="text-secondary mb-4">
+                        {% if company %}{{ company.name }} — {% endif %}{{ 'thanks for signing up. B2B Network is a members-only portal for wholesalers and distributors, so every new account is reviewed before it goes live. We will approve your account shortly, and once it is approved you can choose a plan and get started.'|trans }}
+                    </p>
+                    <div class="hr-text">{{ 'What happens next'|trans }}</div>
+                    <ul class="list-unstyled text-start mx-auto" style="max-width: 460px;">
+                        <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'Our team reviews your account'|trans }}</span></li>
+                        <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'Once approved, you pick Basic or Premium'|trans }}</span></li>
+                        <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'You are ready to trade on the network'|trans }}</span></li>
+                    </ul>
+                {% endif %}
                 <div class="mt-4">
                     {# Logout requires a CSRF-protected POST (enableCsrf) - a plain
                        GET link is rejected as "Access denied". Mirror the platform

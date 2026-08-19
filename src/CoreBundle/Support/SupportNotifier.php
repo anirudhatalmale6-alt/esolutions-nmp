@@ -19,11 +19,15 @@ use Psr\Log\LoggerInterface;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Entity\MarketplaceSetting;
 use SolidInvoice\CoreBundle\Entity\SupportTicket;
+use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Throwable;
+use function array_map;
+use function implode;
+use function in_array;
 use function preg_replace;
 use function rawurlencode;
 use function trim;
@@ -99,6 +103,97 @@ final class SupportNotifier
             ]);
 
             return ['outcome' => self::FAILED, 'address' => $address];
+        }
+    }
+
+    /**
+     * Tell the platform owner that a member has written in.
+     *
+     * The other direction was built first and this one was left out, so a member
+     * could raise a problem and the only way anybody found out was the owner
+     * opening the Support Desk and looking. From his side that is a support desk
+     * that never rings.
+     *
+     * Addressed to the super-admin accounts, read straight from the table: the
+     * company filter is scoped to the MEMBER's business at this point in the
+     * request, and the owner is not in it.
+     *
+     * @return array{outcome: string, address: string}
+     */
+    public function memberRaised(SupportTicket $ticket, string $body, bool $isNew): array
+    {
+        $addresses = $this->ownerAddresses();
+
+        if ($addresses === []) {
+            return ['outcome' => self::NO_ADDRESS, 'address' => ''];
+        }
+
+        $business = trim((string) $ticket->getCompany()?->getName());
+        $who = trim((string) $ticket->getRaisedByName());
+
+        try {
+            $email = (new Email())
+                ->to(...array_map(static fn (string $a): Address => Address::create($a), $addresses))
+                ->subject(($isNew ? '' : 'Re: ') . ($business === '' ? '' : $business . ' - ') . $ticket->getSubject())
+                ->text(
+                    ($isNew ? 'A member has opened a support conversation.' : 'A member has replied on a support conversation.') . "\n\n"
+                    . ($business === '' ? '' : 'Business: ' . $business . "\n")
+                    . ($who === '' ? '' : 'From: ' . $who . "\n")
+                    . 'Subject: ' . $ticket->getSubject() . "\n\n"
+                    . trim($body) . "\n\n"
+                    . $this->deskLine()
+                );
+
+            // From is filled in by EmailFromListener from the system settings.
+            $this->mailer->send($email);
+
+            return ['outcome' => self::SENT, 'address' => implode(', ', $addresses)];
+        } catch (Throwable $e) {
+            // The member's message is already saved. A dead mail server must not
+            // cost them the thing they just wrote, or tell them it failed.
+            $this->logger->error('Support ticket notification could not be sent to the owner', [
+                'ticket' => (string) $ticket->getId(),
+                'exception' => $e->getMessage(),
+            ]);
+
+            return ['outcome' => self::FAILED, 'address' => implode(', ', $addresses)];
+        }
+    }
+
+    /**
+     * The platform owner's accounts. Raw SQL on purpose - see memberRaised().
+     *
+     * @return list<string>
+     */
+    private function ownerAddresses(): array
+    {
+        try {
+            $rows = $this->connection->fetchFirstColumn(
+                'SELECT email FROM ' . User::TABLE_NAME . " WHERE roles LIKE '%ROLE_SUPER_ADMIN%' AND email IS NOT NULL AND email <> ''"
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $addresses = [];
+
+        foreach ($rows as $row) {
+            $address = trim((string) $row);
+
+            if ($address !== '' && ! in_array($address, $addresses, true)) {
+                $addresses[] = $address;
+            }
+        }
+
+        return $addresses;
+    }
+
+    private function deskLine(): string
+    {
+        try {
+            return 'Answer it here: ' . $this->router->generate('_support_desk', [], UrlGeneratorInterface::ABSOLUTE_URL);
+        } catch (Throwable) {
+            return 'It is waiting on the Support Desk.';
         }
     }
 

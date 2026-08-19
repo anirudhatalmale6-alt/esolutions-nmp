@@ -38,6 +38,7 @@ use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\Support\EmailCheck;
 use SolidInvoice\CoreBundle\Action\Support\MemberSupport;
 use SolidInvoice\CoreBundle\Action\Support\SupportDesk;
 use SolidInvoice\CoreBundle\Action\Verification\GetVerified;
@@ -352,6 +353,14 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_support_desk', '/support/desk')
         ->controller(SupportDesk::class)
+        ->methods(['GET', 'POST']);
+
+    // Why an email did not arrive. Every send here is best-effort and logged, and
+    // the default transport discards mail without an error, so without this page
+    // the only honest answer to "is email working" is "the log knows".
+    $routingConfigurator
+        ->add('_email_check', '/support/email-check')
+        ->controller(EmailCheck::class)
         ->methods(['GET', 'POST']);
 
     // The trusted badge: the member sends documents in, the platform owner is the

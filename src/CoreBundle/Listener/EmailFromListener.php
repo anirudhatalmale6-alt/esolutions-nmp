@@ -41,10 +41,15 @@ final readonly class EmailFromListener implements EventSubscriberInterface
             return;
         }
 
-        $fromAddress = (string) $this->config->get('email/from_address');
+        // Platform-wide for the same reason as the transport: an email sent while
+        // no company is selected (somebody registering) would otherwise pick an
+        // arbitrary business's From address, and one sent inside a member's
+        // company would find their untouched default. Their own value still wins
+        // if they have set one. See SettingsRepository::platformValue().
+        $fromAddress = (string) $this->config->getPlatformWide('email/from_address');
 
         if ('' !== $fromAddress) {
-            $fromName = (string) $this->config->get('email/from_name');
+            $fromName = (string) $this->config->getPlatformWide('email/from_name');
             $from = new Address($fromAddress, $fromName);
             $message->from($from);
             $event->getEnvelope()->setSender($from);

@@ -25,6 +25,13 @@ deploy script only copies `src`, `templates`, `public`, `migrations` and
 | `2026-08-19-signup-details-refused.png` | A local number with no country code is refused, and what they typed stays in the boxes. |
 | `2026-08-19-signup-details-on-a-phone.png` | The same page at phone width. |
 
+## 2026-08-19 - why an email did not arrive
+
+| File | What it shows |
+| --- | --- |
+| `2026-08-19-email-check-discarding.png` | Email Check with nothing configured: the portal is accepting every message and throwing it away, which is what the default `null://null` transport does and what nobody could see before. |
+| `2026-08-19-email-check-refused.png` | A test send that the mail server refused, with the real exception printed rather than a tidied-up "could not send". |
+
 ## 2026-08-19 - signing in goes back to the business you were last in
 
 | File | What it shows |

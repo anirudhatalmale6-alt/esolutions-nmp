@@ -44,7 +44,11 @@ final readonly class MailerConfigFactory
     public function fromStrings(array $dsns = []): ?TransportInterface
     {
         try {
-            $mailerConfig = $this->config->get(self::CONFIG_KEY);
+            // Platform-wide, NOT the current company's row. Which business the
+            // request happens to be in must not decide whether mail leaves the
+            // building - and while somebody is registering there is no business
+            // at all. See SettingsRepository::platformValue().
+            $mailerConfig = $this->config->getPlatformWide(self::CONFIG_KEY);
 
             if (null === $mailerConfig) {
                 return $this->inner->fromStrings($dsns);

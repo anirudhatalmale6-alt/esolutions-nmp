@@ -52,6 +52,23 @@ class SystemConfig
     }
 
     /**
+     * A setting that belongs to the platform, not to one business: the mail
+     * transport and the address it sends from. Read without depending on which
+     * company - if any - the request is working in.
+     *
+     * @see SettingsRepository::platformValue() for why the ordinary read cannot
+     *      be trusted for these two, and what "the platform's" value means.
+     */
+    public function getPlatformWide(string $key): ?string
+    {
+        if (null === $this->installed || '' === $this->installed) {
+            return null;
+        }
+
+        return $this->repository->platformValue($key);
+    }
+
+    /**
      * A named company's setting, read without depending on - or disturbing - the
      * company the request happens to be working in. A document uses this so it
      * always shows the details of the business that issued it.

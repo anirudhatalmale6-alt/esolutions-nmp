@@ -69,10 +69,22 @@ final class SupportMenu
             $extras['badge'] = (string) $waiting;
         }
 
-        $menu->addChild('support.desk', [
+        $desk = $menu->addChild('support.desk', [
             'route' => '_support_desk',
             'label' => 'Support Desk',
             'extras' => $extras,
+        ]);
+
+        // Under the desk rather than in Settings: "why did that email not
+        // arrive" is a support question, and it is asked at the moment somebody
+        // says they never heard back.
+        $desk->addChild('support.email_check', [
+            'route' => '_email_check',
+            'label' => 'Email Check',
+            'extras' => [
+                'icon' => 'mail-cog',
+                'role' => 'ROLE_SUPER_ADMIN',
+            ],
         ]);
     }
 

@@ -20,6 +20,7 @@ use SolidInvoice\CoreBundle\Entity\SupportMessage;
 use SolidInvoice\CoreBundle\Entity\SupportTicket;
 use SolidInvoice\CoreBundle\Enum\SupportTicketKind;
 use SolidInvoice\CoreBundle\Repository\SupportTicketRepository;
+use SolidInvoice\CoreBundle\Support\SupportNotifier;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -50,6 +51,7 @@ final class MemberSupport extends AbstractController
         private readonly CompanySelector $companySelector,
         private readonly EntityManagerInterface $entityManager,
         private readonly SupportTicketRepository $tickets,
+        private readonly SupportNotifier $notifier,
     ) {
     }
 
@@ -134,6 +136,11 @@ final class MemberSupport extends AbstractController
         $this->entityManager->persist($ticket);
         $this->entityManager->flush();
 
+        // Best-effort, and after the flush: the message is safe whatever the mail
+        // server does, and the member is never shown a mail problem that is not
+        // theirs.
+        $this->notifier->memberRaised($ticket, $body, true);
+
         $this->addFlash('success', 'Thank you - we have it. You will see the reply on this page.');
 
         return $this->redirectToRoute('_support');
@@ -162,6 +169,8 @@ final class MemberSupport extends AbstractController
 
         $ticket->addMessage($this->message($body, false));
         $this->entityManager->flush();
+
+        $this->notifier->memberRaised($ticket, $body, false);
 
         $this->addFlash('success', 'Sent.');
 

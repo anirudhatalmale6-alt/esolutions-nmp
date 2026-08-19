@@ -149,6 +149,148 @@ class SettingsRepository extends EntityRepository
      * details of the business that issued it, whoever happens to be looking at
      * it and whichever company they are signed into.
      */
+    /**
+     * A setting that belongs to the platform rather than to one business - the
+     * mail transport and the address it sends from.
+     *
+     * Every company gets its own row for every setting the moment it is created
+     * (DefaultData::createAppConfig), and all of them start empty. So a plain
+     * read of `email/sending_options/provider` returns:
+     *
+     *   - inside a company: that company's row. Empty for every member, because
+     *     only the platform owner ever fills the mail settings in.
+     *   - with NO company selected - which is exactly the case while somebody is
+     *     registering - an arbitrary one of those rows, because the "company"
+     *     filter has nothing to scope by. Usually an empty one, and it gets more
+     *     likely with every business that joins.
+     *
+     * Either way an empty result sends Symfony back to SOLIDINVOICE_MAILER_DSN,
+     * which defaults to null://null: the mail is accepted and thrown away
+     * without an error. That is a silent failure, so it must not depend on who
+     * happens to be signed in.
+     *
+     * Order: this company's own value if it has one, otherwise the oldest
+     * company that has actually set one. Ulids sort by creation time, so that is
+     * the business the platform was installed for - deterministic, and the same
+     * answer on every request.
+     */
+    public function platformValue(string $key): ?string
+    {
+        $companyId = $this->companySelector->getCompany();
+
+        if ($companyId instanceof Ulid) {
+            $own = $this->deliberateValue($companyId, $key);
+
+            if ($own !== null) {
+                return $own;
+            }
+        }
+
+        try {
+            $value = $this->getEntityManager()
+                ->getConnection()
+                ->fetchOne(
+                    'SELECT setting_value FROM ' . Setting::TABLE_NAME
+                    . " WHERE setting_key = ? AND setting_value IS NOT NULL AND setting_value <> ''"
+                    . ' AND (default_value IS NULL OR setting_value <> default_value)'
+                    . ' ORDER BY company_id ASC LIMIT 1',
+                    [$key],
+                    [ParameterType::STRING],
+                );
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $value === false || $value === null ? null : (string) $value;
+    }
+
+    /**
+     * A company's value for a setting, but only if somebody actually chose it.
+     *
+     * Every company is seeded with every setting AND the shipped default in the
+     * same row (DefaultData::createAppConfig), and `email/from_address` ships as
+     * no-reply@solidinvoice.co. A row still holding its default is not a choice,
+     * it is a company that has never opened the page - and treating it as one
+     * would send every member's mail From a domain the portal does not own,
+     * which SPF then bins.
+     */
+    private function deliberateValue(Ulid $companyId, string $key): ?string
+    {
+        try {
+            $row = $this->getEntityManager()
+                ->getConnection()
+                ->fetchAssociative(
+                    'SELECT setting_value, default_value FROM ' . Setting::TABLE_NAME
+                    . ' WHERE company_id = ? AND setting_key = ?',
+                    [$companyId->toBinary(), $key],
+                    [ParameterType::BINARY, ParameterType::STRING],
+                );
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! is_array($row)) {
+            return null;
+        }
+
+        $value = $row['setting_value'];
+
+        if ($value === null || $value === '' || $value === $row['default_value']) {
+            return null;
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * The name of the business whose row {@see self::platformValue()} would use
+     * for this key, so the Email Check page can say whose settings are actually
+     * in force rather than only that there are some.
+     */
+    public function platformValueOwner(string $key): ?string
+    {
+        $companyId = $this->companySelector->getCompany();
+
+        if ($companyId instanceof Ulid && $this->deliberateValue($companyId, $key) !== null) {
+            return $this->companyName($companyId);
+        }
+
+        try {
+            $name = $this->getEntityManager()
+                ->getConnection()
+                ->fetchOne(
+                    'SELECT c.name FROM ' . Setting::TABLE_NAME . ' s'
+                    . ' INNER JOIN ' . Company::TABLE_NAME . ' c ON c.id = s.company_id'
+                    . " WHERE s.setting_key = ? AND s.setting_value IS NOT NULL AND s.setting_value <> ''"
+                    . ' AND (s.default_value IS NULL OR s.setting_value <> s.default_value)'
+                    . ' ORDER BY s.company_id ASC LIMIT 1',
+                    [$key],
+                    [ParameterType::STRING],
+                );
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $name === false || $name === null ? null : (string) $name;
+    }
+
+    private function companyName(Ulid $companyId): ?string
+    {
+        try {
+            $name = $this->getEntityManager()
+                ->getConnection()
+                ->fetchOne(
+                    'SELECT name FROM ' . Company::TABLE_NAME . ' WHERE id = ?',
+                    [$companyId->toBinary()],
+                    [ParameterType::BINARY],
+                );
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $name === false || $name === null ? null : (string) $name;
+    }
+
     public function valueForCompany(Ulid $companyId, string $key): ?string
     {
         try {

@@ -1,0 +1,114 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:mail-cog', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Email Check'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <p class="text-secondary mb-0">
+            {{ 'Every email the portal sends is best-effort: a mail failure never takes down the invoice, invite or reply you had just written. The cost of that is silence. This page shows what is really configured, and will send one real email and print exactly what came back.'|trans }}
+        </p>
+    </twig:Ui:Card>
+
+    {% if state.discarding %}
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-title">{{ 'Email is being thrown away'|trans }}</h4>
+            <p class="mb-0">
+                {{ 'No mail provider is configured anywhere on the portal, and the fallback is the "null" transport - which accepts every message and discards it without an error. Nothing you send from here is arriving. Set it under Settings, then System Settings, then Email.'|trans }}
+            </p>
+        </div>
+    {% endif %}
+
+    {% if state.error %}
+        <div class="alert alert-warning" role="alert">{{ state.error }}</div>
+    {% endif %}
+
+    <twig:Ui:Card>
+        <h4 class="mb-3">{{ 'What is configured'|trans }}</h4>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <tbody>
+                    <tr>
+                        <th style="width: 34%">{{ 'Mail provider'|trans }}</th>
+                        <td>
+                            {% if state.provider %}
+                                <strong>{{ state.provider }}</strong>
+                            {% else %}
+                                <span class="text-danger">{{ 'None'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Taken from the settings of'|trans }}</th>
+                        <td>
+                            {% if state.providerOwner %}
+                                {{ state.providerOwner }}
+                            {% else %}
+                                <span class="text-secondary">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Sends from'|trans }}</th>
+                        <td>
+                            {% if state.fromAddress %}
+                                {{ state.fromAddress }}
+                                {% if state.fromOwner %}
+                                    <span class="text-secondary">({{ state.fromOwner }})</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-secondary">{{ 'Not set - the address of whoever triggered the email is used'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'If nothing is configured'|trans }}</th>
+                        <td><code>{{ state.fallbackDsn }}</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-secondary mt-3 mb-0" style="font-size: .875rem">
+            {{ 'Mail settings belong to one business, but sending email is not a per-business job: somebody registering has no business yet, and a member raising a ticket is inside their own. So the portal uses your own settings if the business you are in has them, and otherwise the settings of the business it was installed for.'|trans }}
+        </p>
+    </twig:Ui:Card>
+
+    {% if result %}
+        <div class="alert {{ result.ok ? 'alert-success' : 'alert-danger' }}" role="alert">
+            <h4 class="alert-title">
+                {{ result.ok ? 'Handed to the mail server'|trans : 'It did not go'|trans }}
+                {% if result.address %} — {{ result.address }}{% endif %}
+            </h4>
+            <p class="mb-0" style="word-break: break-word">{{ result.message }}</p>
+        </div>
+    {% endif %}
+
+    <twig:Ui:Card>
+        <h4 class="mb-3">{{ 'Send a test email'|trans }}</h4>
+        <form method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="_token" value="{{ csrf_token('email_check') }}">
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="email-check-address">{{ 'Send it to'|trans }}</label>
+                <input type="email" class="form-control" id="email-check-address" name="address"
+                       value="{{ myAddress }}" placeholder="you@example.com">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:send', {width: 16, height: 16}) }}
+                    {{ 'Send test'|trans }}
+                </button>
+            </div>
+        </form>
+        <p class="text-secondary mt-3 mb-0" style="font-size: .875rem">
+            {{ 'One email, to that address only. Nobody else is written to.'|trans }}
+        </p>
+    </twig:Ui:Card>
+{% endblock content %}

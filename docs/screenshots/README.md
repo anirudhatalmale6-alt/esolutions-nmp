@@ -25,6 +25,12 @@ deploy script only copies `src`, `templates`, `public`, `migrations` and
 | `2026-08-19-signup-details-refused.png` | A local number with no country code is refused, and what they typed stays in the boxes. |
 | `2026-08-19-signup-details-on-a-phone.png` | The same page at phone width. |
 
+## 2026-08-19 - signing in goes back to the business you were last in
+
+| File | What it shows |
+| --- | --- |
+| `2026-08-19-pending-switch-business.png` | Somebody who runs two businesses, signed back into the one still waiting for approval. This page has no menu and no company switcher, so it now offers the others by name - without it, going straight in would have stranded them here with nothing but "Log out". |
+
 ## 2026-08-17 - telling a member their support ticket was answered
 
 | File | What it shows |

@@ -90,6 +90,25 @@
                         <li class="mb-2 d-flex">{{ ux_icon('tabler:circle-check-filled', {width: 18, height: 18, class: 'text-green me-2 flex-shrink-0 mt-1'}) }}<span>{{ 'You are ready to trade on the network'|trans }}</span></li>
                     </ul>
                 {% endif %}
+                {# This page has no menu and no company switcher, so somebody who
+                   runs two businesses - one approved, one still waiting - would
+                   otherwise be stranded here with nothing but Log out. Signing in
+                   now drops them back into the business they were last in, and
+                   that business may be this one. #}
+                {% set currentCompanyId = company_id() %}
+                {% set otherCompanies = app.user is not null ? app.user.companies|filter(v => currentCompanyId is null or not v.id.equals(currentCompanyId)) : [] %}
+                {% if otherCompanies|length > 0 %}
+                    <div class="hr-text mt-4">{{ 'Your other businesses'|trans }}</div>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        {% for company in otherCompanies %}
+                            <a href="{{ path('_switch_company', {'id': company.id}) }}" class="btn btn-outline-primary">
+                                {{ ux_icon('tabler:switch-horizontal', {width: 16, height: 16}) }}
+                                {{ company }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
                 <div class="mt-4">
                     {# Logout requires a CSRF-protected POST (enableCsrf) - a plain
                        GET link is rejected as "Access denied". Mirror the platform

@@ -66,6 +66,30 @@
                         </div>
                     </a>
                     <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                        {# Signing in now drops you straight into the business you
+                           were last in, so the list of businesses is no longer
+                           shown at every login - which means this has to be the
+                           way back to it. On a phone the top bar (and the company
+                           switcher that lives in it) is hidden altogether, so
+                           without this line somebody with two businesses would
+                           have had to log out to change between them. #}
+                        {% if not is_custom_domain() and app.user.companies|length > 1 %}
+                            {# One tap per business, the same as the desktop
+                               switcher. Pointing this at the pick-a-business
+                               page instead would have been a dead end for a
+                               business whose subscription is paused: the SaaS
+                               listener takes over every route except
+                               _switch_company, so the page you would use to get
+                               out of it never renders. #}
+                            <span class="dropdown-header text-truncate">{{ company_name() }}</span>
+                            {% for company in app.user.companies|filter(v => not v.id.equals(company_id())) %}
+                                <a href="{{ path('_switch_company', {'id': company.id}) }}" class="dropdown-item d-flex align-items-center gap-2">
+                                    {{ ux_icon('tabler:switch-horizontal', {width: 16, height: 16}) }}
+                                    <span class="text-truncate">{{ company }}</span>
+                                </a>
+                            {% endfor %}
+                            <div class="dropdown-divider"></div>
+                        {% endif %}
                         <a href="{{ path('_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
                             {{ ux_icon('tabler:user', {width: 16, height: 16}) }}
                             {{ 'Profile'|trans }}

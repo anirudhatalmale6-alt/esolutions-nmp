@@ -17,6 +17,8 @@ use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Company\ResolvedHost;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Enum\UserSettingType;
+use SolidInvoice\UserBundle\Repository\UserSettingRepositoryInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -30,6 +32,7 @@ use Symfony\Component\Uid\Ulid;
 use function assert;
 use function count;
 use function in_array;
+use function is_string;
 
 /**
  * @see \SolidInvoice\CoreBundle\Tests\Listener\CompanyEventSubscriberTest
@@ -40,6 +43,7 @@ final readonly class CompanyEventSubscriber implements EventSubscriberInterface
         private RouterInterface $router,
         private CompanySelector $companySelector,
         private Security $security,
+        private UserSettingRepositoryInterface $userSettingRepository,
         private ?string $installed = null,
     ) {
     }
@@ -117,9 +121,40 @@ final readonly class CompanyEventSubscriber implements EventSubscriberInterface
                 return;
             }
 
+            // More than one business, and a fresh session: take them back to the
+            // one they were last working in instead of making them pick from a
+            // list. The session cannot do this - it dies with the browser, so
+            // the list came back at every single login. The choice is kept
+            // against the account (UserSettingType::LastCompany) and re-checked
+            // against their OWN businesses here, so unlike the session value it
+            // can never carry somebody into a business they are not a member of.
+            $remembered = $this->rememberedCompany($user);
+
+            if ($remembered instanceof Ulid) {
+                $this->companySelector->switchCompany($remembered);
+                $session->set('company', $remembered);
+
+                return;
+            }
+
             $event->setResponse(new RedirectResponse($this->router->generate('_select_company')));
             $event->stopPropagation();
         }
+    }
+
+    /**
+     * The business this user was last working in, or null if there isn't one,
+     * it is unreadable, or they are no longer a member of it.
+     */
+    private function rememberedCompany(User $user): ?Ulid
+    {
+        $value = $this->userSettingRepository->getSetting($user, UserSettingType::LastCompany)?->getValue();
+
+        if (! is_string($value) || ! Ulid::isValid($value) || ! $this->userInCompany($user, $value)) {
+            return null;
+        }
+
+        return Ulid::fromString($value);
     }
 
     /**

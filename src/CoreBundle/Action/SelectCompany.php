@@ -16,6 +16,8 @@ namespace SolidInvoice\CoreBundle\Action;
 use Doctrine\Common\Collections\Collection;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Enum\UserSettingType;
+use SolidInvoice\UserBundle\Repository\UserSettingRepositoryInterface;
 use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -29,7 +31,8 @@ final readonly class SelectCompany
 {
     public function __construct(
         private Security $security,
-        private RouterInterface $router
+        private RouterInterface $router,
+        private UserSettingRepositoryInterface $userSettingRepository,
     ) {
     }
 
@@ -55,6 +58,7 @@ final readonly class SelectCompany
 
         if ($companies->count() === 1) {
             $request->getSession()->set('company', $companies->first()->getId());
+            $this->remember($user, $companies->first()->getId());
 
             return new RedirectResponse($this->resolvePostLoginTarget($request));
         }
@@ -74,11 +78,28 @@ final readonly class SelectCompany
 
         if ($companies->exists(static fn (int $key, Company $company) => $company->getId()->equals($uuid))) {
             $request->getSession()->set('company', $uuid);
+            $this->remember($user, $uuid);
 
             return new RedirectResponse($this->resolvePostLoginTarget($request));
         }
 
         throw new BadRequestHttpException('Invalid company');
+    }
+
+    /**
+     * Keep this choice on the account so the next login lands straight back in
+     * it. The session alone cannot: it dies with the browser, which is why
+     * somebody with two businesses was shown this list every single time they
+     * signed in. CompanyEventSubscriber re-checks the stored id against the
+     * user's own businesses before acting on it.
+     */
+    private function remember(User $user, Ulid $companyId): void
+    {
+        if ($this->userSettingRepository->getSetting($user, UserSettingType::LastCompany)?->getValue() === (string) $companyId) {
+            return;
+        }
+
+        $this->userSettingRepository->saveSetting($user, UserSettingType::LastCompany, (string) $companyId);
     }
 
     /**

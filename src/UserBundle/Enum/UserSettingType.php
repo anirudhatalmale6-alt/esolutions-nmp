@@ -32,4 +32,11 @@ enum UserSettingType: string
     case ReferralCode = 'referral_code';
 
     case ReferralName = 'referral_name';
+
+    // The business this person was last working in. Kept on the account, not in
+    // the session, because the session dies with the browser - which is why
+    // somebody with two businesses was made to pick one from a list on every
+    // single login. Re-checked against their own businesses before it is used,
+    // so it can never let anybody into one they are no longer a member of.
+    case LastCompany = 'last_company';
 }

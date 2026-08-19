@@ -33,6 +33,9 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Listener\CompanyEventSubscriber;
 use SolidInvoice\CoreBundle\Listener\HostRoutingListener;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Entity\UserSetting;
+use SolidInvoice\UserBundle\Enum\UserSettingType;
+use SolidInvoice\UserBundle\Repository\UserSettingRepositoryInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -75,7 +78,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request = new Request();
         $request->setSession($session);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -114,7 +117,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request = new Request();
         $request->setSession($session);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -143,7 +146,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request->setSession($session);
         $request->attributes->set('_route', $route);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -171,7 +174,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request = new Request();
         $request->setSession($session);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -201,7 +204,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request = new Request();
         $request->setSession($session);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -234,7 +237,7 @@ final class CompanyEventSubscriberTest extends TestCase
             new ResolvedHost(HostType::CustomDomain, 'acme.example', 'https', 443, $company)
         );
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -269,7 +272,7 @@ final class CompanyEventSubscriberTest extends TestCase
         $request = new Request();
         $request->setSession($session);
 
-        $listener = new CompanyEventSubscriber($router, $companySelector, $security, Carbon::now()->format('Y'));
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->noRememberedCompany(), Carbon::now()->format('Y'));
 
         $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
         $listener->onKernelRequest($event);
@@ -277,6 +280,83 @@ final class CompanyEventSubscriberTest extends TestCase
         self::assertNull($event->getResponse());
         self::assertSame($company->getId(), $companySelector->getCompany());
         self::assertSame($company->getId()->toHex(), $filter->getParameter('companyId'));
+    }
+
+    public function testItGoesStraightBackToTheCompanyTheUserWasLastIn(): void
+    {
+        $router = M::mock(RouterInterface::class);
+        $registry = M::mock(ManagerRegistry::class);
+        $companySelector = new CompanySelector($registry);
+        $security = M::mock(Security::class);
+
+        $other = new Company();
+        $this->setCompanyId($other, new Ulid());
+
+        $last = new Company();
+        $this->setCompanyId($last, new Ulid());
+
+        $user = new User();
+        $user->addCompany($other);
+        $user->addCompany($last);
+
+        $security
+            ->shouldReceive('getUser')
+            ->andReturn($user);
+
+        // The list of companies is what we are getting rid of - it must not be
+        // generated at all.
+        $router->shouldNotReceive('generate');
+
+        $filter = $this->expectSwitchCompanyCalls($registry, $last);
+
+        $session = new Session(new MockArraySessionStorage());
+        $request = new Request();
+        $request->setSession($session);
+
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->rememberedCompany((string) $last->getId()), Carbon::now()->format('Y'));
+
+        $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $listener->onKernelRequest($event);
+
+        self::assertNull($event->getResponse());
+        self::assertTrue($last->getId()->equals($companySelector->getCompany()));
+        self::assertSame($last->getId()->toHex(), $filter->getParameter('companyId'));
+        self::assertSame($last->getId(), $session->get('company'));
+    }
+
+    public function testItIgnoresARememberedCompanyTheUserIsNoLongerAMemberOf(): void
+    {
+        $router = M::mock(RouterInterface::class);
+        $companySelector = new CompanySelector(M::mock(ManagerRegistry::class));
+        $security = M::mock(Security::class);
+
+        $user = new User();
+        $user->addCompany(new Company());
+        $user->addCompany(new Company());
+
+        $security
+            ->shouldReceive('getUser')
+            ->andReturn($user);
+
+        $router
+            ->shouldReceive('generate')
+            ->with('_select_company')
+            ->once()
+            ->andReturn('/select-company');
+
+        $session = new Session(new MockArraySessionStorage());
+        $request = new Request();
+        $request->setSession($session);
+
+        // A company they were removed from, or one that has since been deleted.
+        $listener = new CompanyEventSubscriber($router, $companySelector, $security, $this->rememberedCompany((string) new Ulid()), Carbon::now()->format('Y'));
+
+        $event = new RequestEvent(M::mock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $listener->onKernelRequest($event);
+
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse());
+        self::assertSame('/select-company', $event->getResponse()->getTargetUrl());
+        self::assertNull($companySelector->getCompany());
     }
 
     /**
@@ -346,6 +426,35 @@ final class CompanyEventSubscriberTest extends TestCase
             ->andReturn($company->getId()->toHex());
 
         return $filter;
+    }
+
+    private function noRememberedCompany(): UserSettingRepositoryInterface
+    {
+        $repository = M::mock(UserSettingRepositoryInterface::class);
+
+        $repository
+            ->shouldReceive('getSetting')
+            ->zeroOrMoreTimes()
+            ->andReturn(null);
+
+        return $repository;
+    }
+
+    private function rememberedCompany(?string $value): UserSettingRepositoryInterface
+    {
+        $repository = M::mock(UserSettingRepositoryInterface::class);
+
+        $setting = new UserSetting();
+        $setting->setKey(UserSettingType::LastCompany);
+        $setting->setValue($value);
+
+        $repository
+            ->shouldReceive('getSetting')
+            ->zeroOrMoreTimes()
+            ->with(M::type(User::class), UserSettingType::LastCompany)
+            ->andReturn($setting);
+
+        return $repository;
     }
 
     private function setCompanyId(Company $company, Ulid $id): void

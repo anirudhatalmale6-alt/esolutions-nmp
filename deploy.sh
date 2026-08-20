@@ -6,10 +6,15 @@
 # Copies ONLY application code from the git clone into the live site.
 #
 # It NEVER touches anything that holds your data or settings:
-#   - MySQL database                (not in the code at all)
 #   - .env / .env.local             (your DB connection details)
 #   - config/env/  + config/secrets (the encrypted config vault)
 #   - var/  (logs, uploaded logo)   - vendor/ (libraries)
+#
+# It DOES apply pending database migrations at the end (it used to say it never
+# touched the database, which stopped being true the day a feature needed a new
+# column). Migrations only ADD structure and seed rows; your invoices, clients,
+# stock and settings are never deleted or rewritten by this script. Anything
+# already applied is skipped, so running it twice is safe.
 SRC=/home/salononl/esolutions-nmp
 DEST=/home/salononl/esolutions.website
 
@@ -43,13 +48,40 @@ done
 cp -f "$SRC/config/"*.php "$DEST/config/" 2>/dev/null
 
 # Rebuild the compiled cache so template/route changes take effect.
-# We clear AND warm it here via CLI (the live folder has vendor/), so the
-# first web request never has to build a cold cache - that half-built state
-# was what caused a brief 500 after a past deploy.
-rm -rf "$DEST/var/cache/prod"
+#
+# There used to be an "rm -rf var/cache/prod" on the line above this, and it was
+# a mistake. cache:clear ALREADY builds the new cache in a separate folder and
+# then renames it into place (see Symfony's CacheClearCommand: it warms up into
+# a "_" suffixed directory and rename()s it over the real one). Deleting the
+# live cache first defeats that: it leaves the site with NO compiled container
+# for the whole length of the rebuild, which on this app is the best part of a
+# minute. Every web request landing in that window has to compile the container
+# itself, racing the CLI build that is running at the same time - which is a
+# 500 for whoever clicks during a deploy, and it is the reason the site would
+# briefly break right after an update and then be fine again with nothing
+# conclusive in the log.
+#
+# So: no delete. Let cache:clear do the swap it was designed to do.
 if [ -f "$DEST/bin/console" ]; then
     ( cd "$DEST" && php bin/console cache:clear --env=prod --no-debug ) \
         || echo "WARNING: cache rebuild reported an issue - if the site shows 500, run: cd $DEST && php bin/console cache:clear --env=prod"
+else
+    # No console to build with, so the cache has to go and be rebuilt on the
+    # next request. Only in this fallback is deleting it the right thing.
+    rm -rf "$DEST/var/cache/prod"
 fi
 
-echo "UPDATE DONE - eSolutions is now running the latest code (database untouched)."
+# Database structure. New features sometimes ship a migration - a new column, or
+# new settings rows for businesses that already exist. Without this step the code
+# arrives but the thing it needs is not there, and the feature is silently
+# missing rather than visibly broken.
+#
+# This ADDS structure and seed rows. It does not delete your data. Migrations are
+# recorded, so anything already applied is skipped and running this twice is
+# harmless.
+if [ -f "$DEST/bin/console" ]; then
+    ( cd "$DEST" && php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod ) \
+        || echo "WARNING: a database update did not finish. Send the lines above to Anirudha before using the site."
+fi
+
+echo "UPDATE DONE - eSolutions is now running the latest code."

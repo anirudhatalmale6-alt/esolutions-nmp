@@ -1,0 +1,131 @@
+{#
+ # This file is part of SolidInvoice package.
+ #
+ # (c) Pierre du Plessis <open-source@solidworx.co>
+ #
+ # This source file is subject to the MIT license that is bundled
+ # with this source code in the file LICENSE.
+ #}
+
+{% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
+
+{% block title %}{{ ux_icon('tabler:brand-whatsapp', {width: 24, height: 24, class: 'me-2'}) }}{{ 'WhatsApp Check'|trans }}{% endblock title %}
+
+{% block content %}
+    <twig:Ui:Card>
+        <p class="text-secondary mb-0">
+            {{ 'The gateway keeps a WhatsApp session linked to a real phone. Sessions lapse and numbers get banned, and when that happens the portal carries on looking fine - verification just goes out by email instead and nobody notices the WhatsApp half stopped. This page sends one real message on demand and prints exactly what the gateway said back.'|trans }}
+        </p>
+    </twig:Ui:Card>
+
+    {% if not state.configured %}
+        <div class="alert alert-warning" role="alert">
+            <h4 class="alert-title">{{ 'WhatsApp is not live'|trans }}</h4>
+            <p class="mb-0">
+                {% if not state.enabled %}
+                    {{ 'The switch is off. Turn it on under Settings, WhatsApp, and fill in the instance ID and token from your gateway account.'|trans }}
+                {% else %}
+                    {{ 'The switch is on, but the instance ID or the token is missing. Fill both in under Settings, WhatsApp.'|trans }}
+                {% endif %}
+                {{ 'Verification codes are going out by email only until then.'|trans }}
+            </p>
+        </div>
+    {% endif %}
+
+    <twig:Ui:Card>
+        <h4 class="mb-3">{{ 'What is configured'|trans }}</h4>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <tbody>
+                    <tr>
+                        <th style="width: 34%">{{ 'Switched on'|trans }}</th>
+                        <td>
+                            {% if state.enabled %}
+                                <span class="text-success">{{ 'Yes'|trans }}</span>
+                            {% else %}
+                                <span class="text-danger">{{ 'No'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Instance ID'|trans }}</th>
+                        <td>
+                            {% if state.instanceId %}
+                                <code>{{ state.instanceId }}</code>
+                            {% else %}
+                                <span class="text-danger">{{ 'Not set'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'API token'|trans }}</th>
+                        <td>
+                            {# Never printed. A token on a screen gets photographed and pasted into chats. #}
+                            {% if state.hasToken %}
+                                <span class="text-success">{{ 'Saved'|trans }}</span>
+                            {% else %}
+                                <span class="text-danger">{{ 'Not set'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Sending number'|trans }}</th>
+                        <td>
+                            {% if state.senderNumber %}
+                                {{ state.senderNumber }}
+                            {% else %}
+                                <span class="text-secondary">{{ 'Not recorded - fill it in so you can tell which SIM is linked'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Gateway'|trans }}</th>
+                        <td><code>{{ state.apiUrl ?? 'https://api.green-api.com' }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Taken from the settings of'|trans }}</th>
+                        <td>
+                            {% if state.owner %}
+                                {{ state.owner }}
+                            {% else %}
+                                <span class="text-secondary">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </twig:Ui:Card>
+
+    {% if result %}
+        <div class="alert {{ result.ok ? 'alert-success' : 'alert-danger' }}" role="alert">
+            <h4 class="alert-title">
+                {{ result.ok ? 'The gateway accepted it'|trans : 'It did not go'|trans }}
+                {% if result.number %} — {{ result.number }}{% endif %}
+            </h4>
+            <p class="mb-0" style="word-break: break-word">{{ result.message }}</p>
+        </div>
+    {% endif %}
+
+    <twig:Ui:Card>
+        <h4 class="mb-3">{{ 'Send a test message'|trans }}</h4>
+        <form method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="_token" value="{{ csrf_token('whatsapp_check') }}">
+            <div class="col-12 col-md-6">
+                <label class="form-label" for="whatsapp-check-number">{{ 'Send it to'|trans }}</label>
+                <input type="text" class="form-control" id="whatsapp-check-number" name="number"
+                       value="{{ result.number ?? '' }}" placeholder="971501234567" inputmode="numeric">
+                <span class="form-hint">{{ 'Country code first, no plus and no spaces.'|trans }}</span>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    {{ ux_icon('tabler:send', {width: 16, height: 16}) }}
+                    {{ 'Send test'|trans }}
+                </button>
+            </div>
+        </form>
+        <p class="text-secondary mt-3 mb-0" style="font-size: .875rem">
+            {{ 'One message, to that number only. Try your own phone first, then a number that has never saved you - on most free plans only the first one works.'|trans }}
+        </p>
+    </twig:Ui:Card>
+{% endblock content %}

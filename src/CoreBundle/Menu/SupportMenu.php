@@ -86,6 +86,17 @@ final class SupportMenu
                 'role' => 'ROLE_SUPER_ADMIN',
             ],
         ]);
+
+        // Next to it, for the same reason: the other channel fails silently too,
+        // and falling back to email is exactly what hides it.
+        $desk->addChild('support.whatsapp_check', [
+            'route' => '_whatsapp_check',
+            'label' => 'WhatsApp Check',
+            'extras' => [
+                'icon' => 'brand-whatsapp',
+                'role' => 'ROLE_SUPER_ADMIN',
+            ],
+        ]);
     }
 
     /**

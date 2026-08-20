@@ -42,6 +42,7 @@ use SolidInvoice\CoreBundle\Action\Search;
 use SolidInvoice\CoreBundle\Action\Support\EmailCheck;
 use SolidInvoice\CoreBundle\Action\Support\MemberSupport;
 use SolidInvoice\CoreBundle\Action\Support\SupportDesk;
+use SolidInvoice\CoreBundle\Action\Support\WhatsAppCheck;
 use SolidInvoice\CoreBundle\Action\Verification\GetVerified;
 use SolidInvoice\CoreBundle\Action\Verification\VerificationDocument;
 use SolidInvoice\CoreBundle\Action\Stock\AdjustStock;
@@ -362,6 +363,14 @@ return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_email_check', '/support/email-check')
         ->controller(EmailCheck::class)
+        ->methods(['GET', 'POST']);
+
+    // The same question for the other channel. A WhatsApp session lapses without
+    // announcing it, and the fallback to email hides that it has - so there has
+    // to be somewhere that sends one real message and shows the answer.
+    $routingConfigurator
+        ->add('_whatsapp_check', '/support/whatsapp-check')
+        ->controller(WhatsAppCheck::class)
         ->methods(['GET', 'POST']);
 
     // The trusted badge: the member sends documents in, the platform owner is the

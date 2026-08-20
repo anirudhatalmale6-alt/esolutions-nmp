@@ -17,12 +17,16 @@ use Carbon\Carbon;
 use Exception;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use SolidInvoice\CoreBundle\WhatsApp\VerificationNotifier;
+use SolidInvoice\CoreBundle\WhatsApp\WhatsAppSender;
+use SolidInvoice\SettingsBundle\SystemConfig;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\EventSubscriber\UserEntitySubscriber;
 use SolidInvoice\UserBundle\Repository\UserRepository;
 use SolidInvoice\UserBundle\Security\EmailVerifier;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\ErrorHandler\BufferingLogger;
+use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use SymfonyCasts\Bundle\VerifyEmail\Model\VerifyEmailSignatureComponents;
@@ -50,7 +54,7 @@ final class UserEntitySubscriberTest extends TestCase
 
         $logger = new BufferingLogger();
 
-        $subscriber = new UserEntitySubscriber($emailVerifier, $logger);
+        $subscriber = new UserEntitySubscriber($emailVerifier, $logger, $this->notifier());
 
         $user = new User();
         $user->setEmail('test@example.com');
@@ -84,7 +88,7 @@ final class UserEntitySubscriberTest extends TestCase
 
         $logger = new BufferingLogger();
 
-        $subscriber = new UserEntitySubscriber($emailVerifier, $logger);
+        $subscriber = new UserEntitySubscriber($emailVerifier, $logger, $this->notifier());
 
         $user = new User();
         $user->setEmail('test@example.com');
@@ -127,7 +131,7 @@ final class UserEntitySubscriberTest extends TestCase
 
         $logger = new BufferingLogger();
 
-        $subscriber = new UserEntitySubscriber($emailVerifier, $logger);
+        $subscriber = new UserEntitySubscriber($emailVerifier, $logger, $this->notifier());
 
         $user = new User();
         $user->setEmail('test@example.com');
@@ -160,5 +164,22 @@ final class UserEntitySubscriberTest extends TestCase
         self::assertCount(1, $logs);
         self::assertSame('Failed to send email confirmation', $logs[0][1]);
         self::assertSame(['exception' => $exception], $logs[0][2]);
+    }
+
+    /**
+     * A notifier that cannot send anything.
+     *
+     * WhatsApp is not what these tests are about, and a real one is harmless
+     * here: with no settings behind it isConfigured() is false, so it returns
+     * without touching the network. Built rather than mocked because both it and
+     * the sender are final readonly.
+     */
+    private function notifier(): VerificationNotifier
+    {
+        return new VerificationNotifier(
+            new WhatsAppSender($this->createStub(SystemConfig::class), new MockHttpClient()),
+            $this->createStub(SystemConfig::class),
+            new BufferingLogger(),
+        );
     }
 }

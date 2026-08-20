@@ -20,6 +20,7 @@ use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -61,6 +62,23 @@ final class RegisterType extends AbstractType
             'attr' => [
                 'placeholder' => 'Create a strong password',
                 'autocomplete' => 'new-password',
+            ],
+        ]);
+        // The verification code goes here first and to the email second, so this
+        // is asked for on the way in rather than left to the profile page.
+        // inputmode numeric brings up the digit pad on a phone, which is where
+        // most of these signups happen; type="tel" alone does not.
+        $builder->add('mobile', TelType::class, [
+            'required' => true,
+            'label' => 'WhatsApp Number',
+            // No 'help' here on purpose: the page renders this with
+            // form_widget(), which does not draw help text, so the hint lives in
+            // register.html.twig next to the field. Two copies would only ever
+            // disagree.
+            'attr' => [
+                'placeholder' => '971501234567',
+                'autocomplete' => 'tel',
+                'inputmode' => 'numeric',
             ],
         ]);
         $builder->add('acceptTerms', CheckboxType::class, [

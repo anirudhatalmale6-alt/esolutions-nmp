@@ -34,6 +34,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Uid\Ulid;
 use function assert;
 use function is_string;
+use function trim;
 
 final class Register extends AbstractController
 {
@@ -128,6 +129,14 @@ final class Register extends AbstractController
             $user = new User();
             $user->setEmail($invitation instanceof UserInvitation ? $invitation->getEmail() : $data->email);
             $user->setPassword($data->plainPassword);
+
+            // Kept even for invited users: the verification message is sent to
+            // this, and an invited member who never gets one is a support
+            // ticket. Stored as typed - normalising to a chat id is the
+            // sender's job, and the owner should see the number he was given.
+            if ($data->mobile !== null && trim($data->mobile) !== '') {
+                $user->setMobile(trim($data->mobile));
+            }
 
             // If invited, add to existing company
             if ($invitation instanceof UserInvitation) {

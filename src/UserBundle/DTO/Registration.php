@@ -15,6 +15,7 @@ namespace SolidInvoice\UserBundle\DTO;
 
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Validator\Constraints\UsablePassword;
+use SolidInvoice\UserBundle\Validator\Constraints\WhatsAppNumber;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\IsTrue;
@@ -42,6 +43,24 @@ final class Registration
         ),
         UsablePassword(emailProperty: 'email')]
     public ?string $plainPassword = null;
+
+    /**
+     * The WhatsApp number, which is how the account is really verified.
+     *
+     * Email is kept as the identity - it is what people log in with, and what a
+     * password reset needs - but an email address costs nothing to invent, and
+     * that is how the same person kept arriving as several businesses. A number
+     * that has to receive a code is real effort to duplicate.
+     *
+     * Stored on User::mobile, which already existed on the platform's user model
+     * and was only ever editable from the profile page, so there is no migration
+     * behind this.
+     */
+    #[
+        NotBlank(message: 'Please enter your WhatsApp number'),
+        WhatsAppNumber,
+    ]
+    public ?string $mobile = null;
 
     #[IsTrue(message: 'You must accept the terms and conditions to register')]
     public ?bool $acceptTerms = null;

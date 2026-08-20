@@ -16,10 +16,12 @@ namespace SolidInvoice\UserBundle\EventSubscriber;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\Events;
 use Psr\Log\LoggerInterface;
+use SolidInvoice\CoreBundle\WhatsApp\VerificationNotifier;
 use SolidInvoice\UserBundle\Entity\User;
 use SolidInvoice\UserBundle\Security\EmailVerifier;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use Throwable;
 
 /**
  * @see \SolidInvoice\UserBundle\Tests\EventSubscriber\UserEntitySubscriberTest
@@ -30,6 +32,7 @@ final readonly class UserEntitySubscriber
     public function __construct(
         private EmailVerifier $emailVerifier,
         private LoggerInterface $logger,
+        private VerificationNotifier $whatsapp,
     ) {
     }
 
@@ -39,6 +42,26 @@ final readonly class UserEntitySubscriber
             return;
         }
 
+        // Signed once, here, and used by both channels. WhatsApp goes first so
+        // it does not depend on the mail send working - that is the whole reason
+        // it is here - and the same signature is handed to the email below, so
+        // both messages carry one identical link.
+        $signature = null;
+
+        try {
+            $signature = $this->emailVerifier->signature('_verify_email', $user);
+
+            $this->whatsapp->sendVerification($user->getMobile(), $signature->getSignedUrl());
+        } catch (Throwable $e) {
+            // sendVerification() swallows its own failures, so reaching here
+            // means signing the URL itself broke. Still not worth losing the
+            // registration over - the account exists and can be verified by
+            // hand from the Users page.
+            $this->logger->error('Failed to send WhatsApp confirmation', [
+                'exception' => $e,
+            ]);
+        }
+
         try {
             $this->emailVerifier->sendEmailConfirmation(
                 '_verify_email',
@@ -46,7 +69,8 @@ final readonly class UserEntitySubscriber
                 new TemplatedEmail()
                     ->to($user->getEmail())
                     ->subject('Please Confirm your Email')
-                    ->htmlTemplate('@SolidInvoiceUser/Email/confirm_email.html.twig')
+                    ->htmlTemplate('@SolidInvoiceUser/Email/confirm_email.html.twig'),
+                $signature,
             );
         } catch (TransportExceptionInterface $e) {
             $this->logger->error('Failed to send email confirmation', [

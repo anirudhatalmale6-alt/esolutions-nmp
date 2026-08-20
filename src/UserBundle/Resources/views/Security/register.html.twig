@@ -54,6 +54,22 @@
                                 {{ form_errors(form.email) }}
                             </div>
 
+                            {# WhatsApp Number - the code is sent here first, and
+                               to the email second. Asked for at signup rather
+                               than left to the profile page, because it is what
+                               actually proves a real person: an email address
+                               costs nothing to invent. #}
+                            <div class="mb-3">
+                                <div class="input-group input-group-flat">
+                                    <div class="input-group-text">
+                                        {{ ux_icon('tabler:brand-whatsapp', {width: 24, height: 24}) }}
+                                    </div>
+                                    {{ form_widget(form.mobile, {'attr': {'class': 'form-control'}}) }}
+                                </div>
+                                <small class="form-hint">{{ 'With your country code and no plus sign, for example 971501234567. We send your verification code here.'|trans }}</small>
+                                {{ form_errors(form.mobile) }}
+                            </div>
+
                             {# Password Field with Strength Indicator #}
                             <div class="mb-3">
 

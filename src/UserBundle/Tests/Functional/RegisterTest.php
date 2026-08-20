@@ -98,6 +98,9 @@ final class RegisterTest extends WebTestCase
         $form = $crawler->filter('form')->form([
             'register[email]' => $email,
             'register[plainPassword]' => self::PASSWORD,
+            // Required since verification moved to WhatsApp. 44 7700 900xxx is
+            // Ofcom's reserved drama range, so it can never be a real person's.
+            'register[mobile]' => '447700900123',
             'register[acceptTerms]' => '1',
         ]);
 

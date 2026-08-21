@@ -34,11 +34,13 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
 use function array_filter;
+use function array_map;
 use function array_values;
 use function implode;
 use function in_array;
 use function sprintf;
 use function strtolower;
+use function strtoupper;
 use function trim;
 
 /**
@@ -60,6 +62,12 @@ use function trim;
 final class MembershipManage extends AbstractController
 {
     use WithoutCompanyFilter;
+
+    /**
+     * Typed next to the button before any ticked account is removed. Compared
+     * upper-cased, so it does not matter how it is typed.
+     */
+    private const CONFIRM_WORD = 'REMOVE';
 
     public function __construct(
         private readonly CompanyRepository $companyRepository,
@@ -448,68 +456,106 @@ final class MembershipManage extends AbstractController
             return $this->redirectToRoute('_membership_manage');
         }
 
-        $email = trim((string) $request->request->get('email'));
+        /** @var list<string> $selected */
+        $selected = array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            (array) $request->request->all('emails'),
+        ), static fn (string $value): bool => $value !== ''));
 
-        $user = $email === '' ? null : $this->withoutCompanyFilter(
-            fn (): ?User => $this->userRepository->findOneBy(['email' => $email]),
-        );
-
-        if (! $user instanceof User) {
-            $this->addFlash('error', 'That account could not be found.');
-
-            return $this->redirectToRoute('_membership_manage');
-        }
-
-        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
-            $this->addFlash('error', 'The platform owner\'s own account can\'t be removed here.');
-
-            return $this->redirectToRoute('_membership_manage');
-        }
-
-        $signedIn = $this->getUser();
-
-        if ($signedIn instanceof User && strtolower((string) $signedIn->getEmail()) === strtolower((string) $user->getEmail())) {
-            $this->addFlash('error', 'You can\'t remove the account you are signed in with.');
+        if ($selected === []) {
+            $this->addFlash('error', 'Nothing was ticked, so nothing was removed.');
 
             return $this->redirectToRoute('_membership_manage');
         }
 
         // Checked here rather than in the page, for the same reason the company
         // delete is: anything the browser is asked to enforce can be skipped.
-        // Case-insensitively, because an e-mail address is, and re-typing one
-        // with a capital letter is not a different address.
-        $typed = trim((string) $request->request->get('confirm_email'));
-
-        if (strtolower($typed) !== strtolower((string) $user->getEmail())) {
-            $this->addFlash('error', sprintf('Nothing was deleted. To remove %s, type its e-mail address into the box exactly as shown.', $user->getEmail()));
+        //
+        // A word rather than each address re-typed: the list is now ticked by
+        // hand, which is already deliberate, and several of these usually go at
+        // once. Retyping four addresses to clear four dead test signups is the
+        // kind of friction that gets a safeguard worked around instead of used.
+        if (strtoupper(trim((string) $request->request->get('confirm'))) !== self::CONFIRM_WORD) {
+            $this->addFlash('error', sprintf(
+                'Nothing was removed. Tick the accounts, then type %s into the box next to the button.',
+                self::CONFIRM_WORD
+            ));
 
             return $this->redirectToRoute('_membership_manage');
         }
 
-        // Businesses this account is the last member of. Deleting the account
-        // would leave them with nobody who can sign in, so say so rather than
-        // quietly stranding them - and never delete a business from here, which
-        // is a separate, deliberate action with its own confirmation.
-        $stranded = $this->withoutCompanyFilter(static function () use ($user): array {
-            $names = [];
+        $signedInEmail = ($signedIn = $this->getUser()) instanceof User
+            ? strtolower((string) $signedIn->getEmail())
+            : null;
 
-            foreach ($user->getCompanies() as $company) {
-                if ($company instanceof Company && $company->getUsers()->count() <= 1) {
-                    $names[] = $company->getName();
-                }
+        $removed = [];
+        $stranded = [];
+        $refused = [];
+
+        foreach ($selected as $email) {
+            $user = $this->withoutCompanyFilter(
+                fn (): ?User => $this->userRepository->findOneBy(['email' => $email]),
+            );
+
+            if (! $user instanceof User) {
+                $refused[] = sprintf('%s could not be found', $email);
+
+                continue;
             }
 
-            return $names;
-        });
+            // Re-checked per account, not once for the batch: the ticked list is
+            // whatever was posted, so every single entry has to clear the same
+            // two rules on its own.
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+                $refused[] = sprintf('%s is the platform owner', $email);
 
-        $this->entityManager->wrapInTransaction(function () use ($user): void {
-            $this->purgeRowsBlockingDelete($user);
+                continue;
+            }
 
-            $this->entityManager->remove($user);
-            $this->entityManager->flush();
-        });
+            if ($signedInEmail !== null && strtolower((string) $user->getEmail()) === $signedInEmail) {
+                $refused[] = sprintf('%s is the account you are signed in with', $email);
 
-        $this->addFlash('success', sprintf('%s was removed. That e-mail address and WhatsApp number can be used to sign up again.', $email));
+                continue;
+            }
+
+            // Businesses this account is the last member of. Removing it would
+            // leave them with nobody who can sign in, so say so rather than
+            // quietly stranding them - and never delete a business from here,
+            // which is a separate, deliberate action with its own confirmation.
+            foreach ($this->withoutCompanyFilter(static function () use ($user): array {
+                $names = [];
+
+                foreach ($user->getCompanies() as $company) {
+                    if ($company instanceof Company && $company->getUsers()->count() <= 1) {
+                        $names[] = $company->getName();
+                    }
+                }
+
+                return $names;
+            }) as $name) {
+                $stranded[$name] = $name;
+            }
+
+            $this->entityManager->wrapInTransaction(function () use ($user): void {
+                $this->purgeRowsBlockingDelete($user);
+
+                $this->entityManager->remove($user);
+                $this->entityManager->flush();
+            });
+
+            $removed[] = $email;
+        }
+
+        if ($removed !== []) {
+            $this->addFlash('success', sprintf(
+                '%s removed. Those e-mail addresses and WhatsApp numbers can be used to sign up again.',
+                implode(', ', $removed)
+            ));
+        }
+
+        foreach ($refused as $reason) {
+            $this->addFlash('error', sprintf('Not removed - %s.', $reason));
+        }
 
         if ($stranded !== []) {
             $this->addFlash('error', sprintf(

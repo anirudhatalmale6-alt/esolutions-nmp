@@ -344,45 +344,75 @@
 
             <hr class="my-4">
 
-            {# --- Accounts --- #}
+            {# --- Accounts ---
+               Tick to remove, rather than picking the same address out of a
+               drop-down underneath the list you are already looking at. #}
             {% if row.users|length > 0 %}
                 <h4 class="mb-2">{{ ux_icon('tabler:users', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Accounts'|trans }}</h4>
-                <div class="table-responsive mb-4">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>{{ 'Email'|trans }}</th>
-                                <th>{{ 'WhatsApp'|trans }}</th>
-                                <th>{{ 'Confirmed'|trans }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for u in row.users %}
+                <form method="post" action="{{ path('_membership_manage') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                    <input type="hidden" name="intent" value="delete_account">
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
                                 <tr>
-                                    <td>{{ u.email }}</td>
-                                    <td>
-                                        {% if u.mobile %}
-                                            <span class="font-monospace">{{ u.mobile }}</span>
-                                        {% else %}
-                                            <span class="text-secondary">{{ 'Not given'|trans }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {# The account's own confirmation - they opened the link that
-                                           was sent to them when they signed up. Not the same thing as
-                                           the "Verified" badge above, which is you vetting the
-                                           business. #}
-                                        {% if u.isVerified %}
-                                            <span class="badge bg-success-lt">{{ 'Yes'|trans }}</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary-lt">{{ 'Not yet'|trans }}</span>
-                                        {% endif %}
-                                    </td>
+                                    <th style="width: 2rem"></th>
+                                    <th>{{ 'Email'|trans }}</th>
+                                    <th>{{ 'WhatsApp'|trans }}</th>
+                                    <th>{{ 'Confirmed'|trans }}</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                {% for u in row.users %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox"
+                                                   class="form-check-input"
+                                                   name="emails[]"
+                                                   id="rm{{ row.company.id }}{{ loop.index }}"
+                                                   value="{{ u.email }}">
+                                        </td>
+                                        {# The label is the e-mail cell, so the whole address is a
+                                           tick target rather than the 13px box on its own. #}
+                                        <td><label class="mb-0" for="rm{{ row.company.id }}{{ loop.index }}">{{ u.email }}</label></td>
+                                        <td>
+                                            {% if u.mobile %}
+                                                <span class="font-monospace">{{ u.mobile }}</span>
+                                            {% else %}
+                                                <span class="text-secondary">{{ 'Not given'|trans }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {# The account's own confirmation - they opened the link that
+                                               was sent to them when they signed up. Not the same thing as
+                                               the "Verified" badge above, which is you vetting the
+                                               business. #}
+                                            {% if u.isVerified %}
+                                                <span class="badge bg-success-lt">{{ 'Yes'|trans }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary-lt">{{ 'Not yet'|trans }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+                        <input type="text"
+                               name="confirm"
+                               class="form-control"
+                               style="max-width: 12rem"
+                               autocomplete="off"
+                               placeholder="{{ 'Type REMOVE'|trans }}">
+                        <button type="submit" class="btn btn-outline-danger">
+                            {{ ux_icon('tabler:user-minus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Remove ticked'|trans }}
+                        </button>
+                        <span class="text-secondary small">
+                            {{ 'Frees up the e-mail address and WhatsApp number. The company itself is left alone.'|trans }}
+                        </span>
+                    </div>
+                </form>
             {% endif %}
 
             <h4 class="mb-2">{{ ux_icon('tabler:key', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Reset a password'|trans }}</h4>
@@ -410,35 +440,6 @@
                 </form>
             {% else %}
                 <div class="text-secondary small">{{ 'No account linked to this company.'|trans }}</div>
-            {% endif %}
-
-            {# Removing one account without removing the whole business. Deleting a
-               company only takes the accounts that exist solely for it, so a
-               company with two members had no way to lose one of them. #}
-            {% if row.users|length > 0 %}
-                <h4 class="mb-2 mt-4">{{ ux_icon('tabler:user-minus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Remove an account'|trans }}</h4>
-                <p class="text-secondary small mb-2">{{ 'Frees up the e-mail address and WhatsApp number so they can be used to sign up again. The company itself is left alone.'|trans }}</p>
-                <form method="post" action="{{ path('_membership_manage') }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
-                    <input type="hidden" name="intent" value="delete_account">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-5">
-                            <label class="form-label">{{ 'Account'|trans }}</label>
-                            <select name="email" class="form-select">
-                                {% for u in row.users %}
-                                    <option value="{{ u.email }}">{{ u.email }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label">{{ 'Type that e-mail address to confirm'|trans }}</label>
-                            <input type="text" name="confirm_email" class="form-control" autocomplete="off" required>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-outline-danger w-100">{{ 'Remove'|trans }}</button>
-                        </div>
-                    </div>
-                </form>
             {% endif %}
 
             {% if row.canDelete %}
@@ -496,52 +497,57 @@
                 <p class="text-secondary small">
                     {{ 'These accounts are not linked to any company - usually what is left when a company was deleted but its account was not. They still hold their e-mail address and WhatsApp number, which is why signing up with either is refused.'|trans }}
                 </p>
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>{{ 'Email'|trans }}</th>
-                                <th>{{ 'WhatsApp'|trans }}</th>
-                                <th>{{ 'Signed up'|trans }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for u in orphans %}
-                                <tr>
-                                    <td class="font-monospace">{{ u.email }}</td>
-                                    <td>
-                                        {% if u.mobile %}
-                                            <span class="font-monospace">{{ u.mobile }}</span>
-                                        {% else %}
-                                            <span class="text-secondary">{{ 'Not given'|trans }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ u.created ? u.created|date('j M Y') : '' }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
                 <form method="post" action="{{ path('_membership_manage') }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
                     <input type="hidden" name="intent" value="delete_account">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-5">
-                            <label class="form-label">{{ 'Account'|trans }}</label>
-                            <select name="email" class="form-select">
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 2rem">
+                                        {# Ticks every box in this table - there are usually several of
+                                           these and they are all going the same way. #}
+                                        <input type="checkbox" class="form-check-input" data-tick-all>
+                                    </th>
+                                    <th>{{ 'Email'|trans }}</th>
+                                    <th>{{ 'WhatsApp'|trans }}</th>
+                                    <th>{{ 'Signed up'|trans }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 {% for u in orphans %}
-                                    <option value="{{ u.email }}">{{ u.email }}</option>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox"
+                                                   class="form-check-input"
+                                                   name="emails[]"
+                                                   id="orphan{{ loop.index }}"
+                                                   value="{{ u.email }}">
+                                        </td>
+                                        <td class="font-monospace"><label class="mb-0" for="orphan{{ loop.index }}">{{ u.email }}</label></td>
+                                        <td>
+                                            {% if u.mobile %}
+                                                <span class="font-monospace">{{ u.mobile }}</span>
+                                            {% else %}
+                                                <span class="text-secondary">{{ 'Not given'|trans }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ u.created ? u.created|date('j M Y') : '' }}</td>
+                                    </tr>
                                 {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label">{{ 'Type that e-mail address to confirm'|trans }}</label>
-                            <input type="text" name="confirm_email" class="form-control" autocomplete="off" required>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-outline-danger w-100">{{ 'Remove'|trans }}</button>
-                        </div>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <input type="text"
+                               name="confirm"
+                               class="form-control"
+                               style="max-width: 12rem"
+                               autocomplete="off"
+                               placeholder="{{ 'Type REMOVE'|trans }}">
+                        <button type="submit" class="btn btn-outline-danger">
+                            {{ ux_icon('tabler:user-minus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Remove ticked'|trans }}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -564,6 +570,21 @@
                     if (match) { shown++; }
                 });
                 if (noMatch) { noMatch.style.display = shown === 0 ? '' : 'none'; }
+            });
+        })();
+
+        // Tick-all, scoped to its own table. Convenience only - the server reads
+        // the ticked values and re-checks every one of them, so nothing here is
+        // load-bearing and the page works with JavaScript switched off.
+        (function () {
+            document.querySelectorAll('[data-tick-all]').forEach(function (master) {
+                var table = master.closest('table');
+                if (!table) { return; }
+                master.addEventListener('change', function () {
+                    table.querySelectorAll('tbody input[type="checkbox"]').forEach(function (box) {
+                        box.checked = master.checked;
+                    });
+                });
             });
         })();
     </script>

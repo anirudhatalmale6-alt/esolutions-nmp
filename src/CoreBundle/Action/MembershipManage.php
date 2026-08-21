@@ -21,6 +21,7 @@ use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Entity\UserSetting;
 use SolidInvoice\UserBundle\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +33,8 @@ use Symfony\Component\Uid\Ulid;
 use function array_filter;
 use function implode;
 use function in_array;
+use function sprintf;
+use function trim;
 
 /**
  * Super-user membership console. The platform owner sees every vendor company
@@ -312,6 +315,19 @@ final class MembershipManage extends AbstractController
             return $this->redirectToRoute('_membership_manage');
         }
 
+        // Deleting a business used to be one click behind a browser confirm()
+        // box. A confirm() is not a safeguard: it is one keystroke away, and a
+        // browser stops showing it entirely once somebody ticks "prevent this
+        // page from creating more dialogues" - at which point the same click
+        // deletes with no warning at all. The name has to be typed instead, and
+        // it is checked HERE and not in the page, so nothing done to the form in
+        // the browser can skip it.
+        if (trim((string) $request->request->get('confirm_name')) !== trim($company->getName())) {
+            $this->addFlash('error', sprintf('Nothing was deleted. To delete %s, type its name into the box exactly as shown.', $company->getName()));
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
         // Capture the members and whether each belongs ONLY to this company, before
         // deleting. Read them with the company filter off, otherwise another
         // company's members are invisible and its account would be left orphaned.
@@ -350,7 +366,18 @@ final class MembershipManage extends AbstractController
 
         // Any account that had no other company is now orphaned - remove it too so
         // duplicate/test sign-ups don't linger in the accounts list.
+        //
+        // Their saved settings have to go first. Nothing holds an inverse
+        // collection of user_settings, so the ORM does not know they exist, and
+        // the foreign key on that table was created without ON DELETE - which
+        // means the database refuses the delete rather than following it.
+        // Version30000_48 corrects the constraint; this clears the rows anyway,
+        // so the console works on an install where that migration has not run.
         foreach ($soleOwners as $user) {
+            $this->entityManager->createQuery(
+                'DELETE FROM ' . UserSetting::class . ' s WHERE s.user = :user'
+            )->setParameter('user', $user)->execute();
+
             $this->entityManager->remove($user);
         }
 

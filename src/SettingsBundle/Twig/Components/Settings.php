@@ -75,10 +75,18 @@ final class Settings extends AbstractController
         return $this->customDomainDnsRecord;
     }
 
+    /**
+     * key() returns null for an empty array, and $section is a plain string, so
+     * a business whose app_config rows are missing used to take the whole
+     * Settings page down with a TypeError instead of showing an empty page.
+     * Settings are seeded once, when a company is created, so any company that
+     * came into being another way - restored, imported, or created while the
+     * seeding half-failed - lands exactly there.
+     */
     #[PreMount()]
     public function preMount(): void
     {
-        $this->section = key($this->getAppSettings());
+        $this->section = (string) key($this->getAppSettings());
     }
 
     /**
@@ -117,11 +125,14 @@ final class Settings extends AbstractController
             $this->section = (string) array_key_first($appSettings);
         }
 
+        // With no settings at all there is no section to fall back to either, so
+        // build the form over nothing rather than reading a key that isn't
+        // there. An empty Settings page is a far better answer than a 500.
         return $this->createForm(
             SettingsType::class,
-            $appSettings[$this->section],
+            $appSettings[$this->section] ?? [],
             [
-                'settings' => $this->getAppSettings(true)[$this->section],
+                'settings' => $this->getAppSettings(true)[$this->section] ?? [],
                 'subscription_in_trial' => $isTrialSubscription,
             ]
         );

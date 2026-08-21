@@ -40,8 +40,17 @@ class UserSetting implements Stringable
     #[ORM\CustomIdGenerator(class: UlidGenerator::class)]
     private ?Ulid $id = null;
 
+    /**
+     * onDelete: CASCADE matters more than it looks. Nothing holds an inverse
+     * collection of these rows, so the ORM never deletes them when the account
+     * they belong to is deleted - the database has to. Without it the FK is
+     * MySQL's default RESTRICT, and since every sign-in now records which
+     * business you were last in (UserSettingType::LastCompany), every active
+     * account has a row here and deleting one fails with "Cannot delete or
+     * update a parent row".
+     */
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'user_id', nullable: false)]
+    #[ORM\JoinColumn(name: 'user_id', nullable: false, onDelete: 'CASCADE')]
     private User $user;
 
     #[ORM\Column(name: 'setting_key', type: Types::STRING, length: 125, enumType: UserSettingType::class)]

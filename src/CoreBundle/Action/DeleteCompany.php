@@ -14,11 +14,14 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action;
 
 use SolidInvoice\CoreBundle\Company\CompanySelector;
+use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Uid\Ulid;
+use function trim;
 
 final class DeleteCompany extends AbstractController
 {
@@ -37,7 +40,25 @@ final class DeleteCompany extends AbstractController
             throw new BadRequestHttpException('Invalid CSRF token.');
         }
 
-        $this->companyRepository->deleteCompany($this->companySelector->getCompany());
+        $companyId = $this->companySelector->getCompany();
+        $company = $companyId instanceof Ulid ? $this->companyRepository->find($companyId) : null;
+
+        if (! $company instanceof Company) {
+            throw new BadRequestHttpException('No company is selected.');
+        }
+
+        // The page asks for the company name to be typed and only then enables
+        // the button, but that is a courtesy in the browser, not a safeguard:
+        // the form posts the typed name and until now nothing here looked at it,
+        // so the same request sent without it deleted the business anyway. This
+        // is the check that actually holds.
+        if (trim((string) $request->request->get('company_name')) !== trim($company->getName())) {
+            $this->addFlash('error', 'Nothing was deleted - the company name did not match.');
+
+            return $this->redirectToRoute('_settings');
+        }
+
+        $this->companyRepository->deleteCompany($companyId);
 
         if ($request->hasSession()) {
             $session = $request->getSession();

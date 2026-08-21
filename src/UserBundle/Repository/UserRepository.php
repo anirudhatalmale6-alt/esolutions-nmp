@@ -20,8 +20,12 @@ use Doctrine\ORM\NoResultException;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\WhatsApp\WhatsAppSender;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Uid\Ulid;
+use function is_string;
+use function sprintf;
 
 /**
  * @see \SolidInvoice\UserBundle\Tests\Repository\UserRepositoryTest
@@ -78,6 +82,47 @@ class UserRepository extends \SolidWorx\Platform\PlatformBundle\Repository\UserR
             ->groupBy('u.id');
 
         return $qb;
+    }
+
+    /**
+     * Is this WhatsApp number already on an account?
+     *
+     * Compared as chat ids rather than as text. The same number reaches the
+     * same phone written as +971 50 123 4567, 00971501234567 or
+     * 971501234567, so an exact match on the column would wave through the
+     * duplicate sign-ups this is meant to stop. WhatsAppSender::chatId() is
+     * what the gateway addresses the message to, which makes it the only
+     * definition of "the same number" that means anything.
+     *
+     * Read as a scalar list of the numbers on file, not as hydrated users:
+     * that is one small query and no entity objects, and the accounts on a
+     * portal like this number in the hundreds.
+     */
+    public function isWhatsAppNumberTaken(string $number, ?Ulid $ignoreUserId = null): bool
+    {
+        if (WhatsAppSender::chatId($number) === null) {
+            // Not a number anything could be sent to, so it cannot be a
+            // duplicate of a real one. WhatsAppNumber reports the format.
+            return false;
+        }
+
+        $qb = $this->createQueryBuilder('u')
+            ->select('u.mobile')
+            ->where('u.mobile IS NOT NULL')
+            ->andWhere("u.mobile != ''");
+
+        if ($ignoreUserId instanceof Ulid) {
+            $qb->andWhere('u.id != :ignore')
+                ->setParameter('ignore', $ignoreUserId, UlidType::NAME);
+        }
+
+        foreach ($qb->getQuery()->getSingleColumnResult() as $existing) {
+            if (is_string($existing) && WhatsAppSender::isSameNumber($existing, $number)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function getRecentlyJoinedCount(int $days = 30): int

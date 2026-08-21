@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\UserBundle\DTO;
 
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Validator\Constraints\UniqueWhatsAppNumber;
 use SolidInvoice\UserBundle\Validator\Constraints\UsablePassword;
 use SolidInvoice\UserBundle\Validator\Constraints\WhatsAppNumber;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -59,6 +60,7 @@ final class Registration
     #[
         NotBlank(message: 'Please enter your WhatsApp number'),
         WhatsAppNumber,
+        UniqueWhatsAppNumber,
     ]
     public ?string $mobile = null;
 

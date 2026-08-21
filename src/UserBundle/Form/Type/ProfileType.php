@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\UserBundle\Form\Type;
 
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Validator\Constraints\UniqueWhatsAppNumber;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
@@ -34,7 +35,15 @@ class ProfileType extends AbstractType
             ->add('firstName')
             ->add('lastName')
             ->add('email', EmailType::class)
-            ->add('mobile')
+            // Checked here as well as on sign-up: a rule the sign-up form
+            // enforces and the profile page does not is not a rule, it is a
+            // speed bump - sign up with one number, change it afterwards.
+            ->add('mobile', options: [
+                'label' => 'WhatsApp Number',
+                'constraints' => [
+                    new UniqueWhatsAppNumber(),
+                ],
+            ])
             ->add('current_password', PasswordType::class, [
                 'label' => 'Current Password',
                 'mapped' => false,

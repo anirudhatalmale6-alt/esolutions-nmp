@@ -135,6 +135,26 @@ final readonly class WhatsAppSender
         return $digits . '@c.us';
     }
 
+    /**
+     * Do these two reach the same phone?
+     *
+     * "Written the same" and "the same number" are different questions:
+     * +971 50 123 4567, 00971501234567 and 971501234567 are three strings and
+     * one telephone. Answered by comparing what a message would actually be
+     * addressed to, so nothing can call two numbers the same that the gateway
+     * would send to separately.
+     *
+     * A number that cannot be addressed at all is not the same as anything,
+     * including another unaddressable one - two different typos are not two
+     * people sharing a phone.
+     */
+    public static function isSameNumber(string $a, string $b): bool
+    {
+        $left = self::chatId($a);
+
+        return $left !== null && $left === self::chatId($b);
+    }
+
     private function apiUrl(): string
     {
         // A setting still holding the value it shipped with is not a choice, so

@@ -96,6 +96,18 @@
 {% endblock %}
 
 {# Settings Address Widget - improved layout with Bootstrap grid #}
+{#
+    Street 2, State and Zip are asked for ONLY if the form still has them.
+
+    AddressType dropped those three boxes (a UAE wholesaler has no postal code
+    and "state" means nothing to an emirate), but this block kept rendering them
+    unconditionally. form.street2 then resolves to null, form_row(null) is a
+    TypeError, and the whole Settings page 500s - which is exactly what it did.
+
+    The columns are still on the Address entity and anything already stored in
+    them still prints, so a `is defined` guard is the honest test: render the box
+    when the form offers it, skip it when it does not, and never assume.
+#}
 {% block settings_address_widget %}
     <div class="card bg-light border-0">
         <div class="card-body py-3">
@@ -103,18 +115,24 @@
                 <div class="col-12">
                     {{ form_row(form.street1, {label: 'Street Address'|trans, attr: {placeholder: 'Street address line 1'|trans}}) }}
                 </div>
-                <div class="col-12">
-                    {{ form_row(form.street2, {label: 'Street Address 2'|trans, attr: {placeholder: 'Apartment, suite, unit, etc. (optional)'|trans}}) }}
-                </div>
+                {% if form.street2 is defined %}
+                    <div class="col-12">
+                        {{ form_row(form.street2, {label: 'Street Address 2'|trans, attr: {placeholder: 'Apartment, suite, unit, etc. (optional)'|trans}}) }}
+                    </div>
+                {% endif %}
                 <div class="col-md-6">
                     {{ form_row(form.city, {label: 'City'|trans, attr: {placeholder: 'City'|trans}}) }}
                 </div>
-                <div class="col-md-6">
-                    {{ form_row(form.state, {label: 'State / Province'|trans, attr: {placeholder: 'State or province'|trans}}) }}
-                </div>
-                <div class="col-md-6">
-                    {{ form_row(form.zip, {label: 'Postal Code'|trans, attr: {placeholder: 'ZIP / Postal code'|trans}}) }}
-                </div>
+                {% if form.state is defined %}
+                    <div class="col-md-6">
+                        {{ form_row(form.state, {label: 'State / Province'|trans, attr: {placeholder: 'State or province'|trans}}) }}
+                    </div>
+                {% endif %}
+                {% if form.zip is defined %}
+                    <div class="col-md-6">
+                        {{ form_row(form.zip, {label: 'Postal Code'|trans, attr: {placeholder: 'ZIP / Postal code'|trans}}) }}
+                    </div>
+                {% endif %}
                 <div class="col-md-6">
                     {{ form_row(form.country, {label: 'Country'|trans}) }}
                 </div>

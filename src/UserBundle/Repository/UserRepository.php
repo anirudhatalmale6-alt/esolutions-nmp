@@ -125,6 +125,31 @@ class UserRepository extends \SolidWorx\Platform\PlatformBundle\Repository\UserR
         return false;
     }
 
+    /**
+     * Accounts that belong to no business at all.
+     *
+     * These are leftovers. Deleting a company used to remove the company first
+     * and then the accounts that existed only for it, in two separate commits -
+     * so when the second half failed (see Version30000_48) the company went and
+     * the account stayed, holding on to its e-mail address and WhatsApp number
+     * and refusing to let either be used again. Nothing in the console showed
+     * them, because every list there is drawn per company and these are in none.
+     *
+     * Must be called with the company filter suspended: that filter narrows User
+     * to the members of the CURRENT company, which by definition excludes every
+     * row this asks for.
+     *
+     * @return list<User>
+     */
+    public function findWithoutCompany(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->where('SIZE(u.companies) = 0')
+            ->orderBy('u.created', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function getRecentlyJoinedCount(int $days = 30): int
     {
         $qb = $this->createQueryBuilder('u');

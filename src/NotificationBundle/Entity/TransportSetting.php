@@ -60,7 +60,10 @@ class TransportSetting implements Stringable
     #[ExportIgnore]
     private array $settings = [];
 
+    // onDelete: see Version30000_49 - without it this key is RESTRICT and blocks
+    // the account from ever being deleted.
     #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'user_id', onDelete: 'CASCADE')]
     private User $user;
 
     public function getId(): ?Ulid

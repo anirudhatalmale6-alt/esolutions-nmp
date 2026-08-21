@@ -64,8 +64,12 @@ class UserInvitation
     #[ORM\Column(type: Types::STRING, enumType: InvitationStatus::class)]
     private InvitationStatus $status = InvitationStatus::Pending;
 
+    // onDelete: an invitation whose sender no longer exists is not a record worth
+    // keeping, and without this the key is RESTRICT - nothing holds an inverse
+    // collection of invitations, so the database would simply refuse to delete
+    // anyone who had ever invited somebody. See Version30000_49.
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'invited_by_id', nullable: false)]
+    #[ORM\JoinColumn(name: 'invited_by_id', nullable: false, onDelete: 'CASCADE')]
     private ?User $invitedBy = null;
 
     public function __construct()

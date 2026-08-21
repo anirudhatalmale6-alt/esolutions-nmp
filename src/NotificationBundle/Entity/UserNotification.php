@@ -54,7 +54,10 @@ class UserNotification implements Stringable
     #[ORM\ManyToMany(targetEntity: TransportSetting::class)]
     private Collection $transports;
 
+    // onDelete: see Version30000_49 - without it this key is RESTRICT, and every
+    // account that has ever saved a notification preference has a row here.
     #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'user_id', onDelete: 'CASCADE')]
     private User $user;
 
     public function __construct()

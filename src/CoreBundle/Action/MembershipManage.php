@@ -20,7 +20,10 @@ use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
+use SolidInvoice\NotificationBundle\Entity\TransportSetting;
+use SolidInvoice\NotificationBundle\Entity\UserNotification;
 use SolidInvoice\UserBundle\Entity\User;
+use SolidInvoice\UserBundle\Entity\UserInvitation;
 use SolidInvoice\UserBundle\Entity\UserSetting;
 use SolidInvoice\UserBundle\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,9 +34,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Uid\Ulid;
 use function array_filter;
+use function array_values;
 use function implode;
 use function in_array;
 use function sprintf;
+use function strtolower;
 use function trim;
 
 /**
@@ -71,6 +76,7 @@ final class MembershipManage extends AbstractController
             return match ((string) $request->request->get('intent', 'save')) {
                 'reset_password' => $this->handleResetPassword($request),
                 'delete_company' => $this->handleDeleteCompany($request),
+                'delete_account' => $this->handleDeleteAccount($request),
                 default => $this->handleSave($request),
             };
         }
@@ -84,8 +90,18 @@ final class MembershipManage extends AbstractController
         // every company's accounts, so build the rows with the filter switched off.
         $rows = $this->withoutCompanyFilter(fn (): array => $this->buildRows($companies));
 
+        // Accounts belonging to no business. They are drawn in their own section
+        // because every other list on this page hangs off a company, so these
+        // were invisible - which is how one could be sitting there holding an
+        // e-mail address that the sign-up form kept reporting as taken.
+        $orphans = $this->withoutCompanyFilter(fn (): array => array_values(array_filter(
+            $this->userRepository->findWithoutCompany(),
+            static fn (User $user): bool => ! in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true),
+        )));
+
         return $this->render('@SolidInvoiceCore/Membership/manage.html.twig', [
             'rows' => $rows,
+            'orphans' => $orphans,
             'plans' => MembershipPlan::cases(),
         ]);
     }
@@ -361,29 +377,146 @@ final class MembershipManage extends AbstractController
 
         $name = $company->getName();
 
-        // Removing the company clears its join-table rows and cascades its data.
-        $this->companyRepository->deleteCompany($company->getId());
-
-        // Any account that had no other company is now orphaned - remove it too so
-        // duplicate/test sign-ups don't linger in the accounts list.
+        // All of it, or none of it.
         //
-        // Their saved settings have to go first. Nothing holds an inverse
-        // collection of user_settings, so the ORM does not know they exist, and
-        // the foreign key on that table was created without ON DELETE - which
-        // means the database refuses the delete rather than following it.
-        // Version30000_48 corrects the constraint; this clears the rows anyway,
-        // so the console works on an install where that migration has not run.
-        foreach ($soleOwners as $user) {
-            $this->entityManager->createQuery(
-                'DELETE FROM ' . UserSetting::class . ' s WHERE s.user = :user'
-            )->setParameter('user', $user)->execute();
+        // deleteCompany() flushes and COMMITS on its own, and the orphaned
+        // accounts were then removed in a second, separate commit. When that
+        // second half failed - which it always did, on the user_settings foreign
+        // key - the first half stayed done: the business was gone and the account
+        // that existed only for it survived, still holding its e-mail address and
+        // WhatsApp number so neither could be used to sign up again. The client
+        // hit exactly that, and the leftovers are why "I deleted this account but
+        // it still says it exists".
+        //
+        // One transaction means a failure now leaves the console exactly as it
+        // was, and there is nothing to clean up by hand afterwards.
+        $this->entityManager->wrapInTransaction(function () use ($company, $soleOwners): void {
+            // Removing the company clears its join-table rows and cascades its data.
+            $this->companyRepository->deleteCompany($company->getId());
 
-            $this->entityManager->remove($user);
-        }
+            foreach ($soleOwners as $user) {
+                $this->purgeRowsBlockingDelete($user);
 
-        $this->entityManager->flush();
+                $this->entityManager->remove($user);
+            }
+
+            $this->entityManager->flush();
+        });
 
         $this->addFlash('success', sprintf('%s and its account(s) were deleted.', $name));
+
+        return $this->redirectToRoute('_membership_manage');
+    }
+
+    /**
+     * Clear the rows that would otherwise stop an account being deleted.
+     *
+     * Four tables point at users through a foreign key that was created without
+     * ON DELETE - which in MySQL means RESTRICT - and no entity owns an inverse
+     * collection of any of them, so Doctrine does not know they are there and
+     * the database refuses the delete instead of following it.
+     *
+     * Version30000_48 and Version30000_49 correct the constraints. This clears
+     * the rows anyway, so account deletion also works on an install where those
+     * migrations have not run yet - and it costs four cheap deletes.
+     */
+    private function purgeRowsBlockingDelete(User $user): void
+    {
+        foreach ([UserSetting::class, UserInvitation::class, TransportSetting::class, UserNotification::class] as $entity) {
+            $property = $entity === UserInvitation::class ? 'invitedBy' : 'user';
+
+            $this->entityManager->createQuery(
+                sprintf('DELETE FROM %s e WHERE e.%s = :user', $entity, $property)
+            )->setParameter('user', $user)->execute();
+        }
+    }
+
+    /**
+     * Remove an account outright.
+     *
+     * Needed because deleting a business only removes the accounts that existed
+     * solely for it, and because the half-finished deletes described above left
+     * accounts behind that belong to no business and appear in no per-company
+     * list. Without this the only way to free up an e-mail address or a WhatsApp
+     * number was to edit the database by hand.
+     */
+    private function handleDeleteAccount(Request $request): Response
+    {
+        if (! $this->isCsrfTokenValid('membership.manage', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Your session expired, please try again.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        $email = trim((string) $request->request->get('email'));
+
+        $user = $email === '' ? null : $this->withoutCompanyFilter(
+            fn (): ?User => $this->userRepository->findOneBy(['email' => $email]),
+        );
+
+        if (! $user instanceof User) {
+            $this->addFlash('error', 'That account could not be found.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            $this->addFlash('error', 'The platform owner\'s own account can\'t be removed here.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        $signedIn = $this->getUser();
+
+        if ($signedIn instanceof User && strtolower((string) $signedIn->getEmail()) === strtolower((string) $user->getEmail())) {
+            $this->addFlash('error', 'You can\'t remove the account you are signed in with.');
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        // Checked here rather than in the page, for the same reason the company
+        // delete is: anything the browser is asked to enforce can be skipped.
+        // Case-insensitively, because an e-mail address is, and re-typing one
+        // with a capital letter is not a different address.
+        $typed = trim((string) $request->request->get('confirm_email'));
+
+        if (strtolower($typed) !== strtolower((string) $user->getEmail())) {
+            $this->addFlash('error', sprintf('Nothing was deleted. To remove %s, type its e-mail address into the box exactly as shown.', $user->getEmail()));
+
+            return $this->redirectToRoute('_membership_manage');
+        }
+
+        // Businesses this account is the last member of. Deleting the account
+        // would leave them with nobody who can sign in, so say so rather than
+        // quietly stranding them - and never delete a business from here, which
+        // is a separate, deliberate action with its own confirmation.
+        $stranded = $this->withoutCompanyFilter(static function () use ($user): array {
+            $names = [];
+
+            foreach ($user->getCompanies() as $company) {
+                if ($company instanceof Company && $company->getUsers()->count() <= 1) {
+                    $names[] = $company->getName();
+                }
+            }
+
+            return $names;
+        });
+
+        $this->entityManager->wrapInTransaction(function () use ($user): void {
+            $this->purgeRowsBlockingDelete($user);
+
+            $this->entityManager->remove($user);
+            $this->entityManager->flush();
+        });
+
+        $this->addFlash('success', sprintf('%s was removed. That e-mail address and WhatsApp number can be used to sign up again.', $email));
+
+        if ($stranded !== []) {
+            $this->addFlash('error', sprintf(
+                'Note: %s now has no account that can sign in. Delete it above if it is not needed.',
+                implode(', ', $stranded)
+            ));
+        }
 
         return $this->redirectToRoute('_membership_manage');
     }

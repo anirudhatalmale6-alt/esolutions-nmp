@@ -412,6 +412,35 @@
                 <div class="text-secondary small">{{ 'No account linked to this company.'|trans }}</div>
             {% endif %}
 
+            {# Removing one account without removing the whole business. Deleting a
+               company only takes the accounts that exist solely for it, so a
+               company with two members had no way to lose one of them. #}
+            {% if row.users|length > 0 %}
+                <h4 class="mb-2 mt-4">{{ ux_icon('tabler:user-minus', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Remove an account'|trans }}</h4>
+                <p class="text-secondary small mb-2">{{ 'Frees up the e-mail address and WhatsApp number so they can be used to sign up again. The company itself is left alone.'|trans }}</p>
+                <form method="post" action="{{ path('_membership_manage') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                    <input type="hidden" name="intent" value="delete_account">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">{{ 'Account'|trans }}</label>
+                            <select name="email" class="form-select">
+                                {% for u in row.users %}
+                                    <option value="{{ u.email }}">{{ u.email }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">{{ 'Type that e-mail address to confirm'|trans }}</label>
+                            <input type="text" name="confirm_email" class="form-control" autocomplete="off" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-outline-danger w-100">{{ 'Remove'|trans }}</button>
+                        </div>
+                    </div>
+                </form>
+            {% endif %}
+
             {% if row.canDelete %}
                 <hr class="my-4">
                 <h4 class="mb-2 text-danger">{{ ux_icon('tabler:alert-triangle', {width: 16, height: 16, class: 'me-1'}) }}{{ 'Danger zone'|trans }}</h4>
@@ -448,6 +477,76 @@
             </twig:block>
         </twig:Ui:Modal>
     {% endfor %}
+
+    {# --- Accounts with no business ---
+       Leftovers from a company deletion that failed halfway through: the company
+       went, the account stayed. They appear in no per-company list, so this is
+       the only place they are visible - and the only place they can be cleared,
+       which is what frees up the e-mail address and WhatsApp number for reuse. #}
+    {% if orphans|default([])|length > 0 %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    {{ ux_icon('tabler:user-off', {width: 18, height: 18, class: 'me-1'}) }}
+                    {{ 'Accounts with no business'|trans }}
+                    <span class="badge bg-secondary-lt ms-2">{{ orphans|length }}</span>
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-secondary small">
+                    {{ 'These accounts are not linked to any company - usually what is left when a company was deleted but its account was not. They still hold their e-mail address and WhatsApp number, which is why signing up with either is refused.'|trans }}
+                </p>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ 'Email'|trans }}</th>
+                                <th>{{ 'WhatsApp'|trans }}</th>
+                                <th>{{ 'Signed up'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in orphans %}
+                                <tr>
+                                    <td class="font-monospace">{{ u.email }}</td>
+                                    <td>
+                                        {% if u.mobile %}
+                                            <span class="font-monospace">{{ u.mobile }}</span>
+                                        {% else %}
+                                            <span class="text-secondary">{{ 'Not given'|trans }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ u.created ? u.created|date('j M Y') : '' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <form method="post" action="{{ path('_membership_manage') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('membership.manage') }}">
+                    <input type="hidden" name="intent" value="delete_account">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">{{ 'Account'|trans }}</label>
+                            <select name="email" class="form-select">
+                                {% for u in orphans %}
+                                    <option value="{{ u.email }}">{{ u.email }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">{{ 'Type that e-mail address to confirm'|trans }}</label>
+                            <input type="text" name="confirm_email" class="form-control" autocomplete="off" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-outline-danger w-100">{{ 'Remove'|trans }}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 
     <script>
         (function () {

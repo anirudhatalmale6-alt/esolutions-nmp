@@ -36,6 +36,18 @@ cp -Rf "$SRC/templates/."  "$DEST/templates/"
 cp -Rf "$SRC/public/."     "$DEST/public/"
 cp -Rf "$SRC/migrations/." "$DEST/migrations/"
 
+# Icons. These are read from disk at render time, so they have to be ON the live
+# site - they are not compiled into anything and nothing else copies them.
+#
+# Without them the app falls back to downloading each icon from
+# api.iconify.design mid-page-load, which is what made the site slow and then
+# 500 after an update (see config/packages/ux_icons.php). mkdir -p first because
+# the folder does not exist on a site that was deployed before this change.
+if [ -d "$SRC/assets/icons" ]; then
+    mkdir -p "$DEST/assets/icons"
+    cp -Rf "$SRC/assets/icons/." "$DEST/assets/icons/"
+fi
+
 # Config: ONLY the code-level config sub-folders.
 # We deliberately DO NOT copy config/env or config/secrets (the vault
 # that stores your database connection) - those belong to the live site.

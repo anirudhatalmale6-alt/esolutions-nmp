@@ -92,7 +92,7 @@ class MainMenu
             'menu.top.logout',
             [
                 'route' => '_logout',
-                'extras' => ['icon' => 'power-off'],
+                'extras' => ['icon' => 'logout'],
             ],
         );
     }

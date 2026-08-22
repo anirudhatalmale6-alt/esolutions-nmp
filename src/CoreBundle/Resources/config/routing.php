@@ -39,6 +39,7 @@ use SolidInvoice\CoreBundle\Action\MembershipManage;
 use SolidInvoice\CoreBundle\Action\ModelCatalog;
 use SolidInvoice\CoreBundle\Action\ModelCatalogManage;
 use SolidInvoice\CoreBundle\Action\Search;
+use SolidInvoice\CoreBundle\Action\SendOnWhatsApp;
 use SolidInvoice\CoreBundle\Action\Support\EmailCheck;
 use SolidInvoice\CoreBundle\Action\Support\MemberSupport;
 use SolidInvoice\CoreBundle\Action\Support\SupportDesk;
@@ -530,6 +531,16 @@ return static function (RoutingConfigurator $routingConfigurator): void {
         ->controller(DeleteCompany::class)
         ->methods(['POST'])
     ;
+
+    // Send an invoice or quote to the customer through the gateway, in one
+    // click, instead of handing it to the user's own WhatsApp via wa.me. Both
+    // ways stay on the screen - see SendOnWhatsApp for why they are not the
+    // same thing.
+    $routingConfigurator
+        ->add('_whatsapp_send', '/whatsapp/send/{type}/{id}')
+        ->controller(SendOnWhatsApp::class)
+        ->requirements(['type' => 'invoice|quote'])
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_search', '/search')

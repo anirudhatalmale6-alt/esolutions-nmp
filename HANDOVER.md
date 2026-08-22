@@ -1,12 +1,14 @@
-# eSolutions - System Handover & Continuity Guide
+# B2B Network - System Handover & Continuity Guide
 
-This document lets any PHP developer pick up and continue the eSolutions
+This document lets any PHP developer pick up and continue the B2B Network
 invoicing system without prior context. It is written so the project is never
 dependent on a single person.
 
 ## What this is
 
-- **eSolutions** is an invoicing / quoting system for NMP Mobiles.
+- **B2B Network** is an invoicing / quoting / trading system for NMP Mobiles.
+  (It was called eSolutions early on; the name in the code and on screen is now
+  B2B Network, held in one place as `SolidInvoice\CoreBundle\Platform::NAME`.)
 - It is built on **SolidInvoice 3.0.1**, a mature open-source PHP/Symfony
   invoicing platform (https://github.com/SolidInvoice/SolidInvoice). Because the
   base is open source and widely used, any Symfony/PHP developer can work on it.
@@ -59,7 +61,7 @@ non-technical staff can update without the command line.)
 
 ## Customisations applied (vs stock SolidInvoice)
 
-- Rebranded "SolidInvoice" -> **eSolutions** everywhere; all "Powered by" removed.
+- Rebranded "SolidInvoice" -> **B2B Network** everywhere; all "Powered by" removed.
 - English currency/country, UAE Dirham (AED).
 - Email made optional on contacts; phone is the key field.
 - Delete removed from invoices/clients/quotes (cancel/archive only).

@@ -1,5 +1,5 @@
 #!/bin/sh
-# eSolutions - one-command update (SAFE).
+# B2B Network - one-command update (SAFE).
 # Run in cPanel Terminal AFTER "Update from Remote" in Git Version Control:
 #     sh /home/salononl/esolutions-nmp/deploy.sh
 #
@@ -151,4 +151,4 @@ if [ -f "$DEST/bin/console" ]; then
         | sed 's/^/Database version: /'
 fi
 echo "----------------------------------------"
-echo "UPDATE DONE - eSolutions is now running the latest code."
+echo "UPDATE DONE - B2B Network is now running the latest code."

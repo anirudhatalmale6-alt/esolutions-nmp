@@ -1,5 +1,5 @@
 #!/bin/sh
-# eSolutions - why is a Settings tab missing?
+# B2B Network - why is a Settings tab missing?
 #
 # Run in cPanel Terminal:
 #     sh ~/esolutions-nmp/settings-doctor.sh

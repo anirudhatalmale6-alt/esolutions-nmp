@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\WhatsApp;
 
 use Psr\Log\LoggerInterface;
-use SolidInvoice\SettingsBundle\SystemConfig;
+use SolidInvoice\CoreBundle\Platform;
 use Throwable;
 use function sprintf;
 use function trim;
@@ -34,7 +34,6 @@ final readonly class VerificationNotifier
 {
     public function __construct(
         private WhatsAppSender $sender,
-        private SystemConfig $config,
         private LoggerInterface $logger,
     ) {
     }
@@ -72,16 +71,19 @@ final readonly class VerificationNotifier
 
     private function message(string $signedUrl): string
     {
-        $name = trim($this->config->getPlatformWide('system/company/company_name') ?? '');
-
-        if ($name === '') {
-            $name = 'B2B Network';
-        }
-
+        /*
+         * The portal's own name, not a company's.
+         *
+         * This used to read system/company/company_name, and getPlatformWide()
+         * answers with whichever business happened to fill that setting in - so
+         * somebody signing up to one business could be welcomed to the name of
+         * another. Whoever is joining, they are joining the platform, and the
+         * platform has one name.
+         */
         return sprintf(
             "Welcome to %s.\n\nTap this link to confirm your account and finish signing up:\n%s\n\n"
             . "If you did not sign up, ignore this message - nothing will happen without the link being opened.",
-            $name,
+            Platform::NAME,
             $signedUrl,
         );
     }

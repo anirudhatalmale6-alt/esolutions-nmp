@@ -178,7 +178,6 @@ final class UserEntitySubscriberTest extends TestCase
     {
         return new VerificationNotifier(
             new WhatsAppSender($this->createStub(SystemConfig::class), new MockHttpClient()),
-            $this->createStub(SystemConfig::class),
             new BufferingLogger(),
         );
     }

@@ -570,6 +570,16 @@
                         </div>
                     </div>
                 </form>
+
+                {# The fuller check, which also shows the gateway's own state rather
+                   than just the result of one send. Owner only, so the link is not
+                   shown to an admin who would only get a refusal from it. #}
+                {% if is_granted('ROLE_SUPER_ADMIN') %}
+                    <p class="text-muted small mt-3 mb-0">
+                        <a href="{{ path('_whatsapp_check') }}">{{ 'Open the full WhatsApp check'|trans }}</a>
+                        {{ '- shows what the gateway itself reports, not only whether one message went.'|trans }}
+                    </p>
+                {% endif %}
             </div>
         </div>
     {% endif %}

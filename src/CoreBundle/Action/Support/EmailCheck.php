@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SolidInvoice\CoreBundle\Action\Support;
 
 use JsonException;
+use SolidInvoice\CoreBundle\Platform;
 use SolidInvoice\MailerBundle\Factory\MailerConfigFactory;
 use SolidInvoice\SettingsBundle\Repository\SettingsRepository;
 use SolidInvoice\SettingsBundle\SystemConfig;
@@ -134,9 +135,9 @@ final class EmailCheck extends AbstractController
         try {
             $email = (new Email())
                 ->to(Address::create($address))
-                ->subject('B2B Network test email')
+                ->subject(Platform::NAME . ' test email')
                 ->text(
-                    "This is a test from the Email Check page on B2B Network.\n\n"
+                    'This is a test from the Email Check page on ' . Platform::NAME . ".\n\n"
                     . "If you are reading it, the portal can send email.\n"
                 );
 

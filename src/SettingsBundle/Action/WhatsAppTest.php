@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\SettingsBundle\Action;
 
+use SolidInvoice\CoreBundle\Platform;
 use SolidInvoice\CoreBundle\WhatsApp\WhatsAppSender;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,7 +37,7 @@ use function trim;
  */
 final class WhatsAppTest extends AbstractController
 {
-    private const string MESSAGE = 'Test message from your eSolutions portal. If you are reading this, WhatsApp is set up correctly.';
+    private const string MESSAGE = 'Test message from ' . Platform::NAME . '. If you are reading this, WhatsApp is set up correctly.';
 
     public function __construct(
         private readonly WhatsAppSender $whatsAppSender,

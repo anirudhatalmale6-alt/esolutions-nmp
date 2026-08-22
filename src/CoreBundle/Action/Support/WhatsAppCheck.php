@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action\Support;
 
+use SolidInvoice\CoreBundle\Platform;
 use SolidInvoice\CoreBundle\WhatsApp\WhatsAppSender;
 use SolidInvoice\SettingsBundle\Repository\SettingsRepository;
 use SolidInvoice\SettingsBundle\SystemConfig;
@@ -106,7 +107,7 @@ final class WhatsAppCheck extends AbstractController
             ];
         }
 
-        $result = $this->sender->send($number, 'This is a test message from B2B Network. If you are reading it, the portal can send WhatsApp.');
+        $result = $this->sender->send($number, 'This is a test message from ' . Platform::NAME . '. If you are reading it, the portal can send WhatsApp.');
 
         return [
             'ok' => $result->sent,

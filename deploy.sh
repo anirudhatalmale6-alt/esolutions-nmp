@@ -59,6 +59,16 @@ done
 # Top-level config php files (bundles.php, services.php, ...) - never the vault
 cp -f "$SRC/config/"*.php "$DEST/config/" 2>/dev/null
 
+# bin/console. Both steps below need it - rebuilding the cache and applying
+# database changes - and until now nothing copied it. Worse, both were written
+# to skip QUIETLY when it was missing, so a site without this one file took
+# every code change and no database change, and still printed UPDATE DONE. Only
+# bin/console is copied; the rest of bin/ is composer's, and belongs to whatever
+# vendor/ the live site has.
+mkdir -p "$DEST/bin"
+cp -f "$SRC/bin/console" "$DEST/bin/console" 2>/dev/null
+chmod +x "$DEST/bin/console" 2>/dev/null
+
 # Rebuild the compiled cache so template/route changes take effect.
 #
 # There used to be an "rm -rf var/cache/prod" on the line above this, and it was
@@ -75,25 +85,47 @@ cp -f "$SRC/config/"*.php "$DEST/config/" 2>/dev/null
 #
 # So: no delete. Let cache:clear do the swap it was designed to do.
 if [ -f "$DEST/bin/console" ]; then
-    ( cd "$DEST" && php bin/console cache:clear --env=prod --no-debug ) \
-        || echo "WARNING: cache rebuild reported an issue - if the site shows 500, run: cd $DEST && php bin/console cache:clear --env=prod"
+    if ( cd "$DEST" && php bin/console cache:clear --env=prod --no-debug ); then
+        CACHE_RESULT="Cache rebuilt."
+    else
+        CACHE_RESULT="WARNING: the cache rebuild reported a problem. If the site shows Error 500, send these lines to Anirudha."
+    fi
 else
     # No console to build with, so the cache has to go and be rebuilt on the
     # next request. Only in this fallback is deleting it the right thing.
     rm -rf "$DEST/var/cache/prod"
+    CACHE_RESULT="WARNING: bin/console is missing, so the cache was deleted instead of rebuilt. The first page after this will be slow."
 fi
 
 # Database structure. New features sometimes ship a migration - a new column, or
 # new settings rows for businesses that already exist. Without this step the code
 # arrives but the thing it needs is not there, and the feature is silently
-# missing rather than visibly broken.
+# missing rather than visibly broken. That is not hypothetical: the WhatsApp tab
+# was absent from a live Settings page for two days because the migration that
+# creates its settings rows never ran, and every run still ended in UPDATE DONE.
 #
 # This ADDS structure and seed rows. It does not delete your data. Migrations are
 # recorded, so anything already applied is skipped and running this twice is
 # harmless.
 if [ -f "$DEST/bin/console" ]; then
-    ( cd "$DEST" && php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod ) \
-        || echo "WARNING: a database update did not finish. Send the lines above to Anirudha before using the site."
+    if ( cd "$DEST" && php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod ); then
+        DB_RESULT="Database up to date."
+    else
+        DB_RESULT="WARNING: a database update did not finish. Send these lines to Anirudha before using the site."
+    fi
+else
+    DB_RESULT="WARNING: bin/console is missing, so NO database updates were applied. Send this line to Anirudha."
 fi
 
+# The summary, last, on its own. Everything above scrolls past; this is the part
+# that has to still be on screen when the window is closed.
+echo ""
+echo "----------------------------------------"
+echo "$CACHE_RESULT"
+echo "$DB_RESULT"
+if [ -f "$DEST/bin/console" ]; then
+    ( cd "$DEST" && php bin/console doctrine:migrations:current --env=prod --no-debug 2>/dev/null ) \
+        | sed 's/^/Database version: /'
+fi
+echo "----------------------------------------"
 echo "UPDATE DONE - eSolutions is now running the latest code."

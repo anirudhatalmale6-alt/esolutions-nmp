@@ -20,6 +20,7 @@ use Throwable;
 use function ltrim;
 use function preg_replace;
 use function sprintf;
+use function str_replace;
 use function str_starts_with;
 use function strlen;
 use function substr;
@@ -95,18 +96,18 @@ final readonly class WhatsAppSender
             // so in it), and throwing would lose it.
             $body = trim($response->getContent(false));
         } catch (Throwable $e) {
-            return WhatsAppResult::failure(sprintf('%s: %s', $e::class, $e->getMessage()));
+            return WhatsAppResult::failure($this->redact(sprintf('%s: %s', $e::class, $e->getMessage())));
         }
 
         if ($status >= 200 && $status < 300) {
             return WhatsAppResult::success($body);
         }
 
-        return WhatsAppResult::failure(sprintf(
+        return WhatsAppResult::failure($this->redact(sprintf(
             'The gateway answered %d. %s',
             $status,
             $body === '' ? 'It sent no explanation.' : substr($body, 0, 300),
-        ));
+        )));
     }
 
     /**
@@ -153,6 +154,22 @@ final readonly class WhatsAppSender
         $left = self::chatId($a);
 
         return $left !== null && $left === self::chatId($b);
+    }
+
+    /**
+     * Take the API token back out of anything we are about to hand to a human.
+     *
+     * The token is part of the URL this calls, so an HttpClient exception quotes
+     * it verbatim - "Idle timeout reached for .../sendMessage/<the token>". That
+     * string goes into the error log and onto the Settings page, and the log is
+     * the file the owner copies to me when something breaks. Without this, the
+     * first thing a timeout does is publish the credential.
+     */
+    private function redact(string $text): string
+    {
+        $token = $this->apiToken();
+
+        return $token === '' ? $text : str_replace($token, '***', $text);
     }
 
     private function apiUrl(): string

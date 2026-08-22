@@ -438,6 +438,79 @@
                     </div>
                 {% endif %}
 
+            {% elseif section == 'whatsapp' %}
+                {# WhatsApp Gateway - Custom Layout.
+
+                   The instructions are on the page rather than in a document
+                   somewhere, because the two codes below come from an outside
+                   account and the owner only ever fills them in when the old
+                   ones have stopped working - which is exactly when nobody can
+                   remember where the document was. #}
+                <div class="mb-4 pb-4 border-bottom">
+                    <h3 class="d-flex align-items-center gap-2 mb-3">
+                        {{ ux_icon('tabler:brand-whatsapp', {width: 22, height: 22, class: 'text-primary', 'aria-hidden': 'true'}) }}
+                        {{ 'WhatsApp Gateway'|trans }}
+                    </h3>
+                    <p class="text-muted small mb-3">
+                        {{ 'New members are sent their confirmation link over WhatsApp. That goes through a gateway account you hold yourself, so the two codes below are yours - paste them in here and the portal will use them.'|trans }}
+                    </p>
+                    <div class="alert alert-info d-flex align-items-start gap-2" role="status">
+                        {{ ux_icon('tabler:info-circle', {width: 20, height: 20, class: 'flex-shrink-0 mt-1', 'aria-hidden': 'true'}) }}
+                        <div class="small">
+                            <strong>{{ 'Where the codes come from:'|trans }}</strong>
+                            {{ 'create an instance in your gateway account, open it, and scan the QR code with the WhatsApp on the phone that will be SENDING the messages (WhatsApp, Linked devices, Link a device). Once the instance shows as authorized it gives you an idInstance and an apiTokenInstance. They go in the two boxes below.'|trans }}
+                            <br>
+                            {{ 'Use a spare number, not the one your customers know you by: the session lives on that phone, and it has to stay logged in and online for messages to go out. If it drops, sign-ups fall back to email on their own - nothing breaks.'|trans }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4 pb-4 border-bottom">
+                    <div class="row g-3">
+                        {% if form.instance_id is defined %}
+                            <div class="col-md-6">
+                                {{ form_row(form.instance_id, {
+                                    label: 'Instance ID'|trans,
+                                    attr: {placeholder: '1101234567'}
+                                }) }}
+                            </div>
+                        {% endif %}
+                        {% if form.api_token is defined %}
+                            <div class="col-md-6">
+                                {{ form_row(form.api_token, {
+                                    label: 'API Token'|trans,
+                                    attr: {placeholder: 'apiTokenInstance', autocomplete: 'off'}
+                                }) }}
+                            </div>
+                        {% endif %}
+                        {% if form.sender_number is defined %}
+                            <div class="col-md-6">
+                                {{ form_row(form.sender_number, {
+                                    label: 'Sending Number'|trans,
+                                    attr: {placeholder: '971501234567'}
+                                }) }}
+                            </div>
+                        {% endif %}
+                        {% if form.api_url is defined %}
+                            <div class="col-md-6">
+                                {{ form_row(form.api_url, {
+                                    label: 'Gateway Address'|trans
+                                }) }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Last, because it is the switch: everything above has to be
+                   filled in and saved before turning it on means anything. #}
+                {% if form.enabled is defined %}
+                    <div>
+                        {{ form_row(form.enabled, {
+                            label: 'Send confirmations over WhatsApp'|trans
+                        }) }}
+                    </div>
+                {% endif %}
+
             {% else %}
                 {# Default Rendering for Other Sections #}
                 {{ form_widget(form) }}
@@ -456,6 +529,50 @@
     </div>
 
     {{ form_end(form) }}
+
+    {# Send a test - Only for the WhatsApp Section.
+
+       Outside form_end() on purpose: the settings form above is a live
+       component, and a form nested inside another form is not valid HTML - the
+       browser drops the inner one and this button would post the settings
+       instead. The Danger Zone below does the same thing for the same reason.
+
+       Save first, then test: this reads the saved settings, not what is
+       currently typed in the boxes. #}
+    {% if section is same as('whatsapp') %}
+        <div class="card settings-content-card mt-4">
+            <div class="card-body">
+                <h3 class="d-flex align-items-center gap-2 mb-3">
+                    {{ ux_icon('tabler:send', {width: 22, height: 22, class: 'text-primary', 'aria-hidden': 'true'}) }}
+                    {{ 'Send a Test Message'|trans }}
+                </h3>
+                <p class="text-muted small mb-3">
+                    {{ 'Save the settings above first, then send yourself a message to check they work. Full international form, no plus and no spaces.'|trans }}
+                </p>
+                <form action="{{ path('_settings_whatsapp_test') }}" method="post">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('whatsapp_test') }}">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-sm-6 col-md-4">
+                            <label for="whatsappTestNumber" class="visually-hidden">{{ 'Number to test'|trans }}</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="whatsappTestNumber"
+                                   name="number"
+                                   autocomplete="off"
+                                   value="{{ app.user.mobile|default('') }}"
+                                   placeholder="971501234567">
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-outline-primary gap-2">
+                                {{ ux_icon('tabler:send', {width: 16, height: 16, 'aria-hidden': 'true'}) }}
+                                {{ 'Send Test'|trans }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 
     {# Company Tax Identifiers - Only for System Section #}
     {% if section is same as('system') %}

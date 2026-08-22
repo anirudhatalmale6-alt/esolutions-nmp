@@ -17,12 +17,21 @@ use SolidInvoice\SettingsBundle\Action\CustomField\EditAction as CustomFieldEdit
 use SolidInvoice\SettingsBundle\Action\CustomField\IndexAction as CustomFieldIndexAction;
 use SolidInvoice\SettingsBundle\Action\CustomField\ReorderAction as CustomFieldReorderAction;
 use SolidInvoice\SettingsBundle\Action\Index;
+use SolidInvoice\SettingsBundle\Action\WhatsAppTest;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 return static function (RoutingConfigurator $routingConfigurator): void {
     $routingConfigurator
         ->add('_settings', '/settings')
         ->controller(Index::class);
+
+    // Kept under /settings on purpose: security.php restricts "^/settings" to
+    // ROLE_ADMIN, so this inherits that rule instead of needing its own - and it
+    // cannot be left out of a rule nobody remembered to add.
+    $routingConfigurator
+        ->add('_settings_whatsapp_test', '/settings/whatsapp/test')
+        ->controller(WhatsAppTest::class)
+        ->methods(['POST']);
 
     $routingConfigurator
         ->add('_settings_custom_fields', '/settings/custom-fields')

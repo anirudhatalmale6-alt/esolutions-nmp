@@ -117,12 +117,35 @@ else
     DB_RESULT="WARNING: bin/console is missing, so NO database updates were applied. Send this line to Anirudha."
 fi
 
+# Settings rows for every business.
+#
+# A Settings tab exists on screen only if that business has rows for it, and a
+# new feature's settings are created when a COMPANY is created - so every
+# business that already existed depends on a one-off migration to fill them in.
+# Relying on that has now failed once in a way nothing reported: the WhatsApp
+# tab was missing while the update said the database was fully up to date.
+#
+# So it is checked here on every update instead of being assumed. This only ever
+# ADDS a row that should have been there; it never edits or removes a setting
+# that exists, so a value you have saved is untouched, and running it twice
+# creates nothing the second time.
+if [ -f "$DEST/bin/console" ]; then
+    if ( cd "$DEST" && php bin/console app:settings-doctor --fix --env=prod --no-debug ); then
+        SETTINGS_RESULT="Settings checked for every business."
+    else
+        SETTINGS_RESULT="WARNING: the settings check did not finish. Send these lines to Anirudha."
+    fi
+else
+    SETTINGS_RESULT="WARNING: bin/console is missing, so the settings were not checked."
+fi
+
 # The summary, last, on its own. Everything above scrolls past; this is the part
 # that has to still be on screen when the window is closed.
 echo ""
 echo "----------------------------------------"
 echo "$CACHE_RESULT"
 echo "$DB_RESULT"
+echo "$SETTINGS_RESULT"
 if [ -f "$DEST/bin/console" ]; then
     ( cd "$DEST" && php bin/console doctrine:migrations:current --env=prod --no-debug 2>/dev/null ) \
         | sed 's/^/Database version: /'

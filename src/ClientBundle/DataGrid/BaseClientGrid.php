@@ -93,6 +93,22 @@ abstract class BaseClientGrid extends Grid
     }
 
     /**
+     * The people, as well as the business.
+     *
+     * The list shows a client's trading name, so that is all the search box
+     * covered - but the name you remember is the man you deal with, not the
+     * name above his shop. His e-mail counts too: it is often the only thing
+     * you have when a message comes in.
+     *
+     * @return list<string>
+     */
+    #[Override]
+    public function extraSearchFields(): array
+    {
+        return ['contacts.firstName', 'contacts.lastName', 'contacts.email'];
+    }
+
+    /**
      * @return Action[]
      */
     #[Override]

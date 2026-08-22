@@ -50,6 +50,13 @@ final class GridQueryService
 
         $searchFields = array_filter($grid->columns(), static fn (Column $column): bool => $column->isSearchable());
         $searchFields = array_map(static fn (Column $column): string => $column->getSearchField(), $searchFields);
+
+        // Plus anything the grid wants searched that has no column - a client's
+        // contact people, for instance. Unique, because a grid could name a
+        // field a column already covers and Doctrine would then be asked to
+        // join the same relation twice.
+        $searchFields = array_values(array_unique([...array_values($searchFields), ...$grid->extraSearchFields()]));
+
         new SearchFilter($searchFields)->filter($builder, $search);
 
         foreach ($grid->filters() as $column => $filter) {

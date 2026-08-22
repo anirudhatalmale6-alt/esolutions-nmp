@@ -39,6 +39,18 @@ interface GridInterface
     public function columns(): array;
 
     /**
+     * Fields the search box should look in that have no column of their own.
+     *
+     * The search normally covers exactly what is on screen, which is the right
+     * default and is wrong for people: a client is listed under its trading
+     * name, and the person you actually deal with - and the name you remember -
+     * is a contact hanging off it. Dotted paths are joined automatically.
+     *
+     * @return list<string>
+     */
+    public function extraSearchFields(): array;
+
+    /**
      * @return list<Action>
      */
     public function actions(): array;

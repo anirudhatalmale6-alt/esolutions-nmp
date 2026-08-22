@@ -71,6 +71,14 @@ abstract class Grid implements GridInterface
     }
 
     /**
+     * @return list<string>
+     */
+    public function extraSearchFields(): array
+    {
+        return [];
+    }
+
+    /**
      * @return list<Action>
      */
     public function actions(): array

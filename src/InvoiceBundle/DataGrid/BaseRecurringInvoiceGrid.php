@@ -119,6 +119,21 @@ abstract class BaseRecurringInvoiceGrid extends Grid
     }
 
     /**
+     * The people behind the business, as well as its trading name.
+     *
+     * The client column searches client.name, which is the name above the shop.
+     * When a recurring invoice comes up you remember the man, not the company, so the
+     * search box has to reach his contact record too.
+     *
+     * @return list<string>
+     */
+    #[Override]
+    public function extraSearchFields(): array
+    {
+        return ['client.contacts.firstName', 'client.contacts.lastName', 'client.contacts.email'];
+    }
+
+    /**
      * @return Action[]
      */
     #[Override]

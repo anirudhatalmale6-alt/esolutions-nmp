@@ -30,11 +30,34 @@ else
     rm -rf "$DEST/src" && mkdir -p "$DEST/src" && cp -Rf "$SRC/src/." "$DEST/src/"
 fi
 
-# templates / front controller / DB migrations: additive copy is fine (these are
-# not auto-discovered, so a leftover file is inert). Migrations are never removed.
+# templates / front controller: additive copy is fine (these are not
+# auto-discovered, so a leftover file is inert).
 cp -Rf "$SRC/templates/."  "$DEST/templates/"
 cp -Rf "$SRC/public/."     "$DEST/public/"
+
+# Database migrations, copied and then CHECKED.
+#
+# A migration that is not on the live site cannot run, and Doctrine has nothing
+# to report about a file it never saw - it says the database is up to date,
+# which is true of the migrations it can see. That is indistinguishable from
+# success right up until a page asks for the column that was never added.
+#
+# So every file is counted back. mkdir -p first: "cp -R src/. dest/" needs the
+# destination to exist and does nothing useful if it does not.
+mkdir -p "$DEST/migrations"
 cp -Rf "$SRC/migrations/." "$DEST/migrations/"
+
+MISSING_MIGRATIONS=""
+for f in "$SRC"/migrations/*.php; do
+    [ -f "$f" ] || continue
+    [ -f "$DEST/migrations/$(basename "$f")" ] || MISSING_MIGRATIONS="$MISSING_MIGRATIONS $(basename "$f")"
+done
+
+if [ -n "$MISSING_MIGRATIONS" ]; then
+    COPY_RESULT="WARNING: these database updates did not reach the live site and CANNOT run:$MISSING_MIGRATIONS - send this line to Anirudha."
+else
+    COPY_RESULT="Database updates copied across."
+fi
 
 # Icons. These are read from disk at render time, so they have to be ON the live
 # site - they are not compiled into anything and nothing else copies them.
@@ -167,6 +190,7 @@ fi
 echo ""
 echo "----------------------------------------"
 echo "$CACHE_RESULT"
+echo "$COPY_RESULT"
 echo "$DB_RESULT"
 echo "$SCHEMA_RESULT"
 echo "$SETTINGS_RESULT"

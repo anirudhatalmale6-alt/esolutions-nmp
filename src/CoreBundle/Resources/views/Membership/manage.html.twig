@@ -220,30 +220,50 @@
                 <div class="col-sm-6">
                     <div class="text-secondary small">{{ 'Contact number'|trans }}</div>
                     <div class="fw-bold">
+                        {#- There are TWO ways this number can be confirmed and they
+                         #  used to be printed side by side, which read as a
+                         #  contradiction: "(not confirmed)" on the same line as
+                         #  "opened the WhatsApp link", about the same number.
+                         #
+                         #  The tick you set by hand still means what it meant -
+                         #  somebody reached them and got a reply. But if the
+                         #  account holder has opened a link sent to THIS number on
+                         #  WhatsApp, the number is confirmed, and saying otherwise
+                         #  is just wrong. So "not confirmed" is now only shown when
+                         #  neither has happened. -#}
                         {% if row.company.contactNumber %}
                             {{ row.company.contactNumber }}
                             {% if row.company.contactVerified %}
-                                <span class="text-success ms-1" title="{{ 'Number confirmed'|trans }}">{{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}</span>
+                                <span class="text-success ms-1" title="{{ 'You have reached them on this number'|trans }}">{{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}</span>
+                            {% elseif row.contactOpenedOnWhatsAppAt %}
+                                <span class="text-success ms-1" title="{{ 'The account holder opened a link sent to this number on WhatsApp'|trans }}">{{ ux_icon('tabler:circle-check', {width: 14, height: 14}) }}</span>
                             {% else %}
                                 <span class="text-secondary small ms-1">({{ 'not confirmed'|trans }})</span>
                             {% endif %}
                         {% else %}
                             —
                         {% endif %}
-                        {# The tick above is the owner's own judgement - somebody
-                           reached them and got a reply. This is a separate fact:
-                           the account holder opened a link that was sent to their
-                           number on WhatsApp, so that number was live and in their
-                           hand. Shown next to it rather than folded into it,
-                           because they can disagree - the number on the business
-                           profile is not always the one on the account. #}
-                        {% if primaryUser and primaryUser.mobileVerified %}
+
+                        {% if row.contactOpenedOnWhatsAppAt %}
                             <div class="text-secondary small mt-1">
-                                {{ ux_icon('tabler:brand-whatsapp', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Account holder opened the WhatsApp link on'|trans }}
-                                {{ primaryUser.mobileVerifiedAt|date('j M Y') }}
-                                {% if primaryUser.mobile %}({{ primaryUser.mobile }}){% endif %}
+                                {{ ux_icon('tabler:brand-whatsapp', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Confirmed by the account holder on'|trans }}
+                                {{ row.contactOpenedOnWhatsAppAt|date('j M Y') }}
+                                {% if not row.company.contactVerified %}
+                                    - {{ 'tick the box below once you have also spoken to them'|trans }}
+                                {% endif %}
                             </div>
                         {% endif %}
+
+                        {#- A number the account confirmed that is NOT the one on the
+                         #  business profile: a second working number nobody would
+                         #  otherwise know about. Kept separate because it says
+                         #  nothing about the number printed above it. -#}
+                        {% for other in row.otherConfirmedNumbers %}
+                            <div class="text-secondary small mt-1">
+                                {{ ux_icon('tabler:brand-whatsapp', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Also reachable on'|trans }}
+                                {{ other.number }} - {{ 'confirmed on'|trans }} {{ other.at|date('j M Y') }}
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
                 <div class="col-sm-6">
@@ -337,7 +357,7 @@
                         <label class="form-check">
                             <input class="form-check-input" type="checkbox" name="contact_verified" value="1"{{ row.contactVerified ? ' checked' }}>
                             <span class="form-check-label">
-                                {{ 'Number confirmed'|trans }}
+                                {{ 'I have spoken to them'|trans }}
                                 <span class="text-secondary">— {{ 'we have reached them on'|trans }} {{ row.company.contactNumber ?: 'no number given'|trans }}</span>
                             </span>
                         </label>

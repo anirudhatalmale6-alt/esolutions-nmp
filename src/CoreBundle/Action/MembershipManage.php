@@ -13,8 +13,10 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Action;
 
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\WhatsApp\WhatsAppSender;
 use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
@@ -164,6 +166,10 @@ final class MembershipManage extends AbstractController
                 'marketplaceAccess' => $this->membership->hasMarketplaceAccess($company),
                 'users' => $users,
                 'contactVerified' => $company->isContactVerified(),
+                // What the ACCOUNT proved about this same number, as opposed to
+                // what the owner has ticked by hand below it.
+                'contactOpenedOnWhatsAppAt' => $this->contactOpenedOnWhatsAppAt($company, $users),
+                'otherConfirmedNumbers' => $this->otherConfirmedNumbers($company, $users),
                 'location' => $this->location($company),
                 // Only the documents that were actually sent in, so the panel shows
                 // three buttons or none rather than three greyed-out ones.
@@ -175,6 +181,78 @@ final class MembershipManage extends AbstractController
         }
 
         return $rows;
+    }
+
+    /**
+     * When somebody on this account opened the WhatsApp confirmation link on the
+     * SAME number the business gives as its contact number.
+     *
+     * Compared through chatId() rather than as strings: +971 50 123 4567,
+     * 00971501234567 and 971501234567 are one phone, and a business that typed
+     * its number one way on the profile and another on the account would
+     * otherwise read as two different numbers and be marked unconfirmed.
+     *
+     * @param list<User> $users
+     */
+    private function contactOpenedOnWhatsAppAt(Company $company, array $users): ?DateTimeImmutable
+    {
+        $contact = WhatsAppSender::chatId((string) $company->getContactNumber());
+
+        if ($contact === null) {
+            return null;
+        }
+
+        $earliest = null;
+
+        foreach ($users as $user) {
+            $confirmedAt = $user->getMobileVerifiedAt();
+
+            if (! $confirmedAt instanceof DateTimeImmutable) {
+                continue;
+            }
+
+            if (WhatsAppSender::chatId((string) $user->getMobile()) !== $contact) {
+                continue;
+            }
+
+            // The first time it was confirmed, not the last account to do it.
+            if ($earliest === null || $confirmedAt < $earliest) {
+                $earliest = $confirmedAt;
+            }
+        }
+
+        return $earliest;
+    }
+
+    /**
+     * Numbers this account has confirmed that are NOT the business's contact
+     * number. Worth showing on its own: it means there is a second working
+     * number for this business that the profile does not mention.
+     *
+     * @param list<User> $users
+     * @return list<array{number: string, at: DateTimeImmutable}>
+     */
+    private function otherConfirmedNumbers(Company $company, array $users): array
+    {
+        $contact = WhatsAppSender::chatId((string) $company->getContactNumber());
+        $others = [];
+
+        foreach ($users as $user) {
+            $confirmedAt = $user->getMobileVerifiedAt();
+            $number = trim((string) $user->getMobile());
+
+            if (! $confirmedAt instanceof DateTimeImmutable || $number === '') {
+                continue;
+            }
+
+            if (WhatsAppSender::chatId($number) === $contact) {
+                continue;
+            }
+
+            $others[] = ['number' => $number, 'at' => $confirmedAt];
+        }
+
+        return $others;
     }
 
     /**

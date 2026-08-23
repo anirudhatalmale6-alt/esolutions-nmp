@@ -42,21 +42,26 @@ final readonly class UserEntitySubscriber
             return;
         }
 
-        // Signed once, here, and used by both channels. WhatsApp goes first so
-        // it does not depend on the mail send working - that is the whole reason
-        // it is here - and the same signature is handed to the email below, so
-        // both messages carry one identical link.
-        $signature = null;
-
+        // WhatsApp goes first so it does not depend on the mail send working -
+        // that is the whole reason it is here.
+        //
+        // Each channel gets its own signature. They used to share one, which
+        // meant the two messages carried a single identical link and opening it
+        // proved only that the person had one of the two - the owner could not
+        // see whether the number answered or the address did. The WhatsApp copy
+        // is now marked as such inside its signature, so it says which.
         try {
-            $signature = $this->emailVerifier->signature('_verify_email', $user);
+            $whatsappUrl = $this->emailVerifier
+                ->signature('_verify_email', $user, EmailVerifier::VIA_WHATSAPP)
+                ->getSignedUrl();
 
-            $this->whatsapp->sendVerification($user->getMobile(), $signature->getSignedUrl());
+            $this->whatsapp->sendVerification($user->getMobile(), $whatsappUrl);
         } catch (Throwable $e) {
             // sendVerification() swallows its own failures, so reaching here
             // means signing the URL itself broke. Still not worth losing the
-            // registration over - the account exists and can be verified by
-            // hand from the Users page.
+            // registration over - the account exists, the email below still
+            // carries a link, and the Users page shows it as unconfirmed until
+            // one of them is opened.
             $this->logger->error('Failed to send WhatsApp confirmation', [
                 'exception' => $e,
             ]);
@@ -70,7 +75,6 @@ final readonly class UserEntitySubscriber
                     ->to($user->getEmail())
                     ->subject('Please Confirm your Email')
                     ->htmlTemplate('@SolidInvoiceUser/Email/confirm_email.html.twig'),
-                $signature,
             );
         } catch (TransportExceptionInterface $e) {
             $this->logger->error('Failed to send email confirmation', [

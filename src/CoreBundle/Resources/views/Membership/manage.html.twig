@@ -9,9 +9,36 @@
 
 {% extends "@SolidInvoiceCore/Layout/default.html.twig" %}
 
+{#
+ # What an ACCOUNT has proved about itself, as opposed to what the owner has
+ # ticked by hand further down this page. The confirmation link goes out on two
+ # channels, so opening it proves one of two different things and the badges say
+ # which. Accounts that confirmed before the channel was recorded get their own
+ # badge rather than a tick or a cross, because neither would be true.
+ #}
+{% macro channelMarks(user) %}
+    {% if user.verifiedWithoutChannel %}
+        <span class="badge bg-info-lt ms-1" title="{{ 'Confirmed, but this account signed up before the portal recorded which link was opened'|trans }}">{{ 'confirmed - channel not recorded'|trans }}</span>
+    {% else %}
+        {% if user.emailVerified %}
+            <span class="badge bg-success-lt ms-1" title="{{ 'Opened the link that was e-mailed to this address on'|trans }} {{ user.emailVerifiedAt|date('j M Y') }}">{{ 'e-mail confirmed'|trans }}</span>
+        {% else %}
+            <span class="badge bg-warning-lt ms-1" title="{{ 'Nobody has opened the link sent to this address'|trans }}">{{ 'e-mail not confirmed'|trans }}</span>
+        {% endif %}
+        {% if user.mobileVerified %}
+            <span class="badge bg-success-lt ms-1" title="{{ 'Opened the link sent to this number on WhatsApp on'|trans }} {{ user.mobileVerifiedAt|date('j M Y') }}">{{ 'number confirmed'|trans }}</span>
+        {% elseif user.mobile %}
+            <span class="badge bg-warning-lt ms-1" title="{{ 'Nobody has opened the link sent to this number on WhatsApp'|trans }}">{{ 'number not confirmed'|trans }}</span>
+        {% else %}
+            <span class="badge bg-secondary-lt ms-1">{{ 'no number given'|trans }}</span>
+        {% endif %}
+    {% endif %}
+{% endmacro %}
+
 {% block title %}{{ ux_icon('tabler:crown', {width: 24, height: 24, class: 'me-2'}) }}{{ 'Memberships'|trans }}{% endblock title %}
 
 {% block content %}
+    {% import _self as marks %}
     {# This theme's "secondary" brand colour is an amber/gold (#f0a015), so the muted
        text and light chips built with text-secondary / bg-secondary-lt came out as a
        blurry light-orange. Recolour them to the crisp slate greys used elsewhere in
@@ -159,6 +186,7 @@
                     <div class="fw-bold">
                         {% if primaryUser %}
                             <a href="mailto:{{ primaryUser.email }}">{{ primaryUser.email }}</a>
+                            {{ marks.channelMarks(primaryUser) }}
                         {% else %}
                             —
                         {% endif %}
@@ -169,7 +197,10 @@
                     <div class="fw-bold">
                         {% if row.users|length > 0 %}
                             {% for u in row.users %}
-                                <div><a href="mailto:{{ u.email }}">{{ u.email }}</a></div>
+                                <div>
+                                    <a href="mailto:{{ u.email }}">{{ u.email }}</a>
+                                    {{ marks.channelMarks(u) }}
+                                </div>
                             {% endfor %}
                         {% else %}
                             —
@@ -198,6 +229,20 @@
                             {% endif %}
                         {% else %}
                             —
+                        {% endif %}
+                        {# The tick above is the owner's own judgement - somebody
+                           reached them and got a reply. This is a separate fact:
+                           the account holder opened a link that was sent to their
+                           number on WhatsApp, so that number was live and in their
+                           hand. Shown next to it rather than folded into it,
+                           because they can disagree - the number on the business
+                           profile is not always the one on the account. #}
+                        {% if primaryUser and primaryUser.mobileVerified %}
+                            <div class="text-secondary small mt-1">
+                                {{ ux_icon('tabler:brand-whatsapp', {width: 13, height: 13, class: 'me-1'}) }}{{ 'Account holder opened the WhatsApp link on'|trans }}
+                                {{ primaryUser.mobileVerifiedAt|date('j M Y') }}
+                                {% if primaryUser.mobile %}({{ primaryUser.mobile }}){% endif %}
+                            </div>
                         {% endif %}
                     </div>
                 </div>

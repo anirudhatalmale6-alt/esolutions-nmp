@@ -56,7 +56,15 @@
                                             <center>
                                                 {{- app_logo(100, null, true) -}}
                                                 <p style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 12px 0 0 0; Margin: 12px 0 0 0; line-height: 1.3;">
-                                                    {{- setting('system/company/company_name') -}}
+                                                    {#- company_name(), not a direct read of the company-name setting.
+                                                     #  A plain settings read is scoped to the company the request is
+                                                     #  working in, and a confirmation or password-reset mail is sent
+                                                     #  with NO company selected - so the scope matched nothing and an
+                                                     #  arbitrary business's row came back. Every person signing up was
+                                                     #  welcomed by the name of whichever business happens to be first
+                                                     #  in that table. company_name() asks whether there is a company at
+                                                     #  all and falls back to the portal's own name when there is not. -#}
+                                                    {{- company_name() -}}
                                                 </p>
                                             </center>
                                         </columns>

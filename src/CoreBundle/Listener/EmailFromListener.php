@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace SolidInvoice\CoreBundle\Listener;
 
+use SolidInvoice\CoreBundle\Platform;
 use SolidInvoice\SettingsBundle\SystemConfig;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -21,6 +22,7 @@ use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use function trim;
 
 /**
  * @see \SolidInvoice\CoreBundle\Tests\Listener\EmailFromListenerTest
@@ -49,8 +51,7 @@ final readonly class EmailFromListener implements EventSubscriberInterface
         $fromAddress = (string) $this->config->getPlatformWide('email/from_address');
 
         if ('' !== $fromAddress) {
-            $fromName = (string) $this->config->getPlatformWide('email/from_name');
-            $from = new Address($fromAddress, $fromName);
+            $from = new Address($fromAddress, $this->fromName());
             $message->from($from);
             $event->getEnvelope()->setSender($from);
             $message->getHeaders()->remove('Sender');
@@ -66,6 +67,27 @@ final readonly class EmailFromListener implements EventSubscriberInterface
                 $message->getHeaders()->remove('Sender');
             }
         }
+    }
+
+    /**
+     * The name a recipient sees in front of the address.
+     *
+     * Left empty, a mailbox provider fills it in with whatever the SENDING
+     * account is called - so every message the portal sent, including one
+     * business's invoice to its own customer, arrived from the name on the
+     * mailbox the platform happens to authenticate as. Nobody chose that and
+     * every recipient reads it.
+     *
+     * A business that has set its own From Name still wins: platformValue()
+     * prefers the current company's own choice. The platform's name is only the
+     * floor - it is a true statement about who sent the message whoever is
+     * signed in, which "" is not.
+     */
+    private function fromName(): string
+    {
+        $fromName = trim((string) $this->config->getPlatformWide('email/from_name'));
+
+        return '' !== $fromName ? $fromName : Platform::NAME;
     }
 
     public static function getSubscribedEvents(): array

@@ -17,6 +17,7 @@ use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use Mockery as M;
 use PHPUnit\Framework\TestCase;
 use SolidInvoice\CoreBundle\Listener\EmailFromListener;
+use SolidInvoice\CoreBundle\Platform;
 use SolidInvoice\SettingsBundle\SystemConfig;
 use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
@@ -35,11 +36,11 @@ final class EmailFromListenerTest extends TestCase
     {
         $systemConfig = M::mock(SystemConfig::class);
 
-        $systemConfig->shouldReceive('get')
+        $systemConfig->shouldReceive('getPlatformWide')
             ->with('email/from_address')
             ->andReturn('info@example.com');
 
-        $systemConfig->shouldReceive('get')
+        $systemConfig->shouldReceive('getPlatformWide')
             ->with('email/from_name')
             ->andReturn('SolidInvoice');
 
@@ -57,11 +58,40 @@ final class EmailFromListenerTest extends TestCase
         self::assertSame('info@example.com', $envelope->getSender()->getAddress());
     }
 
+    /**
+     * With no From Name chosen, the recipient's mail client would otherwise
+     * label the message with whatever the sending mailbox is called - a name
+     * nobody on this platform picked.
+     */
+    public function testFallsBackToThePlatformNameWhenNoFromNameIsSet(): void
+    {
+        $systemConfig = M::mock(SystemConfig::class);
+
+        $systemConfig->shouldReceive('getPlatformWide')
+            ->with('email/from_address')
+            ->andReturn('info@example.com');
+
+        $systemConfig->shouldReceive('getPlatformWide')
+            ->with('email/from_name')
+            ->andReturn('   ');
+
+        $tokenStorage = M::mock(TokenStorageInterface::class);
+        $tokenStorage->shouldNotReceive('getToken');
+
+        $listener = new EmailFromListener($systemConfig, $tokenStorage);
+
+        $message = new TemplatedEmail();
+        $envelope = Envelope::create($message);
+        $listener(new MessageEvent($message, $envelope, 'smtp'));
+
+        self::assertEquals([new Address('info@example.com', Platform::NAME)], $message->getFrom());
+    }
+
     public function testWithoutFromAddress(): void
     {
         $systemConfig = M::mock(SystemConfig::class);
 
-        $systemConfig->shouldReceive('get')
+        $systemConfig->shouldReceive('getPlatformWide')
             ->with('email/from_address')
             ->andReturn(null);
 

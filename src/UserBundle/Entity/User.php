@@ -13,8 +13,10 @@ declare(strict_types=1);
 
 namespace SolidInvoice\UserBundle\Entity;
 
+use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Export\Attribute\ExportIgnore;
@@ -44,6 +46,35 @@ class User extends \SolidWorx\Platform\PlatformBundle\Model\User implements Tria
      */
     #[ORM\ManyToMany(targetEntity: Company::class, inversedBy: 'users', cascade: ['persist'])]
     private Collection $companies;
+
+    /**
+     * When this account confirmed the address we hold for it, by opening the
+     * link that was EMAILED to it.
+     *
+     * The parent's $verified is a different question: it means "this account is
+     * activated", and it is set whichever way the link arrived. That was enough
+     * while there was one channel. The confirmation link now also goes out over
+     * WhatsApp, and somebody who never opened their inbox has proved nothing
+     * about their email address - so the two facts are recorded separately
+     * rather than one standing in for both.
+     *
+     * Null on an account confirmed before this was added: the channel was not
+     * recorded then, and guessing it here would put a tick against an address
+     * nobody has ever answered on.
+     */
+    #[ORM\Column(name: 'email_verified_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?DateTimeImmutable $emailVerifiedAt = null;
+
+    /**
+     * When this account confirmed its contact number, by opening the link that
+     * was sent to it ON WHATSAPP.
+     *
+     * This is the stronger of the two for a marketplace: an email address costs
+     * nothing, a working number that answers is the thing the owner actually
+     * wants before letting a stranger trade.
+     */
+    #[ORM\Column(name: 'mobile_verified_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?DateTimeImmutable $mobileVerifiedAt = null;
 
     /**
      * @deprecated This should not be used anymore. Remove once all usages are gone.
@@ -99,5 +130,50 @@ class User extends \SolidWorx\Platform\PlatformBundle\Model\User implements Tria
         }
 
         return $this;
+    }
+
+    public function getEmailVerifiedAt(): ?DateTimeImmutable
+    {
+        return $this->emailVerifiedAt;
+    }
+
+    public function setEmailVerifiedAt(?DateTimeImmutable $emailVerifiedAt): static
+    {
+        $this->emailVerifiedAt = $emailVerifiedAt;
+
+        return $this;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerifiedAt instanceof DateTimeImmutable;
+    }
+
+    public function getMobileVerifiedAt(): ?DateTimeImmutable
+    {
+        return $this->mobileVerifiedAt;
+    }
+
+    public function setMobileVerifiedAt(?DateTimeImmutable $mobileVerifiedAt): static
+    {
+        $this->mobileVerifiedAt = $mobileVerifiedAt;
+
+        return $this;
+    }
+
+    public function isMobileVerified(): bool
+    {
+        return $this->mobileVerifiedAt instanceof DateTimeImmutable;
+    }
+
+    /**
+     * An account that is activated but has no channel recorded against it: it
+     * confirmed before the two were told apart. Shown as its own state rather
+     * than as either a tick or a cross, both of which would be a claim nobody
+     * can back up.
+     */
+    public function isVerifiedWithoutChannel(): bool
+    {
+        return $this->isVerified() && ! $this->isEmailVerified() && ! $this->isMobileVerified();
     }
 }

@@ -27,6 +27,19 @@ use SolidInvoice\UserBundle\Enum\PortalRole;
 #[AsDataGrid(name: 'users_list', title: 'Users')]
 final class UserGrid extends Grid
 {
+    /**
+     * Shared by both confirmation columns so they cannot drift apart and mean
+     * different things by the same colour.
+     *
+     * @var array<string, string>
+     */
+    private const array VERIFICATION_COLOURS = [
+        'confirmed' => 'success',
+        'not confirmed' => 'warning',
+        'unknown' => 'info',
+        'no number' => 'secondary',
+    ];
+
     public function entityFQCN(): string
     {
         return User::class;
@@ -60,6 +73,36 @@ final class UserGrid extends Grid
             StringColumn::new('mobile')
                 ->label('Mobile')
                 ->formatValue(fn ($value) => $value ?: '—'),
+            /*
+             * What has actually been PROVED about this person, split by channel.
+             *
+             * The account-wide `verified` flag cannot answer this: it is set by
+             * whichever confirmation link was opened, and the link goes out on
+             * both email and WhatsApp. Somebody who tapped the WhatsApp one has
+             * proved their number answers and nothing at all about their inbox.
+             *
+             * "Unknown" is for accounts confirmed before the channel was
+             * recorded - a real third state, not a polite way of saying no.
+             */
+            StatusColumn::new('emailVerifiedAt')
+                ->label('Email confirmed')
+                ->searchable(false)
+                ->formatValue(static fn (mixed $value, User $user): string => match (true) {
+                    $user->isEmailVerified() => 'confirmed',
+                    $user->isVerifiedWithoutChannel() => 'unknown',
+                    default => 'not confirmed',
+                })
+                ->statusMap(self::VERIFICATION_COLOURS),
+            StatusColumn::new('mobileVerifiedAt')
+                ->label('Number confirmed')
+                ->searchable(false)
+                ->formatValue(static fn (mixed $value, User $user): string => match (true) {
+                    $user->isMobileVerified() => 'confirmed',
+                    $user->isVerifiedWithoutChannel() => 'unknown',
+                    ($user->getMobile() ?? '') === '' => 'no number',
+                    default => 'not confirmed',
+                })
+                ->statusMap(self::VERIFICATION_COLOURS),
             RelativeDateColumn::new('created')
                 ->label('Joined'),
             RelativeDateColumn::new('lastLogin')

@@ -117,6 +117,29 @@ else
     DB_RESULT="WARNING: bin/console is missing, so NO database updates were applied. Send this line to Anirudha."
 fi
 
+# Does the database actually HAVE the columns the new code is about to ask for?
+#
+# The code above was copied first and the migrations ran a moment ago. If that
+# database step did nothing - which has happened here, recorded as done while
+# having created nothing - the site is now running code that asks for a column
+# the database does not have. That is not a missing feature, it is a 500 on
+# every page that loads the affected record, and for the users table it means
+# nobody can log in. The update printed UPDATE DONE anyway.
+#
+# So it is checked rather than assumed. This ONLY adds a column that is allowed
+# to be empty: the one change that cannot lose anything and cannot fail on a
+# table that already has rows. Anything else it disagrees about is printed and
+# left for a migration written by hand.
+if [ -f "$DEST/bin/console" ]; then
+    if ( cd "$DEST" && php bin/console app:schema-doctor --fix --env=prod --no-debug ); then
+        SCHEMA_RESULT="Database structure checked."
+    else
+        SCHEMA_RESULT="WARNING: the database structure check did not finish. Send these lines to Anirudha."
+    fi
+else
+    SCHEMA_RESULT="WARNING: bin/console is missing, so the database structure was not checked."
+fi
+
 # Settings rows for every business.
 #
 # A Settings tab exists on screen only if that business has rows for it, and a
@@ -145,6 +168,7 @@ echo ""
 echo "----------------------------------------"
 echo "$CACHE_RESULT"
 echo "$DB_RESULT"
+echo "$SCHEMA_RESULT"
 echo "$SETTINGS_RESULT"
 if [ -f "$DEST/bin/console" ]; then
     ( cd "$DEST" && php bin/console doctrine:migrations:current --env=prod --no-debug 2>/dev/null ) \

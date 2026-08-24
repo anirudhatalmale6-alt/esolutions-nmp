@@ -31,6 +31,38 @@
         <div class="alert alert-warning" role="alert">{{ state.error }}</div>
     {% endif %}
 
+    {#
+     # The From address is not a free choice. Gmail refuses to relay a message
+     # claiming to come from an address the signed-in account does not own, and
+     # it does not refuse loudly - it rewrites the header and delivers it. So the
+     # owner changes "Sends from", the send still succeeds, and every recipient
+     # goes on seeing the old mailbox. There is nothing on the settings screen to
+     # explain that, which is why it is spelt out here.
+     #}
+    {% if state.mismatch and state.overwritesFrom %}
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-title">{{ 'Your "sends from" address is being ignored'|trans }}</h4>
+            <p>
+                {{ 'The portal signs in to Gmail as'|trans }} <strong>{{ state.loginAccount }}</strong>,
+                {{ 'and Gmail will not send as any other address. It replaces the sender with the account it is signed in as, so every email still arrives from'|trans }}
+                <strong>{{ state.loginAccount }}</strong> {{ 'and not from'|trans }} <strong>{{ state.fromAddress }}</strong>.
+            </p>
+            <p class="mb-0">
+                {{ 'To send as'|trans }} <strong>{{ state.fromAddress }}</strong>:
+                {{ 'sign in to that mailbox, turn on 2-step verification and create an app password for it, then put that address and that app password into Settings, System Settings, Email, under the sending options. Changing the "sends from" field on its own cannot do it.'|trans }}
+            </p>
+        </div>
+    {% elseif state.mismatch %}
+        <div class="alert alert-warning" role="alert">
+            <h4 class="alert-title">{{ 'The sender and the login do not match'|trans }}</h4>
+            <p class="mb-0">
+                {{ 'The portal signs in as'|trans }} <strong>{{ state.loginAccount }}</strong>
+                {{ 'but sends as'|trans }} <strong>{{ state.fromAddress }}</strong>.
+                {{ 'Some mail providers allow that and some quietly replace the sender or reject the message. If your emails arrive from the wrong address, or stop arriving, this is the first thing to change.'|trans }}
+            </p>
+        </div>
+    {% endif %}
+
     <twig:Ui:Card>
         <h4 class="mb-3">{{ 'What is configured'|trans }}</h4>
         <div class="table-responsive">
@@ -66,6 +98,19 @@
                                 {% endif %}
                             {% else %}
                                 <span class="text-secondary">{{ 'Not set - the address of whoever triggered the email is used'|trans }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ 'Signs in to the mail server as'|trans }}</th>
+                        <td>
+                            {% if state.loginAccount %}
+                                {{ state.loginAccount }}
+                                {% if state.mismatch %}
+                                    <span class="text-danger ms-1">({{ 'not the same as the address above'|trans }})</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-secondary">{{ 'No mailbox login - this provider authorises a whole domain instead'|trans }}</span>
                             {% endif %}
                         </td>
                     </tr>

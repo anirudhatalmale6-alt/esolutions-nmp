@@ -28,9 +28,12 @@ use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Throwable;
+use function is_array;
 use function json_decode;
 use function sprintf;
 use function str_contains;
+use function strcasecmp;
+use function strtolower;
 use function trim;
 
 /**
@@ -77,18 +80,21 @@ final class EmailCheck extends AbstractController
 
     /**
      * @return array{provider: ?string, providerOwner: ?string, fromAddress: ?string,
-     *               fromOwner: ?string, fallbackDsn: string, discarding: bool, error: ?string}
+     *               fromOwner: ?string, fallbackDsn: string, discarding: bool, error: ?string,
+     *               loginAccount: ?string, overwritesFrom: bool, mismatch: bool}
      */
     private function state(): array
     {
         $raw = $this->config->getPlatformWide(MailerConfigFactory::CONFIG_KEY);
         $provider = null;
         $error = null;
+        $transportConfig = [];
 
         if ($raw !== null && $raw !== '') {
             try {
                 $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
                 $provider = (string) ($decoded['provider'] ?? '');
+                $transportConfig = is_array($decoded['config'] ?? null) ? $decoded['config'] : [];
             } catch (JsonException) {
                 // Stored by the settings form, so this should not happen - but if
                 // it has, saying so beats showing "no provider" and sending the
@@ -98,6 +104,8 @@ final class EmailCheck extends AbstractController
         }
 
         $fromAddress = $this->config->getPlatformWide('email/from_address');
+        $loginAccount = $this->loginAccount($transportConfig);
+        $overwritesFrom = $this->overwritesFrom($provider, $transportConfig);
 
         return [
             'provider' => $provider === '' ? null : $provider,
@@ -110,7 +118,60 @@ final class EmailCheck extends AbstractController
             'discarding' => ($provider === null || $provider === '')
                 && str_contains($this->fallbackDsn, 'null://'),
             'error' => $error,
+            // The mailbox the portal signs in to. Reported because the From
+            // address is not free: see overwritesFrom() below.
+            'loginAccount' => $loginAccount,
+            'overwritesFrom' => $overwritesFrom,
+            'mismatch' => $loginAccount !== null
+                && $fromAddress !== null && $fromAddress !== ''
+                && str_contains($loginAccount, '@')
+                && strcasecmp($loginAccount, $fromAddress) !== 0,
         ];
+    }
+
+    /**
+     * The mailbox the portal signs in to, when the provider signs in as one.
+     *
+     * Never the password - only whether a login exists and which one. Key-based
+     * providers (Sendgrid, Postmark, Mailgun, SES) have no mailbox at all; they
+     * authorise a whole domain, so there is nothing to report and nothing that
+     * conflicts with the From address.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function loginAccount(array $config): ?string
+    {
+        // 'username' is what the Gmail form stores, 'user' is the SMTP form's.
+        $account = trim((string) ($config['username'] ?? $config['user'] ?? ''));
+
+        return $account === '' ? null : $account;
+    }
+
+    /**
+     * Whether this provider will replace the From address with the account it
+     * signed in as, whatever the settings say.
+     *
+     * Gmail does. It will not relay a message claiming to be from an address the
+     * signed-in account does not own - it silently rewrites the header instead -
+     * so changing "Sends from" to a second Gmail address achieves nothing on its
+     * own. The portal has to sign in AS that address, with an app password
+     * generated on that account. Nothing in the settings screen says so, and the
+     * send does not fail, so the owner is left changing a field that is being
+     * ignored and has no way to see it.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function overwritesFrom(?string $provider, array $config): bool
+    {
+        if ($provider === 'Gmail') {
+            return true;
+        }
+
+        // The same mailbox reached the long way round, via the SMTP option.
+        $host = strtolower(trim((string) ($config['host'] ?? '')));
+
+        return $provider === 'SMTP'
+            && ($host === 'smtp.gmail.com' || $host === 'smtp.googlemail.com');
     }
 
     /**

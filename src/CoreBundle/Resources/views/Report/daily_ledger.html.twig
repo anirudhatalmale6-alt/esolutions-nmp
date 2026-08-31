@@ -82,6 +82,12 @@
                stop the responsive wrapper from clipping (there is no scroll in
                print, so overflow:auto just cuts the content). */
             .table-responsive { overflow: visible !important; }
+
+            /* The summary strip carries five figures (in, out, net, invoiced,
+               bought). At the 25% used elsewhere the fifth wraps onto a line of
+               its own, so give this row five across instead. */
+            .ledger-summary > .col-md-3 { width: 20% !important; }
+
             .row.g-3 > .ledger-invoices-col { width: 100% !important; float: none !important; clear: both; }
             .ledger-invoices-col table { table-layout: fixed !important; width: 100% !important; }
             .ledger-invoices-col th, .ledger-invoices-col td { word-break: break-word; }
@@ -170,7 +176,7 @@
     </twig:Ui:Card>
 
     {# ---------------- Summary cards ---------------- #}
-    <div class="row g-3 mb-3">
+    <div class="row g-3 mb-3 ledger-summary">
         <div class="col-md-3 col-6">
             <div class="card"><div class="card-body">
                 <div class="text-muted small text-uppercase">{{ 'Money in (received)'|trans }}</div>
@@ -194,6 +200,18 @@
                 <div class="text-muted small text-uppercase">{{ 'Invoiced today'|trans }}</div>
                 <div class="h3 mb-0">AED {{ invoicesTotal|number_format(2) }}</div>
                 <div class="small text-muted">{{ billedCount }} {{ 'invoice(s)'|trans }}{% if cancelledCount > 0 %} · {{ cancelledCount }} {{ 'cancelled'|trans }}{% endif %}</div>
+            </div></div>
+        </div>
+        {# Bought today is deliberately not part of Money out: a purchase taken
+           on credit moves no cash. It sits beside Invoiced today because both
+           are "what happened today", not "what was paid today". #}
+        <div class="col-md-3 col-6">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Bought today'|trans }}</div>
+                <div class="h3 mb-0">AED {{ purchasesTotal|number_format(2) }}</div>
+                <div class="small text-muted">
+                    {{ purchasesCount }} {{ 'purchase(s)'|trans }}{% if purchasesBalance != '0.00' %} · {{ 'AED %amount% on credit'|trans({'%amount%': purchasesBalance|number_format(2)}) }}{% endif %}
+                </div>
             </div></div>
         </div>
     </div>
@@ -307,6 +325,48 @@
                             </tbody>
                         </table>
                     </div>
+                {% endif %}
+            </twig:Ui:Card>
+        </div>
+
+        {# ---------------- Purchases raised today ----------------
+           The buying-side mirror of "invoices raised today". A purchase taken
+           on credit pays nothing on the day, so it never shows under supplier
+           payments - without this card a day's buying was invisible even though
+           the stock arrived and the money is owed. #}
+        <div class="col-lg-6 ledger-invoices-col">
+            <twig:Ui:Card>
+                <h3 class="h5 mb-3">{{ ux_icon('tabler:truck-delivery', {width: 18, height: 18, class: 'me-1'}) }}{{ 'Purchases raised today'|trans }}</h3>
+                {% if purchases is empty %}
+                    <p class="text-muted mb-0">{{ 'No purchases raised on this day.'|trans }}</p>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-vcenter">
+                            <thead><tr><th>{{ 'Supplier'|trans }}</th><th>{{ 'Reference'|trans }}</th><th class="text-end">{{ 'Total'|trans }}</th><th class="text-end">{{ 'Paid'|trans }}</th><th class="text-end">{{ 'Balance'|trans }}</th></tr></thead>
+                            <tbody>
+                                {% for p in purchases %}
+                                    <tr>
+                                        <td>{{ p.supplier }}</td>
+                                        <td class="text-muted">{{ p.reference ?: (p.description ?: '—') }}</td>
+                                        <td class="text-end">AED {{ p.total|number_format(2) }}</td>
+                                        <td class="text-end {{ p.paid != '0.00' ? 'text-success' : '' }}">AED {{ p.paid|number_format(2) }}</td>
+                                        <td class="text-end {{ p.balance != '0.00' ? 'text-danger' : 'text-success' }}">AED {{ p.balance|number_format(2) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr class="fw-bold">
+                                    <td colspan="2" class="text-end">{{ 'Total bought'|trans }}</td>
+                                    <td class="text-end">AED {{ purchasesTotal|number_format(2) }}</td>
+                                    <td class="text-end text-success">AED {{ purchasesPaid|number_format(2) }}</td>
+                                    <td class="text-end {{ purchasesBalance != '0.00' ? 'text-danger' : '' }}">AED {{ purchasesBalance|number_format(2) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if purchasesBalance != '0.00' %}
+                        <p class="text-muted small mb-0 mt-2">
+                            {{ 'Balance is bought on credit - no cash left the business, so it is not counted in Money out or in the net for the day. It stays owed to the supplier.'|trans }}
+                        </p>
+                    {% endif %}
                 {% endif %}
             </twig:Ui:Card>
         </div>

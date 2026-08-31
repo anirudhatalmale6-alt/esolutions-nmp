@@ -30,6 +30,7 @@ use Symfony\Bridge\Twig\Attribute\Template;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Throwable;
+use function count;
 use function trim;
 
 /**
@@ -72,6 +73,7 @@ final readonly class DailyLedger
         $expenses = $this->expenseRepository->findBetween($start, $end);
         $refunds = $this->creditNoteRepository->findCashBetween($start, $end);
         $invoices = $this->invoicesRaised($start, $end);
+        $purchases = $this->purchasesRaised($start, $end);
 
         $moneyIn = BigDecimal::zero();
         foreach ($payments as $payment) {
@@ -120,6 +122,20 @@ final readonly class DailyLedger
             $invoicesPaid = $invoicesPaid->plus(BigDecimal::of($invoice['paid']));
         }
 
+        // Purchases raised today are the buying-side mirror of "invoices raised
+        // today": what was bought on the day, whether or not it was paid for.
+        // They are deliberately NOT part of moneyOut - a purchase taken on
+        // credit moves no cash, and adding it would make the day's net cash
+        // wrong. The unpaid part is totalled separately as credit taken.
+        $purchasesTotal = BigDecimal::zero();
+        $purchasesPaid = BigDecimal::zero();
+        $purchasesBalance = BigDecimal::zero();
+        foreach ($purchases as $purchase) {
+            $purchasesTotal = $purchasesTotal->plus(BigDecimal::of($purchase['total']));
+            $purchasesPaid = $purchasesPaid->plus(BigDecimal::of($purchase['paid']));
+            $purchasesBalance = $purchasesBalance->plus(BigDecimal::of($purchase['balance']));
+        }
+
         $moneyOut = $supplierOut->plus($expensesOut)->plus($refundsOut);
         $net = $moneyIn->minus($moneyOut);
 
@@ -136,6 +152,11 @@ final readonly class DailyLedger
             'expenses' => $expenses,
             'refunds' => $refunds,
             'invoices' => $invoices,
+            'purchases' => $purchases,
+            'purchasesTotal' => (string) $purchasesTotal->toScale(2),
+            'purchasesPaid' => (string) $purchasesPaid->toScale(2),
+            'purchasesBalance' => (string) $purchasesBalance->toScale(2),
+            'purchasesCount' => count($purchases),
             'billedCount' => $billedCount,
             'cancelledCount' => $cancelledCount,
             'moneyIn' => (string) $moneyIn->toScale(2),
@@ -273,6 +294,56 @@ final readonly class DailyLedger
         }
 
         return $suppliers;
+    }
+
+    /**
+     * Purchases (supplier bills) raised within the day, whether paid or not.
+     *
+     * This is the buying-side mirror of "invoices raised today". A purchase
+     * order taken on credit pays nothing on the day, so it never appears in
+     * supplier payments - which made a day's buying invisible on the ledger
+     * even though the stock and the payable both existed. Amounts are stored in
+     * major units on Purchase, so no conversion is needed.
+     *
+     * @return list<array{supplier: string, reference: string, description: string, total: string, paid: string, balance: string}>
+     */
+    private function purchasesRaised(DateTimeImmutable $start, DateTimeImmutable $end): array
+    {
+        $rows = $this->entityManager->createQuery(
+            'SELECT c.name AS supplier, pu.reference AS reference, pu.description AS description,
+                    pu.totalAmount AS total, pu.amountPaid AS paid
+             FROM SolidInvoice\CoreBundle\Entity\Purchase pu
+             JOIN pu.client c
+             WHERE pu.purchaseDate BETWEEN :start AND :end
+             ORDER BY pu.created ASC'
+        )
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getResult();
+
+        $purchases = [];
+
+        foreach ($rows as $row) {
+            $total = BigDecimal::of((string) ($row['total'] ?? '0'));
+            $paid = BigDecimal::of((string) ($row['paid'] ?? '0'));
+            $balance = $total->minus($paid);
+
+            // An overpaid purchase should not report a negative amount owed.
+            if ($balance->isNegative()) {
+                $balance = BigDecimal::zero();
+            }
+
+            $purchases[] = [
+                'supplier' => (string) ($row['supplier'] ?? '—'),
+                'reference' => (string) ($row['reference'] ?? ''),
+                'description' => trim((string) ($row['description'] ?? '')),
+                'total' => (string) $total->toScale(2),
+                'paid' => (string) $paid->toScale(2),
+                'balance' => (string) $balance->toScale(2),
+            ];
+        }
+
+        return $purchases;
     }
 
     /**

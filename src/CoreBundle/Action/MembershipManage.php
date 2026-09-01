@@ -21,6 +21,7 @@ use SolidInvoice\CoreBundle\Membership\MembershipManager;
 use SolidInvoice\CoreBundle\Membership\MembershipPlan;
 use SolidInvoice\CoreBundle\Repository\CompanyRepository;
 use SolidInvoice\CoreBundle\Repository\Traits\WithoutCompanyFilter;
+use SolidInvoice\CoreBundle\Verification\VerificationAlerts;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\NotificationBundle\Entity\TransportSetting;
 use SolidInvoice\NotificationBundle\Entity\UserNotification;
@@ -77,6 +78,7 @@ final class MembershipManage extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly EntityManagerInterface $entityManager,
+        private readonly VerificationAlerts $alerts,
     ) {
     }
 
@@ -320,6 +322,12 @@ final class MembershipManage extends AbstractController
             return $this->redirectToRoute('_membership_manage');
         }
 
+        // Read before the write: the member is told only when the badge is newly
+        // granted. This form is saved for a dozen other reasons (plan, term,
+        // marketplace, classifieds) and none of them should send an email
+        // congratulating a business that was verified last month.
+        $wasVerified = $company->isVerified();
+
         // Persist verification first so it is stored even for a None/Basic plan.
         $this->membership->setVerified($company, $verified);
 
@@ -351,6 +359,12 @@ final class MembershipManage extends AbstractController
         }
 
         $this->membership->grant($company, $plan, $expiresAt, $plan->isPaid() && $complimentary);
+
+        // Granted just now, not already held. Taking a badge away sends nothing:
+        // that is a conversation the owner will want to have in his own words.
+        if ($verified && ! $wasVerified) {
+            $this->alerts->badgeGranted($company);
+        }
 
         $this->addFlash('success', sprintf(
             '%s updated: %s%s. Marketplace %s.',

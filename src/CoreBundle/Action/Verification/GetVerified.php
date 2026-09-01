@@ -17,6 +17,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use SolidInvoice\CoreBundle\Company\CompanySelector;
 use SolidInvoice\CoreBundle\Entity\Company;
+use SolidInvoice\CoreBundle\Verification\VerificationAlerts;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\CoreBundle\Verification\VerificationUploadFailed;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -49,6 +50,7 @@ final class GetVerified extends AbstractController
         private readonly CompanySelector $companySelector,
         private readonly EntityManagerInterface $entityManager,
         private readonly VerificationStore $store,
+        private readonly VerificationAlerts $alerts,
     ) {
     }
 
@@ -132,6 +134,12 @@ final class GetVerified extends AbstractController
         // photo of the same passport is not a reason to stop trusting somebody.
         $company->setVerificationSubmittedAt(new DateTimeImmutable());
         $this->entityManager->flush();
+
+        // Nothing used to happen here beyond the flash, so the only way the
+        // owner found out was opening Manage and looking. Best-effort: the
+        // documents are already stored and the person is already told, and a
+        // mail server having a bad morning must not change either of those.
+        $this->alerts->documentsSubmitted($company);
 
         $this->addFlash('success', 'Thank you - your documents are with us. We check these by hand, so give it a day or so.');
 

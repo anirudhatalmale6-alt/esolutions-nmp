@@ -20,6 +20,7 @@ use SolidInvoice\CoreBundle\Entity\Company;
 use SolidInvoice\CoreBundle\Verification\VerificationAlerts;
 use SolidInvoice\CoreBundle\Verification\VerificationStore;
 use SolidInvoice\CoreBundle\Verification\VerificationUploadFailed;
+use SolidInvoice\UserBundle\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -46,6 +47,18 @@ use function trim;
 #[IsGranted('ROLE_ADMIN')]
 final class GetVerified extends AbstractController
 {
+    /** Done, and we can say who or what proved it. */
+    public const string STEP_DONE = 'done';
+
+    /** Not done, and the member can go and do something about it. */
+    public const string STEP_TODO = 'todo';
+
+    /** Done by the member, now sitting with the owner. Not their move. */
+    public const string STEP_WAITING = 'waiting';
+
+    /** True before we recorded which channel - neither a tick nor a cross. */
+    public const string STEP_UNKNOWN = 'unknown';
+
     public function __construct(
         private readonly CompanySelector $companySelector,
         private readonly EntityManagerInterface $entityManager,
@@ -70,6 +83,7 @@ final class GetVerified extends AbstractController
 
         return $this->render('@SolidInvoiceCore/Verification/index.html.twig', [
             'company' => $company,
+            'steps' => $this->steps($company),
             'documents' => [
                 ['kind' => VerificationStore::ID_FRONT, 'label' => 'National ID - front', 'path' => $company->getIdFrontPath()],
                 ['kind' => VerificationStore::ID_BACK, 'label' => 'National ID - back', 'path' => $company->getIdBackPath()],
@@ -144,6 +158,78 @@ final class GetVerified extends AbstractController
         $this->addFlash('success', 'Thank you - your documents are with us. We check these by hand, so give it a day or so.');
 
         return $this->redirectToRoute('_verification');
+    }
+
+    /**
+     * The three things that have to be true before the badge is granted.
+     *
+     * Verification was only ever shown here as "have your documents arrived",
+     * which is one third of it: the address and the phone are confirmed
+     * elsewhere, by opening a link, and a member had no way of seeing whether
+     * either had actually registered. Two of these the member can finish
+     * themselves; the third is the owner's judgement and is deliberately shown
+     * as waiting rather than as something they can hurry along.
+     *
+     * @return list<array{label: string, state: string, detail: string}>
+     */
+    private function steps(Company $company): array
+    {
+        $user = $this->getUser();
+        $steps = [];
+
+        // An account activated before the two channels were told apart records
+        // neither, so it can be neither ticked nor crossed without claiming
+        // something nobody can back up. It gets its own wording.
+        $emailState = match (true) {
+            $user instanceof User && $user->isEmailVerified() => self::STEP_DONE,
+            $user instanceof User && $user->isVerifiedWithoutChannel() => self::STEP_UNKNOWN,
+            default => self::STEP_TODO,
+        };
+
+        $steps[] = [
+            'label' => 'Email address confirmed',
+            'state' => $emailState,
+            'detail' => match ($emailState) {
+                self::STEP_DONE => (string) $user?->getEmail(),
+                self::STEP_UNKNOWN => 'Your account is active, but it was confirmed before we started recording which link was opened.',
+                default => 'Open the link in the email we sent when you signed up. We can send it again if you no longer have it.',
+            },
+        ];
+
+        // Either route counts. The owner ticking "I have spoken to them" is a
+        // person saying they reached this business on that number, which is at
+        // least as good as a link being opened.
+        $numberState = match (true) {
+            $user instanceof User && $user->isMobileVerified() => self::STEP_DONE,
+            $company->isContactVerified() => self::STEP_DONE,
+            default => self::STEP_TODO,
+        };
+
+        $steps[] = [
+            'label' => 'Contact number confirmed',
+            'state' => $numberState,
+            'detail' => $numberState === self::STEP_DONE
+                ? (string) ($company->getContactNumber() ?? $user?->getMobile())
+                : 'Open the link we sent you on WhatsApp, or we will confirm it with you directly.',
+        ];
+
+        $documentState = match (true) {
+            $company->isVerified() => self::STEP_DONE,
+            $company->isAwaitingVerification() => self::STEP_WAITING,
+            default => self::STEP_TODO,
+        };
+
+        $steps[] = [
+            'label' => 'Identity documents checked',
+            'state' => $documentState,
+            'detail' => match ($documentState) {
+                self::STEP_DONE => 'Checked and approved. Your Trusted badge is active.',
+                self::STEP_WAITING => 'With us for review. A person checks these by hand, so it can take a day or so.',
+                default => 'Send your ID and passport below.',
+            },
+        ];
+
+        return $steps;
     }
 
     private function pathFor(Company $company, string $kind): ?string

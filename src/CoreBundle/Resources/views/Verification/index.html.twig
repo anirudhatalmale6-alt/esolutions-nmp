@@ -34,6 +34,39 @@
             </div>
         {% endif %}
 
+        {# ---------------- The three steps ----------------
+           Getting verified is not one thing. The address and the phone are
+           confirmed by opening a link, and until now this page said nothing
+           about either - so somebody who had done both still saw only "send
+           your documents" and had no idea where they stood. Each row says what
+           proved it, because a bare tick is not worth much to the person
+           looking at it. #}
+        <div class="verification-steps mb-4">
+            {% for step in steps %}
+                {% set icon = {
+                    'done': 'tabler:circle-check',
+                    'waiting': 'tabler:clock',
+                    'unknown': 'tabler:help-circle',
+                }[step.state]|default('tabler:circle') %}
+                {% set colour = {
+                    'done': 'text-success',
+                    'waiting': 'text-info',
+                    'unknown': 'text-secondary',
+                }[step.state]|default('text-secondary') %}
+                <div class="d-flex align-items-start gap-3 py-2">
+                    <span class="{{ colour }} flex-shrink-0 mt-1">
+                        {{ ux_icon(icon, {width: 22, height: 22}) }}
+                    </span>
+                    <div>
+                        <div class="fw-semibold">{{ step.label|trans }}</div>
+                        {% if step.detail is not empty %}
+                            <div class="text-secondary small">{{ step.detail|trans }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
         <h3 class="mb-1">{{ 'The Trusted badge'|trans }}</h3>
         <p class="text-secondary" style="max-width: 720px;">
             {{ 'Members trade with people they have never met. The badge is how they know who they are dealing with - it says we have seen this business\'s identity documents and checked them by hand. It is also what a Premium account is granted on.'|trans }}

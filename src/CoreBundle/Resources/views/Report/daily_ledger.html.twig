@@ -58,6 +58,21 @@
             box-shadow: 0 0 0 .25rem rgba(240, 224, 138, .35);
         }
 
+        /* All six cards share ONE wrapping row, so Bootstrap starts each pair
+           below the TALLER of the pair above it. A short card next to a long
+           one therefore leaves a hole, and the card after it begins a long way
+           down the page - which is exactly what this looked like on screen
+           while the printed copy was fine, because print floats them and
+           already gives the two wide tables a row each.
+
+           Two corrections, screen only, so nothing about the print changes:
+           every card fills its half of the pair so a pair is never ragged, and
+           the two wide tables get a full row each here too, matching paper. */
+        @media screen and (min-width: 992px) {
+            .ledger-cards > [class*="col-"] > .card { height: 100%; }
+            .ledger-cards > .ledger-invoices-col { flex: 0 0 100%; max-width: 100%; }
+        }
+
         @media print {
             @page { size: A4 portrait; margin: 8mm; }
             .print-only { display: block !important; }
@@ -216,7 +231,7 @@
         </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3 ledger-cards">
         {# ---------------- Money in: payments received ---------------- #}
         <div class="col-lg-6">
             <twig:Ui:Card>
